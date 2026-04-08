@@ -6,6 +6,9 @@ import {
   WeatherInfo,
   ItineraryStop,
 } from "@/types";
+import { walkDistanceKm } from "@/lib/geo";
+
+const MAX_WALK_KM = 1.5; // ~20 min walk
 
 const BUDGET_MAP: Record<string, number[]> = {
   casual: [1],
@@ -117,6 +120,52 @@ function relaxedFilter(
   });
 }
 
+function isWithinWalkRange(a: Venue, b: Venue): boolean {
+  return walkDistanceKm(a.latitude, a.longitude, b.latitude, b.longitude) <= MAX_WALK_KM;
+}
+
+function filterByProximity(candidates: Venue[], anchor: Venue): Venue[] {
+  return candidates.filter((v) => isWithinWalkRange(v, anchor));
+}
+
+function pickBestForRole(
+  venues: Venue[],
+  role: StopRole,
+  answers: QuestionnaireAnswers,
+  weather: WeatherInfo | null,
+  usedIds: Set<string>,
+  anchor: Venue | null,
+  jitter: number
+): { best: ScoredVenue | null; scored: ScoredVenue[] } {
+  // 1. Hard filter (neighborhood match)
+  let candidates = hardFilter(venues, role, answers, weather, usedIds);
+
+  // 2. Enforce proximity to anchor
+  if (anchor && candidates.length > 0) {
+    const nearby = filterByProximity(candidates, anchor);
+    if (nearby.length > 0) candidates = nearby;
+    // If no nearby candidates survive, fall through to relaxed filter
+    else candidates = [];
+  }
+
+  // 3. Progressive relaxation: drop neighborhood, keep proximity
+  if (candidates.length === 0) {
+    candidates = relaxedFilter(venues, role, usedIds, weather);
+    if (anchor && candidates.length > 0) {
+      const nearby = filterByProximity(candidates, anchor);
+      if (nearby.length > 0) candidates = nearby;
+    }
+  }
+
+  const scored: ScoredVenue[] = candidates.map((v) => ({
+    ...v,
+    score: scoreVenue(v, answers, role, jitter),
+  }));
+  scored.sort((a, b) => b.score - a.score);
+
+  return { best: scored[0] ?? null, scored };
+}
+
 export function selectTrio(
   venues: Venue[],
   answers: QuestionnaireAnswers,
@@ -127,26 +176,30 @@ export function selectTrio(
   const stops: ItineraryStop[] = [];
   const planBs: Record<string, Venue | null> = {};
 
-  const roles: StopRole[] = ["main", "opener", "closer"];
-  const fixedRoles = new Set<StopRole>(["main"]);
+  // Step 1: Pick main first — it's the anchor for geo clustering
+  const { best: main, scored: mainScored } = pickBestForRole(
+    venues, "main", answers, weather, usedIds, null, jitter
+  );
 
-  for (const role of roles) {
-    let candidates = hardFilter(venues, role, answers, weather, usedIds);
+  if (main) {
+    usedIds.add(main.id);
+    stops.push({
+      role: "main",
+      venue: main,
+      curation_note: main.curation_note,
+      spend_estimate: spendEstimate(main.price_tier),
+      is_fixed: true,
+      plan_b: null,
+    });
+    planBs["main"] = null;
+  }
 
-    // Progressive relaxation: drop neighborhood filter if too few
-    if (candidates.length === 0) {
-      candidates = relaxedFilter(venues, role, usedIds, weather);
-    }
-
-    // Score and sort
-    const scored: ScoredVenue[] = candidates.map((v) => ({
-      ...v,
-      score: scoreVenue(v, answers, role, jitter),
-    }));
-    scored.sort((a, b) => b.score - a.score);
-
-    const best = scored[0] ?? null;
-    const isFixed = fixedRoles.has(role);
+  // Step 2: Pick opener and closer, anchored to main's location
+  const flexRoles: StopRole[] = ["opener", "closer"];
+  for (const role of flexRoles) {
+    const { best, scored } = pickBestForRole(
+      venues, role, answers, weather, usedIds, main, jitter
+    );
 
     if (best) {
       usedIds.add(best.id);
@@ -155,17 +208,15 @@ export function selectTrio(
         venue: best,
         curation_note: best.curation_note,
         spend_estimate: spendEstimate(best.price_tier),
-        is_fixed: isFixed,
-        plan_b: null, // filled below
+        is_fixed: false,
+        plan_b: null,
       });
 
-      // Plan B for flexible stops
-      if (!isFixed && scored.length > 1) {
-        const backup = scored[1];
-        planBs[role] = backup;
-      } else {
-        planBs[role] = null;
-      }
+      // Plan B: next best candidate still within walk range
+      const backup = scored.find((v) => v.id !== best.id) ?? null;
+      planBs[role] = backup;
+    } else {
+      planBs[role] = null;
     }
   }
 

@@ -12,7 +12,7 @@ const ROLE_COLORS: Record<string, string> = {
 
 const ROLE_LABELS: Record<string, string> = {
   opener: "Opener",
-  main: "Main Event",
+  main: "Main",
   closer: "Closer",
 };
 
