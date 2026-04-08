@@ -20,7 +20,7 @@ export async function POST(request: Request) {
     // Parallel: fetch weather + query venues
     const [weather, venueResult] = await Promise.all([
       fetchWeather(),
-      supabase.from("venues").select("*").eq("active", true),
+      supabase.from("composer_venues").select("*").eq("active", true),
     ]);
 
     if (venueResult.error) {
