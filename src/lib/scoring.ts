@@ -14,11 +14,15 @@ const BUDGET_MAP: Record<string, number[]> = {
   "no-preference": [1, 2, 3],
 };
 
-const VIBE_KEYWORDS: Record<string, string[]> = {
-  "food-forward": ["restaurant", "food", "dinner", "tasting", "bistro"],
-  "drinks-led": ["bar", "cocktail", "wine", "speakeasy", "drinks"],
-  "activity-food": ["activity", "bowling", "comedy", "karaoke", "games"],
-  "walk-explore": ["walk", "park", "gallery", "bookstore", "market"],
+// Canonical vibe tags — exact match only. Venues must use these tags.
+// Cross-cutting tags (romantic, conversation_friendly, group_friendly,
+// late_night, casual, upscale, outdoor) are valid on venues but don't
+// participate in vibe scoring.
+const VIBE_TAGS: Record<string, string[]> = {
+  "food-forward": ["food_forward", "tasting", "dinner", "bistro"],
+  "drinks-led": ["cocktail_forward", "wine_bar", "speakeasy", "drinks"],
+  "activity-food": ["activity", "comedy", "karaoke", "games", "bowling"],
+  "walk-explore": ["walk", "gallery", "bookstore", "market", "park"],
   "mix-it-up": [],
 };
 
@@ -30,17 +34,15 @@ function scoreVenue(
 ): number {
   let score = 0;
 
-  // Vibe match (35%)
-  const vibeKws = VIBE_KEYWORDS[answers.vibe] ?? [];
-  if (vibeKws.length === 0) {
+  // Vibe match (35%) — exact canonical tag matching
+  const vibeTags = VIBE_TAGS[answers.vibe] ?? [];
+  if (vibeTags.length === 0) {
     score += 25; // "mix it up" gets decent base
   } else {
-    const catLower = venue.category.toLowerCase();
-    const tagMatch = venue.vibe_tags.some((t) =>
-      vibeKws.some((kw) => t.toLowerCase().includes(kw))
-    );
-    const catMatch = vibeKws.some((kw) => catLower.includes(kw));
-    if (tagMatch || catMatch) score += 35;
+    const vibeSet = new Set(vibeTags);
+    const matchCount = venue.vibe_tags.filter((t) => vibeSet.has(t)).length;
+    if (matchCount >= 2) score += 35;
+    else if (matchCount === 1) score += 25;
     else score += 10;
   }
 
