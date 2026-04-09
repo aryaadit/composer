@@ -14,13 +14,8 @@ export default function ProgressBar({
   const progress = ((currentStep + 1) / totalSteps) * 100;
 
   return (
-    <div className="w-full max-w-md mx-auto">
-      <div className="flex justify-between items-center mb-2">
-        <span className="font-sans text-xs text-warm-gray">
-          Step {currentStep + 1} of {totalSteps}
-        </span>
-      </div>
-      <div className="h-1 w-full bg-border rounded-full overflow-hidden">
+    <div className="w-full flex items-center gap-3">
+      <div className="flex-1 h-0.5 bg-border rounded-full overflow-hidden">
         <motion.div
           className="h-full bg-burgundy rounded-full"
           initial={{ width: 0 }}
@@ -28,6 +23,9 @@ export default function ProgressBar({
           transition={{ duration: 0.4, ease: "easeInOut" }}
         />
       </div>
+      <span className="font-sans text-[11px] text-warm-gray whitespace-nowrap">
+        {currentStep + 1}/{totalSteps}
+      </span>
     </div>
   );
 }
