@@ -3,7 +3,7 @@
 import { motion } from "motion/react";
 import Button from "@/components/ui/Button";
 import { ItineraryResponse } from "@/types";
-import { buildShareUrl, saveItinerary } from "@/lib/sharing";
+import { buildShareUrl } from "@/lib/sharing";
 
 interface ActionBarProps {
   itinerary: ItineraryResponse;
@@ -25,11 +25,6 @@ export default function ActionBar({
       // Fallback
       prompt("Copy this link:", url);
     }
-  };
-
-  const handleSave = () => {
-    saveItinerary(itinerary);
-    alert("Itinerary saved!");
   };
 
   return (
@@ -58,8 +53,8 @@ export default function ActionBar({
         {isRegenerating ? "Regenerating..." : "Regenerate"}
       </Button>
 
-      <Button variant="secondary" onClick={handleSave}>
-        Save
+      <Button variant="secondary" href="/compose">
+        New Night
       </Button>
     </motion.div>
   );

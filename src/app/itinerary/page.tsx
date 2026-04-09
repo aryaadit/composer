@@ -16,6 +16,7 @@ function ItineraryContent() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [regenerating, setRegenerating] = useState(false);
+  const [regenError, setRegenError] = useState(false);
 
   const fetchItinerary = useCallback(async (inputs: QuestionnaireAnswers) => {
     const res = await fetch("/api/generate", {
@@ -61,12 +62,14 @@ function ItineraryContent() {
   const handleRegenerate = async () => {
     if (!itinerary) return;
     setRegenerating(true);
+    setRegenError(false);
     try {
       const data = await fetchItinerary(itinerary.inputs);
       setItinerary(data);
       sessionStorage.setItem("composer_itinerary", JSON.stringify(data));
     } catch {
-      // Keep current itinerary on failure
+      setRegenError(true);
+      setTimeout(() => setRegenError(false), 3000);
     }
     setRegenerating(false);
   };
@@ -87,7 +90,18 @@ function ItineraryContent() {
   return (
     <main className="flex flex-1 flex-col items-center min-h-screen px-6 pt-12 pb-8">
       <CompositionHeader header={itinerary.header} />
-      <ItineraryView stops={itinerary.stops} walks={itinerary.walks} />
+      {regenerating ? (
+        <div className="w-full max-w-lg py-16">
+          <StepLoading />
+        </div>
+      ) : (
+        <ItineraryView stops={itinerary.stops} walks={itinerary.walks} />
+      )}
+      {regenError && (
+        <p className="font-sans text-sm text-burgundy mt-4">
+          Couldn&apos;t regenerate — keeping your current night.
+        </p>
+      )}
       <ActionBar
         itinerary={itinerary}
         onRegenerate={handleRegenerate}

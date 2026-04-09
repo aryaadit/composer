@@ -2,6 +2,7 @@
 
 import { useReducer, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { AnimatePresence, motion } from "motion/react";
 import { questionSteps } from "@/config/options";
 import { QuestionnaireAnswers } from "@/types";
@@ -20,6 +21,7 @@ interface State {
 
 type Action =
   | { type: "SELECT"; key: string; value: string }
+  | { type: "DESELECT"; key: string }
   | { type: "BACK" }
   | { type: "SET_LOADING" };
 
@@ -32,6 +34,11 @@ function reducer(state: State, action: Action): State {
         direction: 1,
         currentStep: state.currentStep + 1,
       };
+    case "DESELECT": {
+      const next = { ...state.answers };
+      delete next[action.key as keyof QuestionnaireAnswers];
+      return { ...state, answers: next };
+    }
     case "BACK":
       return {
         ...state,
@@ -68,6 +75,13 @@ export default function QuestionnaireShell() {
 
   const handleSelect = useCallback(
     (key: string, value: string) => {
+      // Deselect if tapping the already-selected option
+      const currentValue = state.answers[key as keyof QuestionnaireAnswers];
+      if (currentValue === value) {
+        dispatch({ type: "DESELECT", key });
+        return;
+      }
+
       if (state.currentStep === questionSteps.length - 1) {
         // Last step — submit
         const finalAnswers = { ...state.answers, [key]: value } as QuestionnaireAnswers;
@@ -110,22 +124,32 @@ export default function QuestionnaireShell() {
   if (!step) return <StepLoading />;
 
   return (
-    <div className="flex flex-1 flex-col items-center px-6 pt-12 pb-8 min-h-screen">
-      <div className="w-full max-w-md mb-10">
+    <div className="flex flex-1 flex-col items-center px-6 pt-6 pb-8 min-h-screen">
+      <div className="w-full max-w-md flex items-center justify-between mb-8">
+        <Link
+          href="/"
+          className="font-serif text-sm text-warm-gray hover:text-charcoal transition-colors"
+        >
+          Composer
+        </Link>
+        {state.currentStep > 0 ? (
+          <button
+            onClick={() => dispatch({ type: "BACK" })}
+            className="font-sans text-sm text-warm-gray hover:text-charcoal transition-colors"
+          >
+            &larr; Back
+          </button>
+        ) : (
+          <span />
+        )}
+      </div>
+
+      <div className="w-full max-w-md mb-8">
         <ProgressBar
           currentStep={state.currentStep}
           totalSteps={questionSteps.length}
         />
       </div>
-
-      {state.currentStep > 0 && (
-        <button
-          onClick={() => dispatch({ type: "BACK" })}
-          className="self-start ml-4 md:ml-0 mb-4 font-sans text-sm text-warm-gray hover:text-charcoal transition-colors"
-        >
-          &larr; Back
-        </button>
-      )}
 
       <div className="w-full max-w-md flex-1 relative overflow-hidden">
         <AnimatePresence mode="wait" custom={state.direction}>
