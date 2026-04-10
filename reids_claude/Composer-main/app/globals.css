@@ -1,0 +1,126 @@
+@import "tailwindcss";
+
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Inter:wght@300;400;500;600;700&display=swap');
+
+:root {
+  --brand-primary: #ff7a11;
+  --brand-dark: #c74808;
+  --brand-light: #fff8ed;
+  --mango-primary: #ff7a11;
+  --mango-dark: #c74808;
+  --mango-light: #fff8ed;
+  --warm-bg: #fdf8f6;
+}
+
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+  background: var(--warm-bg);
+  color: #1a1a1a;
+  min-height: 100dvh;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Mobile-first container */
+.app-container {
+  max-width: 430px;
+  margin: 0 auto;
+  min-height: 100dvh;
+  position: relative;
+  background: white;
+}
+
+/* Smooth page transitions */
+.page-enter {
+  opacity: 0;
+  transform: translateX(20px);
+}
+.page-enter-active {
+  opacity: 1;
+  transform: translateX(0);
+  transition: all 0.3s ease-out;
+}
+
+/* Selection card styles */
+.selection-card {
+  transition: all 0.2s ease;
+  cursor: pointer;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.selection-card:active {
+  transform: scale(0.97);
+}
+
+.selection-card.selected {
+  border-color: var(--mango-primary);
+  background: var(--mango-light);
+  box-shadow: 0 0 0 2px var(--mango-primary);
+}
+
+/* Pill chip styles */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 14px;
+  border-radius: 9999px;
+  font-size: 14px;
+  font-weight: 500;
+  border: 1.5px solid #e5e5e5;
+  background: white;
+  transition: all 0.2s;
+  cursor: pointer;
+}
+
+.chip:active {
+  transform: scale(0.95);
+}
+
+.chip.selected {
+  border-color: var(--mango-primary);
+  background: var(--mango-light);
+  color: var(--mango-dark);
+}
+
+/* Progress dots */
+.progress-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #e5e5e5;
+  transition: all 0.3s;
+}
+
+.progress-dot.active {
+  background: var(--mango-primary);
+  width: 24px;
+  border-radius: 4px;
+}
+
+.progress-dot.completed {
+  background: var(--mango-primary);
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 0;
+  background: transparent;
+}
+
+/* Hide scrollbar for time wheel picker */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
