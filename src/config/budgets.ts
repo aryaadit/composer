@@ -26,7 +26,7 @@ export const BUDGETS = [
   {
     slug: "no-preference",
     label: "No Preference",
-    description: "Just make it great",
+    description: "Surprise me",
     tiers: [1, 2, 3] as readonly number[],
   },
 ] as const;
