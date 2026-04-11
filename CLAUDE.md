@@ -17,7 +17,7 @@ The product is built on a **hybrid curation model**: the venue database is human
 - **Framework**: Next.js 14+ (App Router) + TypeScript
 - **Styling**: Tailwind CSS
 - **Database**: Supabase (PostgreSQL + Row Level Security)
-- **AI**: Anthropic Claude API (`claude-sonnet-4-20250514`) — itinerary copy and voice
+- **AI**: Google Gemini 2.5 Flash (`gemini-2.5-flash`) — itinerary copy and voice
 - **Weather**: OpenWeatherMap API — called per generation, not cached
 - **Package Manager**: npm
 - **Deployment**: Vercel
@@ -212,9 +212,9 @@ Slide transitions between steps. Option cards, not dropdowns. Auto-advance is ac
 
 ---
 
-## Claude API
+## Gemini API
 
-Model: `claude-sonnet-4-20250514`
+Model: `gemini-2.5-flash`
 Max tokens: 1000
 
 System prompt (from `config/prompts.ts`):
@@ -227,7 +227,7 @@ Keep all copy concise. Never hedge. Never list more than you need to.
 
 **Do not change the system prompt without discussing with the founders.** Brand voice is intentional.
 
-The Claude call always has a graceful fallback. If it throws or times out, use the raw `curation_note` from the DB. Never block itinerary rendering on a Claude API failure.
+The Gemini call always has a graceful fallback. If it throws or times out, use the raw `curation_note` from the DB. Never block itinerary rendering on a Gemini API failure. (Note: the implementation still lives in `lib/claude.ts` — that's the filename only, not the underlying API.)
 
 ---
 

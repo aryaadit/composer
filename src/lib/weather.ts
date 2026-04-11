@@ -5,7 +5,10 @@ const NYC_LON = -74.006;
 
 export async function fetchWeather(): Promise<WeatherInfo | null> {
   const apiKey = process.env.OPENWEATHERMAP_API_KEY;
-  if (!apiKey) return null;
+  if (!apiKey) {
+    console.warn("[weather] OPENWEATHERMAP_API_KEY not set — weather gate disabled");
+    return null;
+  }
 
   try {
     const res = await fetch(
@@ -13,7 +16,16 @@ export async function fetchWeather(): Promise<WeatherInfo | null> {
       { next: { revalidate: 1800 } } // cache 30 min
     );
 
-    if (!res.ok) return null;
+    if (!res.ok) {
+      // Common cause: freshly-issued OWM keys take up to 2h to activate (401),
+      // or the free tier hit a rate limit (429). Falling back to null is fine,
+      // but the failure must be visible in server logs so it doesn't silently
+      // disable the weather gate forever.
+      console.warn(
+        `[weather] OpenWeatherMap returned HTTP ${res.status} — weather gate disabled for this request`
+      );
+      return null;
+    }
 
     const data = await res.json();
     const mainWeather = data.weather?.[0]?.main?.toLowerCase() ?? "";
@@ -32,7 +44,8 @@ export async function fetchWeather(): Promise<WeatherInfo | null> {
     const is_bad_weather = condition === "rain" || condition === "snow";
 
     return { temp_f, condition, description, is_bad_weather };
-  } catch {
+  } catch (error) {
+    console.warn("[weather] OpenWeatherMap fetch failed — weather gate disabled for this request:", error);
     return null;
   }
 }

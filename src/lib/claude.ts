@@ -1,17 +1,19 @@
-import Anthropic from "@anthropic-ai/sdk";
+import { GoogleGenerativeAI, GenerationConfig } from "@google/generative-ai";
 import {
   COMPOSER_SYSTEM_PROMPT,
-  CLAUDE_MODEL,
-  CLAUDE_MAX_TOKENS,
+  GEMINI_MODEL,
+  GEMINI_MAX_TOKENS,
   buildGenerationPrompt,
 } from "@/config/prompts";
 import { ItineraryStop, QuestionnaireAnswers, WeatherInfo } from "@/types";
 
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY ?? "");
+const geminiModel = genAI.getGenerativeModel({
+  model: GEMINI_MODEL,
+  systemInstruction: COMPOSER_SYSTEM_PROMPT,
 });
 
-interface ClaudeCopy {
+interface GeneratedCopy {
   title: string;
   subtitle: string;
   venue_notes: Record<string, string>;
@@ -22,7 +24,7 @@ export async function generateCopy(
   inputs: QuestionnaireAnswers,
   weather: WeatherInfo | null,
   userName?: string
-): Promise<ClaudeCopy> {
+): Promise<GeneratedCopy> {
   const venueData = stops.map((s) => ({
     role: s.role,
     name: s.venue.name,
@@ -34,22 +36,33 @@ export async function generateCopy(
   const prompt = buildGenerationPrompt(venueData, inputs, weather, userName);
 
   try {
-    const response = await anthropic.messages.create({
-      model: CLAUDE_MODEL,
-      max_tokens: CLAUDE_MAX_TOKENS,
-      system: COMPOSER_SYSTEM_PROMPT,
-      messages: [{ role: "user", content: prompt }],
+    // Gemini 2.5 Flash has reasoning enabled by default, which would consume
+    // the entire token budget before any visible output. Disable it — copy
+    // generation is a fast text-shaping task, not reasoning. The SDK's
+    // GenerationConfig type doesn't yet expose thinkingConfig, so we cast
+    // around the missing field; the REST API accepts it.
+    const generationConfig = {
+      maxOutputTokens: GEMINI_MAX_TOKENS,
+      responseMimeType: "application/json",
+      thinkingConfig: { thinkingBudget: 0 },
+    } as GenerationConfig;
+
+    const result = await geminiModel.generateContent({
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      generationConfig,
     });
 
-    const text =
-      response.content[0].type === "text" ? response.content[0].text : "";
+    const text = result.response.text();
 
-    // Extract JSON from response (handle possible markdown wrapping)
+    // Defensive: extract JSON in case the model wraps it in prose despite
+    // responseMimeType. Matches the original Claude path's error tolerance.
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (!jsonMatch) throw new Error("No JSON in response");
 
-    return JSON.parse(jsonMatch[0]) as ClaudeCopy;
-  } catch {
+    return JSON.parse(jsonMatch[0]) as GeneratedCopy;
+  } catch (error) {
+    // Log so the fallback path is debuggable in dev/prod logs.
+    console.error("[gemini] generateCopy failed, using DB fallback:", error);
     // Graceful fallback: use DB curation notes
     const venue_notes: Record<string, string> = {};
     for (const stop of stops) {

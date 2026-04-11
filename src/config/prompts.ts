@@ -1,7 +1,7 @@
-// Claude model + token budget for itinerary copy generation.
+// Gemini model + token budget for itinerary copy generation.
 // Do not change the model without founder approval — voice tuning depends on it.
-export const CLAUDE_MODEL = "claude-sonnet-4-20250514";
-export const CLAUDE_MAX_TOKENS = 1000;
+export const GEMINI_MODEL = "gemini-2.5-flash";
+export const GEMINI_MAX_TOKENS = 1000;
 
 export const COMPOSER_SYSTEM_PROMPT = `You are the voice of Composer — a curated NYC date night itinerary generator.
 
