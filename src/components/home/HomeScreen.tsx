@@ -6,9 +6,10 @@ import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { getSavedItineraries, deleteSavedItinerary } from "@/lib/sharing";
 import { createCachedStore } from "@/lib/createCachedStore";
+import { STORAGE_KEYS } from "@/config/storage";
 import { SavedItinerary } from "@/types";
 
-const COACHMARK_FLAG = "composer_seen_coachmark";
+const COACHMARK_FLAG = STORAGE_KEYS.local.seenCoachmark;
 
 interface HomeScreenProps {
   userName: string;

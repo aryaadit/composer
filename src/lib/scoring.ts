@@ -6,6 +6,8 @@ import {
   WeatherInfo,
 } from "@/types";
 import { walkDistanceKm } from "@/lib/geo";
+import { BUDGET_TIER_MAP } from "@/config/budgets";
+import { VIBE_VENUE_TAGS } from "@/config/vibes";
 
 // Walking distance caps. Bad weather collapses the cap to keep the user
 // from getting drenched between stops.
@@ -16,25 +18,6 @@ function getMaxWalkKm(weather: WeatherInfo | null): number {
   return weather?.is_bad_weather ? MAX_WALK_KM_BAD_WEATHER : MAX_WALK_KM_NORMAL;
 }
 
-const BUDGET_MAP: Record<string, number[]> = {
-  casual: [1],
-  "nice-out": [2],
-  splurge: [3],
-  "no-preference": [1, 2, 3],
-};
-
-// Canonical vibe tags — exact match only. Venues must use these tags.
-// Cross-cutting tags (romantic, conversation_friendly, group_friendly,
-// late_night, casual, upscale, outdoor) are valid on venues but don't
-// participate in vibe scoring.
-const VIBE_TAGS: Record<string, string[]> = {
-  "food-forward": ["food_forward", "tasting", "dinner", "bistro"],
-  "drinks-led": ["cocktail_forward", "wine_bar", "speakeasy", "drinks"],
-  "activity-food": ["activity", "comedy", "karaoke", "games", "bowling"],
-  "walk-explore": ["walk", "gallery", "bookstore", "market", "park"],
-  "mix-it-up": [],
-};
-
 function scoreVenue(
   venue: Venue,
   answers: QuestionnaireAnswers,
@@ -44,7 +27,7 @@ function scoreVenue(
   let score = 0;
 
   // Vibe match (35%) — exact canonical tag matching
-  const vibeTags = VIBE_TAGS[answers.vibe] ?? [];
+  const vibeTags = VIBE_VENUE_TAGS[answers.vibe] ?? [];
   if (vibeTags.length === 0) {
     score += 25; // "mix it up" gets decent base
   } else {
@@ -61,7 +44,7 @@ function scoreVenue(
   }
 
   // Budget match (15%)
-  const allowedTiers = BUDGET_MAP[answers.budget] ?? [1, 2, 3];
+  const allowedTiers = BUDGET_TIER_MAP[answers.budget] ?? [1, 2, 3];
   if (allowedTiers.includes(venue.price_tier)) {
     score += 15;
   }

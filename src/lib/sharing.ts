@@ -4,6 +4,9 @@ import {
   SavedItinerary,
   Neighborhood,
 } from "@/types";
+import { STORAGE_KEYS } from "@/config/storage";
+
+const SAVED_KEY = STORAGE_KEYS.local.savedItineraries;
 
 export function encodeInputsToParams(inputs: QuestionnaireAnswers): string {
   const params = new URLSearchParams();
@@ -52,7 +55,6 @@ export function buildShareUrl(inputs: QuestionnaireAnswers): string {
   return `${window.location.origin}/itinerary?${params}`;
 }
 
-const SAVED_KEY = "composer_saved_itineraries";
 const MAX_SAVED = 20;
 
 export function saveItinerary(itinerary: ItineraryResponse): SavedItinerary {

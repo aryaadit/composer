@@ -4,20 +4,14 @@ import { fetchWeather } from "@/lib/weather";
 import { composeItinerary } from "@/lib/composer";
 import { generateCopy } from "@/lib/claude";
 import { walkTimeMinutes, walkDistanceKm, buildGoogleMapsUrl } from "@/lib/geo";
+import { calculateTotalSpend } from "@/config/budgets";
+import { ALCOHOL_VIBE_TAGS } from "@/config/vibes";
 import {
   GenerateRequestBody,
   Venue,
   ItineraryResponse,
   WalkSegment,
 } from "@/types";
-
-// Vibe tags that imply alcohol — excluded if user says drinks=no
-const ALCOHOL_VIBE_TAGS = new Set([
-  "cocktail_forward",
-  "wine_bar",
-  "speakeasy",
-  "drinks",
-]);
 
 export async function POST(request: Request) {
   try {
@@ -91,10 +85,10 @@ export async function POST(request: Request) {
     // Build Google Maps URL
     const maps_url = buildGoogleMapsUrl(stops.map((s) => s.venue));
 
-    // Generate Claude copy with personalization
+    // Generate AI-polished copy (Gemini)
     const copy = await generateCopy(stops, inputs, weather, userPrefs?.name);
 
-    // Apply Claude-generated curation notes
+    // Apply AI-generated curation notes
     for (const stop of stops) {
       const claudeNote = copy.venue_notes[stop.venue.name];
       if (claudeNote) {
@@ -102,7 +96,7 @@ export async function POST(request: Request) {
       }
     }
 
-    // Calculate estimated total spend
+    // Calculate estimated total spend (single source of truth in config/budgets)
     const totalRange = calculateTotalSpend(stops.map((s) => s.venue.price_tier));
 
     const response: ItineraryResponse = {
@@ -128,22 +122,4 @@ export async function POST(request: Request) {
       { status: 500 }
     );
   }
-}
-
-function calculateTotalSpend(tiers: number[]): string {
-  const ranges: Record<number, [number, number]> = {
-    1: [15, 30],
-    2: [35, 65],
-    3: [75, 150],
-  };
-
-  let low = 0;
-  let high = 0;
-  for (const tier of tiers) {
-    const [lo, hi] = ranges[tier] ?? [30, 60];
-    low += lo;
-    high += hi;
-  }
-
-  return `$${low}–${high}`;
 }
