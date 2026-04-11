@@ -60,7 +60,7 @@ export default function HomeScreen({ userName }: HomeScreenProps) {
   }, []);
 
   const totalStops = savedPlans.reduce(
-    (sum, p) => sum + (p.itinerary.stops?.length || 0),
+    (sum, p) => sum + (p.itinerary?.stops?.length ?? 0),
     0
   );
 
@@ -106,7 +106,9 @@ export default function HomeScreen({ userName }: HomeScreenProps) {
         ) : (
           <div className="space-y-3">
             {savedPlans.map((plan) => {
-              const firstStop = plan.itinerary.stops[0];
+              const stops = plan.itinerary?.stops ?? [];
+              const firstStop = stops[0];
+              const title = plan.itinerary?.header?.title ?? "Saved night";
               const date = new Date(plan.savedAt).toLocaleDateString("en-US", {
                 month: "short",
                 day: "numeric",
@@ -118,10 +120,10 @@ export default function HomeScreen({ userName }: HomeScreenProps) {
                 >
                   <div className="flex-1 min-w-0">
                     <div className="font-serif text-base text-charcoal truncate">
-                      {plan.itinerary.header.title}
+                      {title}
                     </div>
                     <div className="font-sans text-xs text-warm-gray mt-1">
-                      {firstStop?.venue.name ?? "—"} · {plan.itinerary.stops.length} stops · saved {date}
+                      {firstStop?.venue?.name ?? "—"} · {stops.length} stops · saved {date}
                     </div>
                   </div>
                   <button

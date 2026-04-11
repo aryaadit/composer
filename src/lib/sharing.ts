@@ -71,7 +71,51 @@ export function getSavedItineraries(): SavedItinerary[] {
   if (typeof window === "undefined") return [];
   try {
     const raw = localStorage.getItem(SAVED_KEY);
-    return raw ? (JSON.parse(raw) as SavedItinerary[]) : [];
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) return [];
+
+    const migrated: SavedItinerary[] = [];
+    let didMigrate = false;
+
+    for (const entry of parsed) {
+      if (!entry || typeof entry !== "object") {
+        didMigrate = true;
+        continue;
+      }
+      const obj = entry as Record<string, unknown>;
+
+      // Current shape: { id, savedAt, itinerary }
+      if (
+        typeof obj.id === "string" &&
+        typeof obj.savedAt === "string" &&
+        obj.itinerary &&
+        typeof obj.itinerary === "object" &&
+        Array.isArray((obj.itinerary as Record<string, unknown>).stops)
+      ) {
+        migrated.push(obj as unknown as SavedItinerary);
+        continue;
+      }
+
+      // Legacy shape: flat ItineraryResponse stored directly. Wrap it.
+      if (Array.isArray(obj.stops) && obj.header && obj.inputs) {
+        migrated.push({
+          id: `legacy-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          savedAt: new Date(0).toISOString(),
+          itinerary: obj as unknown as ItineraryResponse,
+        });
+        didMigrate = true;
+        continue;
+      }
+
+      // Anything else is corrupt — drop it.
+      didMigrate = true;
+    }
+
+    if (didMigrate) {
+      localStorage.setItem(SAVED_KEY, JSON.stringify(migrated));
+    }
+    return migrated;
   } catch {
     return [];
   }
