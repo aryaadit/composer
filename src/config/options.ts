@@ -3,6 +3,7 @@ import { QuestionStep } from "@/types";
 export const questionSteps: QuestionStep[] = [
   {
     id: "occasion",
+    kind: "cards",
     question: "What kind of night is this?",
     options: [
       { value: "first-date", label: "First / Second Date", description: "Make it count" },
@@ -13,7 +14,8 @@ export const questionSteps: QuestionStep[] = [
     ],
   },
   {
-    id: "neighborhood",
+    id: "neighborhoods",
+    kind: "pills",
     question: "Where do you want to be?",
     options: [
       { value: "west-village", label: "West Village" },
@@ -22,11 +24,11 @@ export const questionSteps: QuestionStep[] = [
       { value: "williamsburg", label: "Williamsburg" },
       { value: "midtown-hells-kitchen", label: "Midtown / HK" },
       { value: "upper-west-side", label: "Upper West Side" },
-      { value: "surprise-me", label: "Anywhere" },
     ],
   },
   {
     id: "budget",
+    kind: "cards",
     question: "How are we feeling tonight?",
     options: [
       { value: "casual", label: "$ Casual", description: "Good times, low key" },
@@ -37,6 +39,7 @@ export const questionSteps: QuestionStep[] = [
   },
   {
     id: "vibe",
+    kind: "cards",
     question: "What's the energy?",
     options: [
       { value: "food-forward", label: "Food-Forward", description: "The meal is the move" },
@@ -45,5 +48,17 @@ export const questionSteps: QuestionStep[] = [
       { value: "walk-explore", label: "Walk & Explore", description: "Wander the city" },
       { value: "mix-it-up", label: "Mix It Up", description: "A bit of everything" },
     ],
+  },
+  {
+    id: "day",
+    kind: "day",
+    question: "Which day?",
+    options: [],
+  },
+  {
+    id: "startTime",
+    kind: "time",
+    question: "When?",
+    options: [],
   },
 ];

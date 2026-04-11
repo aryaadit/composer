@@ -5,18 +5,23 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { AnimatePresence, motion } from "motion/react";
 import { questionSteps } from "@/config/options";
-import { QuestionnaireAnswers } from "@/types";
+import {
+  QuestionnaireAnswers,
+  GenerateRequestBody,
+  Neighborhood,
+} from "@/types";
 import {
   questionnaireReducer,
   initialState,
   slideVariants,
 } from "@/lib/questionnaireReducer";
+import { getUserPrefs } from "@/lib/userPrefs";
 import ProgressBar from "@/components/ui/ProgressBar";
 import StepLoading from "./StepLoading";
 import NeighborhoodStep from "./NeighborhoodStep";
 import StandardStep from "./StandardStep";
-
-const NEIGHBORHOOD_STEP_INDEX = 1;
+import DayStep from "./DayStep";
+import TimeStep from "./TimeStep";
 
 export default function QuestionnaireShell() {
   const router = useRouter();
@@ -27,10 +32,16 @@ export default function QuestionnaireShell() {
       dispatch({ type: "SET_LOADING" });
       sessionStorage.setItem("composer_inputs", JSON.stringify(finalAnswers));
 
+      const userPrefs = getUserPrefs() ?? undefined;
+      const body: GenerateRequestBody = {
+        ...finalAnswers,
+        userPrefs,
+      };
+
       fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(finalAnswers),
+        body: JSON.stringify(body),
       })
         .then((res) => res.json())
         .then((data) => {
@@ -44,47 +55,57 @@ export default function QuestionnaireShell() {
     [router]
   );
 
-  const handleSelect = useCallback(
-    (key: string, value: string) => {
+  const handleCardSelect = useCallback(
+    (key: keyof QuestionnaireAnswers, value: string) => {
       // Deselect if tapping the already-selected option
-      const currentValue = state.answers[key as keyof QuestionnaireAnswers];
+      const currentValue = state.answers[key];
       if (currentValue === value) {
-        dispatch({ type: "DESELECT", key });
+        dispatch({ type: "DESELECT", field: key });
         return;
       }
-
-      const isLast = state.currentStep === questionSteps.length - 1;
-      if (isLast) {
-        const finalAnswers = {
-          ...state.answers,
-          [key]: value,
-        } as QuestionnaireAnswers;
-        dispatch({ type: "SELECT", key, value });
-        submitAnswers(finalAnswers);
-        return;
-      }
-
-      // Auto-advance after brief delay so selected state is visible
+      // Card selections always advance after a brief delay
       setTimeout(() => {
-        dispatch({ type: "SELECT", key, value });
+        dispatch({ type: "SET_FIELD", field: key, value, advance: true });
       }, 150);
     },
-    [state.currentStep, state.answers, submitAnswers]
+    [state.answers]
   );
 
-  const handleNeighborhoodContinue = useCallback(
-    (resolvedValue: string) => {
-      dispatch({ type: "SELECT", key: "neighborhood", value: resolvedValue });
+  const handleNeighborhoodContinue = useCallback((values: string[]) => {
+    dispatch({
+      type: "SET_FIELD",
+      field: "neighborhoods",
+      value: values as Neighborhood[],
+      advance: true,
+    });
+  }, []);
+
+  const handleDaySelect = useCallback((dayISO: string) => {
+    setTimeout(() => {
+      dispatch({ type: "SET_FIELD", field: "day", value: dayISO, advance: true });
+    }, 150);
+  }, []);
+
+  const handleTimeContinue = useCallback(
+    (startTime: string, endTime: string) => {
+      const finalAnswers = {
+        ...state.answers,
+        startTime,
+        endTime,
+      } as QuestionnaireAnswers;
+      dispatch({
+        type: "SET_FIELDS",
+        values: { startTime, endTime },
+      });
+      submitAnswers(finalAnswers);
     },
-    []
+    [state.answers, submitAnswers]
   );
 
   if (state.status === "loading") return <StepLoading />;
 
   const step = questionSteps[state.currentStep];
   if (!step) return <StepLoading />;
-
-  const isNeighborhoodStep = state.currentStep === NEIGHBORHOOD_STEP_INDEX;
 
   return (
     <div className="flex flex-col min-h-screen px-6 pt-5 pb-8">
@@ -116,7 +137,7 @@ export default function QuestionnaireShell() {
         />
       </div>
 
-      {/* Content — vertically centered */}
+      {/* Content */}
       <div className="flex-1 flex items-center justify-center">
         <div className="w-full max-w-lg">
           <AnimatePresence mode="wait" custom={state.direction}>
@@ -134,17 +155,37 @@ export default function QuestionnaireShell() {
                 {step.question}
               </h2>
 
-              {isNeighborhoodStep ? (
+              {step.kind === "pills" && (
                 <NeighborhoodStep
                   key={`hoods-${state.currentStep}`}
                   options={step.options}
+                  initialSelected={state.answers.neighborhoods ?? []}
                   onContinue={handleNeighborhoodContinue}
                 />
-              ) : (
+              )}
+
+              {step.kind === "cards" && (
                 <StandardStep
                   options={step.options}
-                  selectedValue={state.answers[step.id]}
-                  onSelect={(value) => handleSelect(step.id, value)}
+                  selectedValue={
+                    state.answers[step.id] as string | undefined
+                  }
+                  onSelect={(value) => handleCardSelect(step.id, value)}
+                />
+              )}
+
+              {step.kind === "day" && (
+                <DayStep
+                  selectedValue={state.answers.day}
+                  onSelect={handleDaySelect}
+                />
+              )}
+
+              {step.kind === "time" && (
+                <TimeStep
+                  initialStart={state.answers.startTime}
+                  initialEnd={state.answers.endTime}
+                  onContinue={handleTimeContinue}
                 />
               )}
             </motion.div>

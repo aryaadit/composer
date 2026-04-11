@@ -15,7 +15,8 @@ interface ClaudeCopy {
 export async function generateCopy(
   stops: ItineraryStop[],
   inputs: QuestionnaireAnswers,
-  weather: WeatherInfo | null
+  weather: WeatherInfo | null,
+  userName?: string
 ): Promise<ClaudeCopy> {
   const venueData = stops.map((s) => ({
     role: s.role,
@@ -25,7 +26,7 @@ export async function generateCopy(
     curation_note: s.venue.curation_note,
   }));
 
-  const prompt = buildGenerationPrompt(venueData, inputs, weather);
+  const prompt = buildGenerationPrompt(venueData, inputs, weather, userName);
 
   try {
     const response = await anthropic.messages.create({
@@ -51,7 +52,7 @@ export async function generateCopy(
     }
 
     return {
-      title: "Your Night, Composed",
+      title: userName ? `Here's your night, ${userName}` : "Your Night, Composed",
       subtitle: "Three stops, one perfect evening.",
       venue_notes,
     };

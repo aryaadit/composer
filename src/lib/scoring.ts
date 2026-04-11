@@ -60,10 +60,11 @@ function scoreVenue(
     score += 15;
   }
 
-  // Location — boost if correct neighborhood (10%)
+  // Location — boost if venue is in one of the selected neighborhoods (10%).
+  // Empty array = no neighborhood preference, everyone gets the boost.
   if (
-    answers.neighborhood === "surprise-me" ||
-    venue.neighborhood === answers.neighborhood
+    answers.neighborhoods.length === 0 ||
+    answers.neighborhoods.includes(venue.neighborhood)
   ) {
     score += 10;
   }
@@ -95,8 +96,8 @@ function hardFilter(
     if (exclude.has(v.id)) return false;
     if (!v.stop_roles.includes(role)) return false;
     if (
-      answers.neighborhood !== "surprise-me" &&
-      v.neighborhood !== answers.neighborhood
+      answers.neighborhoods.length > 0 &&
+      !answers.neighborhoods.includes(v.neighborhood)
     ) {
       return false;
     }
@@ -177,7 +178,7 @@ export function selectTrio(
   const planBs: Record<string, Venue | null> = {};
 
   // Step 1: Pick main first — it's the anchor for geo clustering
-  const { best: main, scored: mainScored } = pickBestForRole(
+  const { best: main } = pickBestForRole(
     venues, "main", answers, weather, usedIds, null, jitter
   );
 

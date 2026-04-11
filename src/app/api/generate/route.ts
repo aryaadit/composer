@@ -5,15 +5,24 @@ import { selectTrio } from "@/lib/scoring";
 import { generateCopy } from "@/lib/claude";
 import { walkTimeMinutes, walkDistanceKm, buildGoogleMapsUrl } from "@/lib/geo";
 import {
-  QuestionnaireAnswers,
+  GenerateRequestBody,
   Venue,
   ItineraryResponse,
   WalkSegment,
 } from "@/types";
 
+// Vibe tags that imply alcohol — excluded if user says drinks=no
+const ALCOHOL_VIBE_TAGS = new Set([
+  "cocktail_forward",
+  "wine_bar",
+  "speakeasy",
+  "drinks",
+]);
+
 export async function POST(request: Request) {
   try {
-    const inputs: QuestionnaireAnswers = await request.json();
+    const body: GenerateRequestBody = await request.json();
+    const { userPrefs, ...inputs } = body;
 
     const supabase = getSupabase();
 
@@ -30,7 +39,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const venues = venueResult.data as Venue[];
+    let venues = venueResult.data as Venue[];
 
     if (venues.length === 0) {
       return NextResponse.json(
@@ -39,12 +48,21 @@ export async function POST(request: Request) {
       );
     }
 
+    // Drinks filter — if user said no, drop alcohol-forward venues entirely
+    if (userPrefs?.drinks === "no") {
+      venues = venues.filter(
+        (v) => !v.vibe_tags.some((t) => ALCOHOL_VIBE_TAGS.has(t))
+      );
+    }
+
     // Score and select trio
     const { stops } = selectTrio(venues, inputs, weather);
 
-    if (stops.length < 3) {
-      // If we can't fill all 3 stops, try with relaxed filters
-      // Already handled in selectTrio via progressive relaxation
+    if (stops.length === 0) {
+      return NextResponse.json(
+        { error: "No matching venues found" },
+        { status: 404 }
+      );
     }
 
     // Calculate walk segments
@@ -71,12 +89,10 @@ export async function POST(request: Request) {
     }
 
     // Build Google Maps URL
-    const maps_url = buildGoogleMapsUrl(
-      stops.map((s) => s.venue)
-    );
+    const maps_url = buildGoogleMapsUrl(stops.map((s) => s.venue));
 
-    // Generate Claude copy
-    const copy = await generateCopy(stops, inputs, weather);
+    // Generate Claude copy with personalization
+    const copy = await generateCopy(stops, inputs, weather, userPrefs?.name);
 
     // Apply Claude-generated curation notes
     for (const stop of stops) {

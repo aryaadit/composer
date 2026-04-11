@@ -5,25 +5,79 @@ Your tone is warm, confident, and knowing. You speak in first-person plural ("we
 Guidelines:
 - Each venue note should be 1-2 sentences max
 - Reference specific dishes, drinks, or details that make the place special
-- The header title should be evocative (e.g., "A West Village Evening," "Downtown After Dark")
+- If the user has a name, use it in the title naturally (e.g., "Here's your night, Alex")
+- Otherwise the title should be evocative (e.g., "A West Village Evening," "Downtown After Dark")
 - The subtitle should be one punchy line about the night's character
 - If it's raining or snowing, acknowledge it warmly (cozy vibes, not complaints)
 - Match energy to the occasion: first dates get excitement, established couples get comfort, friends get fun
+- A short window (<2 hours) gets tighter, more decisive copy. A long evening (4+ hours) can breathe.
 
 You will receive venue data and user preferences. Return JSON only, no markdown.`;
 
+interface VenueForPrompt {
+  role: string;
+  name: string;
+  category: string;
+  neighborhood: string;
+  curation_note: string;
+}
+
+interface InputsForPrompt {
+  occasion: string;
+  neighborhoods: string[];
+  budget: string;
+  vibe: string;
+  day: string;
+  startTime: string;
+  endTime: string;
+}
+
+interface WeatherForPrompt {
+  condition: string;
+  temp_f: number;
+  description: string;
+}
+
+function describeDay(dayISO: string): string {
+  if (!dayISO) return "tonight";
+  const target = new Date(`${dayISO}T12:00:00`);
+  const today = new Date();
+  const tomorrow = new Date();
+  tomorrow.setDate(today.getDate() + 1);
+  if (target.toDateString() === today.toDateString()) return "tonight";
+  if (target.toDateString() === tomorrow.toDateString()) return "tomorrow";
+  return target.toLocaleDateString("en-US", { weekday: "long" });
+}
+
+function durationMinutes(start: string, end: string): number {
+  const [sh, sm] = start.split(":").map(Number);
+  const [eh, em] = end.split(":").map(Number);
+  let diff = eh * 60 + em - (sh * 60 + sm);
+  if (diff <= 0) diff += 24 * 60;
+  return diff;
+}
+
 export function buildGenerationPrompt(
-  venues: { role: string; name: string; category: string; neighborhood: string; curation_note: string }[],
-  inputs: { occasion: string; neighborhood: string; budget: string; vibe: string },
-  weather: { condition: string; temp_f: number; description: string } | null
+  venues: VenueForPrompt[],
+  inputs: InputsForPrompt,
+  weather: WeatherForPrompt | null,
+  userName?: string
 ): string {
+  const dayDescription = describeDay(inputs.day);
+  const totalMinutes = durationMinutes(inputs.startTime, inputs.endTime);
+  const hours = Math.floor(totalMinutes / 60);
+  const mins = totalMinutes % 60;
+  const durationLabel = `${hours > 0 ? `${hours}h` : ""}${mins > 0 ? ` ${mins}m` : ""}`.trim();
+
   return `Generate copy for this NYC date night itinerary.
 
 User preferences:
+- Name: ${userName || "(not provided)"}
 - Occasion: ${inputs.occasion}
-- Neighborhood: ${inputs.neighborhood}
+- Neighborhoods: ${inputs.neighborhoods.join(", ") || "any"}
 - Budget: ${inputs.budget}
 - Vibe: ${inputs.vibe}
+- When: ${dayDescription}, ${inputs.startTime}–${inputs.endTime} (${durationLabel} window)
 
 Weather: ${weather ? `${weather.description}, ${weather.temp_f}°F` : "Unknown"}
 
@@ -32,7 +86,7 @@ ${venues.map((v) => `- ${v.role.toUpperCase()}: ${v.name} (${v.category}, ${v.ne
 
 Return this exact JSON shape:
 {
-  "title": "evocative 3-5 word title for the evening",
+  "title": "evocative 3-7 word title for the evening${userName ? `, optionally using the name ${userName}` : ""}",
   "subtitle": "one punchy sentence about the night",
   "venue_notes": {
     "${venues[0]?.name}": "1-2 sentence curation note",

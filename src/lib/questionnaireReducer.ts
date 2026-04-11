@@ -10,8 +10,9 @@ export interface State {
 }
 
 export type Action =
-  | { type: "SELECT"; key: string; value: string }
-  | { type: "DESELECT"; key: string }
+  | { type: "SET_FIELD"; field: keyof QuestionnaireAnswers; value: unknown; advance?: boolean }
+  | { type: "SET_FIELDS"; values: Partial<QuestionnaireAnswers>; advance?: boolean }
+  | { type: "DESELECT"; field: keyof QuestionnaireAnswers }
   | { type: "BACK" }
   | { type: "SET_LOADING" };
 
@@ -24,16 +25,23 @@ export const initialState: State = {
 
 export function questionnaireReducer(state: State, action: Action): State {
   switch (action.type) {
-    case "SELECT":
+    case "SET_FIELD":
       return {
         ...state,
-        answers: { ...state.answers, [action.key]: action.value },
+        answers: { ...state.answers, [action.field]: action.value },
         direction: 1,
-        currentStep: state.currentStep + 1,
+        currentStep: action.advance ? state.currentStep + 1 : state.currentStep,
+      };
+    case "SET_FIELDS":
+      return {
+        ...state,
+        answers: { ...state.answers, ...action.values },
+        direction: 1,
+        currentStep: action.advance ? state.currentStep + 1 : state.currentStep,
       };
     case "DESELECT": {
       const next = { ...state.answers };
-      delete next[action.key as keyof QuestionnaireAnswers];
+      delete next[action.field];
       return { ...state, answers: next };
     }
     case "BACK":

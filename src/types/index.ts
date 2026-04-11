@@ -12,8 +12,7 @@ export type Neighborhood =
   | "soho-nolita"
   | "williamsburg"
   | "midtown-hells-kitchen"
-  | "upper-west-side"
-  | "surprise-me";
+  | "upper-west-side";
 
 export type Budget = "casual" | "nice-out" | "splurge" | "no-preference";
 
@@ -26,11 +25,28 @@ export type Vibe =
 
 export type StopRole = "opener" | "main" | "closer";
 
+export type DrinksPref = "yes" | "sometimes" | "no";
+
+export interface UserPrefs {
+  name: string;
+  context?: string;
+  drinks?: DrinksPref;
+  dietary?: string[];
+  favoriteHoods?: string[];
+}
+
 export interface QuestionnaireAnswers {
   occasion: Occasion;
-  neighborhood: Neighborhood;
+  neighborhoods: Neighborhood[];
   budget: Budget;
   vibe: Vibe;
+  day: string; // ISO date "2026-04-09"
+  startTime: string; // "19:00"
+  endTime: string; // "22:00"
+}
+
+export interface GenerateRequestBody extends QuestionnaireAnswers {
+  userPrefs?: UserPrefs;
 }
 
 export interface Venue {
@@ -97,8 +113,17 @@ export interface ItineraryResponse {
   inputs: QuestionnaireAnswers;
 }
 
+export interface SavedItinerary {
+  id: string;
+  savedAt: string; // ISO timestamp
+  itinerary: ItineraryResponse;
+}
+
+export type StepKind = "cards" | "pills" | "day" | "time";
+
 export interface QuestionStep {
   id: keyof QuestionnaireAnswers;
+  kind: StepKind;
   question: string;
   options: { value: string; label: string; description?: string }[];
 }
