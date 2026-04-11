@@ -7,7 +7,7 @@ interface ProgressBarProps {
   totalSteps: number;
 }
 
-export default function ProgressBar({
+export function ProgressBar({
   currentStep,
   totalSteps,
 }: ProgressBarProps) {

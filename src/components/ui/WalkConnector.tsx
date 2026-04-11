@@ -7,7 +7,7 @@ interface WalkConnectorProps {
   index: number;
 }
 
-export default function WalkConnector({
+export function WalkConnector({
   walkMinutes,
   index,
 }: WalkConnectorProps) {

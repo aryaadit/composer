@@ -11,6 +11,8 @@ import { DATE_TYPES, VIBES, CURATED_VENUES } from './constants';
 // Average walking speed in NYC: ~3 mph ≈ 20 min/mile
 const WALKING_SPEED_MPH = 3;
 const EARTH_RADIUS_MILES = 3959;
+// Multiplier to convert straight-line distance to grid-walking distance
+const GRID_MULTIPLIER = 1.3;
 
 /**
  * Calculate walking time between two coordinates (in minutes)
@@ -26,8 +28,33 @@ function getWalkingMinutes(lat1, lng1, lat2, lng2) {
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   const distanceMiles = EARTH_RADIUS_MILES * c;
   // Add 30% for NYC grid (not straight line)
-  const adjustedMiles = distanceMiles * 1.3;
+  const adjustedMiles = distanceMiles * GRID_MULTIPLIER;
   return Math.round((adjustedMiles / WALKING_SPEED_MPH) * 60);
+}
+
+/**
+ * Maximum walking minutes allowed between two stops, given the date type
+ * and current weather. Rules:
+ *   - first-date / early-dating → 10 min
+ *   - date-night / special-occasion → 15 min
+ *   - bad weather → 5 min (overrides everything)
+ */
+function getMaxWalkMinutes(dateTypeId, badWeather = false) {
+  if (badWeather) return 5;
+  if (dateTypeId === 'first-date' || dateTypeId === 'early-dating') return 10;
+  return 15;
+}
+
+/**
+ * Convert a walking-minute cap to a straight-line search radius in meters.
+ * Inverse of getWalkingMinutes(): minutes → miles → meters, removing the
+ * grid multiplier so the API search radius is slightly generous (we'll
+ * filter the hard cap by actual walking minutes after results come back).
+ */
+function walkMinutesToMeters(minutes) {
+  const miles = (minutes / 60) * WALKING_SPEED_MPH; // straight-line miles at that pace
+  const meters = miles * 1609.344;
+  return Math.round(meters);
 }
 
 /**
@@ -48,7 +75,7 @@ function getDateTypeConfig(dateTypeId) {
  * @param {string} endTime    – "HH:MM"
  * @returns {Array<{category, role, suggestedDuration}>}
  */
-function planStopMix(dateTypeId, vibeId, startTime, endTime) {
+function planStopMix(dateTypeId, vibeId, startTime, endTime, badWeather = false) {
   const [sh, sm] = startTime.split(':').map(Number);
   const [eh, em] = endTime.split(':').map(Number);
   let availableMinutes = (eh * 60 + em) - (sh * 60 + sm);
@@ -59,9 +86,9 @@ function planStopMix(dateTypeId, vibeId, startTime, endTime) {
   const isEvening = startHour >= 17;
   const isMorning = startHour < 12;
 
-  // Average stop length ~60 min + ~10 min walking between stops
-  // Use that to estimate how many stops fit
-  const AVG_STOP_PLUS_WALK = 70;
+  // Use the walking-minute cap to budget realistic walk time between stops.
+  const maxWalk = getMaxWalkMinutes(dateTypeId, badWeather);
+  const AVG_STOP_PLUS_WALK = 60 + maxWalk;
   let numStops = Math.max(1, Math.floor(availableMinutes / AVG_STOP_PLUS_WALK));
   // Cap at 5 — more than that gets exhausting
   numStops = Math.min(numStops, 5);
@@ -76,7 +103,7 @@ function planStopMix(dateTypeId, vibeId, startTime, endTime) {
     });
   } else if (numStops === 2) {
     const mainDur = Math.round(availableMinutes * 0.55);
-    const secondDur = availableMinutes - mainDur - 10; // 10 min walk buffer
+    const secondDur = availableMinutes - mainDur - maxWalk; // walk buffer
     if (vibeId === 'active' || vibeId === 'chill') {
       stops.push(
         { category: isMorning ? 'cafe' : 'outdoors', role: 'opener', suggestedDuration: Math.min(secondDur, 60) },
@@ -89,7 +116,7 @@ function planStopMix(dateTypeId, vibeId, startTime, endTime) {
       );
     }
   } else if (numStops === 3) {
-    const walkBuffer = 20; // 2 walks × ~10 min
+    const walkBuffer = 2 * maxWalk; // 2 walks at the cap
     const usable = availableMinutes - walkBuffer;
     stops.push(
       { category: isEvening ? 'bar' : 'cafe', role: 'opener', suggestedDuration: Math.round(usable * 0.25) },
@@ -98,7 +125,7 @@ function planStopMix(dateTypeId, vibeId, startTime, endTime) {
     );
   } else {
     // 4-5 stops
-    const walkBuffer = (numStops - 1) * 10;
+    const walkBuffer = (numStops - 1) * maxWalk;
     const usable = availableMinutes - walkBuffer;
     const perStop = Math.round(usable / numStops);
 
@@ -129,14 +156,18 @@ export function buildItinerary({
   vibeId,
   startTime, // "17:00" format
   budgetTier,
+  badWeather = false,
 }) {
   if (!places || places.length === 0) return null;
 
   const [startHour, startMin] = startTime.split(':').map(Number);
   let currentTime = startHour * 60 + startMin; // minutes since midnight
+  const maxWalk = getMaxWalkMinutes(dateTypeId, badWeather);
 
   const itinerary = [];
   let totalCostEstimate = 0;
+  let anyOverCap = false;
+  let longestWalk = 0;
 
   places.forEach((place, index) => {
     const stop = {
@@ -170,9 +201,14 @@ export function buildItinerary({
       const prev = places[index - 1];
       if (prev.lat && prev.lng && place.lat && place.lng) {
         const walkMin = getWalkingMinutes(prev.lat, prev.lng, place.lat, place.lng);
+        const overCap = walkMin > maxWalk;
+        if (overCap) anyOverCap = true;
+        if (walkMin > longestWalk) longestWalk = walkMin;
         stop.walkFromPrevious = {
           minutes: walkMin,
           description: `${walkMin} min walk`,
+          overCap,
+          maxAllowed: maxWalk,
         };
         // Adjust arrival time to include walking
         stop.arriveAt = formatTime(currentTime);
@@ -192,6 +228,12 @@ export function buildItinerary({
     totalCostEstimate,
     dateType: dateTypeId,
     vibe: vibeId,
+    walkingConstraint: {
+      maxWalkMinutes: maxWalk,
+      longestWalkMinutes: longestWalk,
+      anyOverCap,
+      badWeather,
+    },
   };
 }
 
@@ -214,4 +256,10 @@ function estimateCost(priceLevel, budgetTier) {
   return baseCosts[priceLevel] || baseCosts[budgetTier?.priceLevel] || 30;
 }
 
-export { planStopMix, getWalkingMinutes, getDateTypeConfig };
+export {
+  planStopMix,
+  getWalkingMinutes,
+  getDateTypeConfig,
+  getMaxWalkMinutes,
+  walkMinutesToMeters,
+};

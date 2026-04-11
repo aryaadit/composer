@@ -1,17 +1,25 @@
 'use client';
 
-import { useState } from 'react';
-import { Plus, Calendar, Clock, MapPin } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Plus, MapPin, Clock } from 'lucide-react';
 import PlanFlow from './PlanFlow';
 
-export default function HomeScreen({ userName, userContext }) {
+export default function HomeScreen({ userName, userPrefs, justOnboarded }) {
   const [isPlanning, setIsPlanning] = useState(false);
   const [savedPlans, setSavedPlans] = useState([]);
+  const [showCoachmark, setShowCoachmark] = useState(false);
+
+  useEffect(() => {
+    if (justOnboarded && savedPlans.length === 0) {
+      setShowCoachmark(true);
+    }
+  }, [justOnboarded, savedPlans.length]);
 
   if (isPlanning) {
     return (
       <PlanFlow
         userName={userName}
+        userPrefs={userPrefs}
         onBack={() => setIsPlanning(false)}
         onSavePlan={(plan) => {
           setSavedPlans((prev) => [plan, ...prev]);
@@ -21,64 +29,60 @@ export default function HomeScreen({ userName, userContext }) {
     );
   }
 
+  const greet = getGreeting();
+
   return (
-    <div className="min-h-screen flex flex-col bg-white">
+    <div className="min-h-[100dvh] flex flex-col bg-white relative">
       {/* Header */}
-      <div className="px-6 pt-14 pb-6">
-        <p className="text-gray-500 text-sm mb-1">
-          {getGreeting()}, {userName}
-        </p>
-        <h1 className="text-3xl font-bold font-display">
-          Plan a date
-        </h1>
+      <div className="pt-14 px-6 pb-6">
+        <div className="text-sm text-[var(--muted)]">{greet},</div>
+        <div className="serif text-3xl mt-1">{userName || 'friend'}</div>
       </div>
 
-      {/* Main CTA */}
-      <div className="px-6 mb-8">
+      {/* Hero CTA card */}
+      <div className="px-6">
         <button
-          onClick={() => setIsPlanning(true)}
-          className="w-full p-6 rounded-2xl text-white text-left relative overflow-hidden"
-          style={{
-            background: 'linear-gradient(135deg, #ff7a11 0%, #ff9838 50%, #ffbe71 100%)',
+          className="home-card"
+          onClick={() => {
+            setShowCoachmark(false);
+            setIsPlanning(true);
           }}
         >
-          <div className="relative z-10">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
-                <Plus size={22} />
-              </div>
-              <span className="font-bold text-lg font-display">New Date Plan</span>
-            </div>
-            <p className="text-white/90 text-sm">
-              Pick a vibe, a neighborhood, and a time — we&apos;ll handle the rest.
-            </p>
+          <div className="text-xs font-semibold tracking-widest opacity-80 mb-2">
+            PLAN A DATE
           </div>
-          {/* Decorative circle */}
-          <div
-            className="absolute -right-6 -bottom-6 w-32 h-32 rounded-full"
-            style={{ background: 'rgba(255,255,255,0.1)' }}
-          />
+          <div className="serif text-2xl mb-1">New date plan</div>
+          <div className="text-sm opacity-90">
+            Pick a vibe, a neighborhood, and a time — we&apos;ll handle the rest.
+          </div>
+          <div className="mt-4 flex items-center justify-between">
+            <div className="text-xs opacity-80">~60 seconds</div>
+            <div className="w-10 h-10 bg-white rounded-full text-[var(--mango)] text-xl font-semibold flex items-center justify-center">
+              →
+            </div>
+          </div>
         </button>
       </div>
 
-      {/* Saved plans */}
-      <div className="px-6 flex-1">
-        <h2 className="text-lg font-bold font-display mb-4">Your plans</h2>
+      {/* Your plans */}
+      <div className="px-6 mt-8 flex-1">
+        <div className="text-xs font-semibold tracking-widest text-[var(--muted)] mb-3">
+          YOUR PLANS
+        </div>
         {savedPlans.length === 0 ? (
-          <div className="text-center py-12 text-gray-400">
-            <Calendar size={40} className="mx-auto mb-3 opacity-40" />
-            <p className="text-sm">No plans yet. Create your first one!</p>
+          <div className="border border-dashed border-[#e5e5e5] rounded-2xl p-6 text-center text-[var(--muted)] text-sm">
+            No plans yet. Create your first one!
           </div>
         ) : (
           <div className="space-y-3">
             {savedPlans.map((plan, i) => (
               <div
                 key={i}
-                className="p-4 rounded-xl border border-gray-200 flex items-center gap-4"
+                className="p-4 rounded-2xl border border-[#ececec] flex items-center gap-4"
               >
                 <div
                   className="w-12 h-12 rounded-xl flex items-center justify-center text-xl"
-                  style={{ background: '#fff8ed' }}
+                  style={{ background: 'var(--mango-soft)' }}
                 >
                   {plan.vibeEmoji || '✨'}
                 </div>
@@ -86,12 +90,14 @@ export default function HomeScreen({ userName, userContext }) {
                   <div className="font-semibold truncate">
                     {plan.itinerary?.stops?.[0]?.place?.name || 'Date plan'}
                   </div>
-                  <div className="flex items-center gap-3 text-xs text-gray-500 mt-1">
+                  <div className="flex items-center gap-3 text-xs text-[var(--muted)] mt-1">
                     <span className="flex items-center gap-1">
-                      <MapPin size={12} /> {plan.meta?.neighborhoods?.[0] || 'NYC'}
+                      <MapPin size={12} />
+                      {plan.meta?.neighborhoods?.[0] || 'NYC'}
                     </span>
                     <span className="flex items-center gap-1">
-                      <Clock size={12} /> {plan.itinerary?.startTime || ''}
+                      <Clock size={12} />
+                      {plan.itinerary?.startTime || ''}
                     </span>
                     <span>{plan.itinerary?.totalStops} stops</span>
                   </div>
@@ -102,29 +108,36 @@ export default function HomeScreen({ userName, userContext }) {
         )}
       </div>
 
-      {/* Stats bar */}
-      <div className="px-6 py-6 border-t border-gray-100 mt-auto">
-        <div className="flex justify-around text-center">
-          <div>
-            <div className="text-2xl font-bold font-display" style={{ color: 'var(--brand-primary)' }}>
-              {savedPlans.length}
+      {/* First-run coachmark pointing to the hero card */}
+      {showCoachmark && (
+        <>
+          <div className="dim-overlay" onClick={() => setShowCoachmark(false)} />
+          <div className="coachmark" style={{ top: 305, right: 24 }}>
+            <div className="font-semibold mb-1">Tap here to start</div>
+            <div className="text-sm opacity-90 mb-3">
+              In 3 quick steps you&apos;ll have a full date plan with reservations ready to
+              copy-paste.
             </div>
-            <div className="text-xs text-gray-500">Plans made</div>
+            <button
+              className="text-sm font-semibold bg-white text-black rounded-full px-4 py-1.5"
+              onClick={() => setShowCoachmark(false)}
+            >
+              Got it
+            </button>
           </div>
-          <div>
-            <div className="text-2xl font-bold font-display" style={{ color: 'var(--brand-primary)' }}>
-              {savedPlans.reduce((sum, p) => sum + (p.itinerary?.totalStops || 0), 0)}
-            </div>
-            <div className="text-xs text-gray-500">Places found</div>
+          <div
+            className="absolute right-6 rounded-full bg-white flex items-center justify-center text-[var(--mango)] text-2xl font-light z-[58]"
+            style={{
+              top: 238,
+              width: 52,
+              height: 52,
+              boxShadow: '0 6px 20px rgba(0,0,0,0.25)',
+            }}
+          >
+            <Plus size={22} />
           </div>
-          <div>
-            <div className="text-2xl font-bold font-display" style={{ color: 'var(--brand-primary)' }}>
-              0
-            </div>
-            <div className="text-xs text-gray-500">Texts sent</div>
-          </div>
-        </div>
-      </div>
+        </>
+      )}
     </div>
   );
 }

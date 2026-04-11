@@ -4,11 +4,17 @@ import {
   StopRole,
   QuestionnaireAnswers,
   WeatherInfo,
-  ItineraryStop,
 } from "@/types";
 import { walkDistanceKm } from "@/lib/geo";
 
-const MAX_WALK_KM = 1.5; // ~20 min walk
+// Walking distance caps. Bad weather collapses the cap to keep the user
+// from getting drenched between stops.
+const MAX_WALK_KM_NORMAL = 1.5; // ~20 min walk
+const MAX_WALK_KM_BAD_WEATHER = 0.4; // ~5 min walk
+
+function getMaxWalkKm(weather: WeatherInfo | null): number {
+  return weather?.is_bad_weather ? MAX_WALK_KM_BAD_WEATHER : MAX_WALK_KM_NORMAL;
+}
 
 const BUDGET_MAP: Record<string, number[]> = {
   casual: [1],
@@ -69,8 +75,9 @@ function scoreVenue(
     score += 10;
   }
 
-  // Time relevance (10%) — simple heuristic based on role
-  score += 10; // base time score
+  // Time relevance (10%) — base for now; role-aware logic lives in composer.
+  void role;
+  score += 10;
 
   // Quality score (10%)
   score += (venue.quality_score / 10) * 10;
@@ -121,15 +128,26 @@ function relaxedFilter(
   });
 }
 
-function isWithinWalkRange(a: Venue, b: Venue): boolean {
-  return walkDistanceKm(a.latitude, a.longitude, b.latitude, b.longitude) <= MAX_WALK_KM;
+function isWithinWalkRange(a: Venue, b: Venue, maxKm: number): boolean {
+  return (
+    walkDistanceKm(a.latitude, a.longitude, b.latitude, b.longitude) <= maxKm
+  );
 }
 
-function filterByProximity(candidates: Venue[], anchor: Venue): Venue[] {
-  return candidates.filter((v) => isWithinWalkRange(v, anchor));
+function filterByProximity(
+  candidates: Venue[],
+  anchor: Venue,
+  maxKm: number
+): Venue[] {
+  return candidates.filter((v) => isWithinWalkRange(v, anchor, maxKm));
 }
 
-function pickBestForRole(
+/**
+ * Hard-filter, then relax progressively, score the survivors, and return the
+ * best venue for the given role plus the full ranked list. The ranked list is
+ * how the composer picks Plan B alternatives without re-scoring.
+ */
+export function pickBestForRole(
   venues: Venue[],
   role: StopRole,
   answers: QuestionnaireAnswers,
@@ -138,12 +156,14 @@ function pickBestForRole(
   anchor: Venue | null,
   jitter: number
 ): { best: ScoredVenue | null; scored: ScoredVenue[] } {
+  const maxWalkKm = getMaxWalkKm(weather);
+
   // 1. Hard filter (neighborhood match)
   let candidates = hardFilter(venues, role, answers, weather, usedIds);
 
   // 2. Enforce proximity to anchor
   if (anchor && candidates.length > 0) {
-    const nearby = filterByProximity(candidates, anchor);
+    const nearby = filterByProximity(candidates, anchor, maxWalkKm);
     if (nearby.length > 0) candidates = nearby;
     // If no nearby candidates survive, fall through to relaxed filter
     else candidates = [];
@@ -153,7 +173,7 @@ function pickBestForRole(
   if (candidates.length === 0) {
     candidates = relaxedFilter(venues, role, usedIds, weather);
     if (anchor && candidates.length > 0) {
-      const nearby = filterByProximity(candidates, anchor);
+      const nearby = filterByProximity(candidates, anchor, maxWalkKm);
       if (nearby.length > 0) candidates = nearby;
     }
   }
@@ -165,86 +185,4 @@ function pickBestForRole(
   scored.sort((a, b) => b.score - a.score);
 
   return { best: scored[0] ?? null, scored };
-}
-
-export function selectTrio(
-  venues: Venue[],
-  answers: QuestionnaireAnswers,
-  weather: WeatherInfo | null,
-  jitter: number = 10
-): { stops: ItineraryStop[]; planBs: Record<string, Venue | null> } {
-  const usedIds = new Set<string>();
-  const stops: ItineraryStop[] = [];
-  const planBs: Record<string, Venue | null> = {};
-
-  // Step 1: Pick main first — it's the anchor for geo clustering
-  const { best: main } = pickBestForRole(
-    venues, "main", answers, weather, usedIds, null, jitter
-  );
-
-  if (main) {
-    usedIds.add(main.id);
-    stops.push({
-      role: "main",
-      venue: main,
-      curation_note: main.curation_note,
-      spend_estimate: spendEstimate(main.price_tier),
-      is_fixed: true,
-      plan_b: null,
-    });
-    planBs["main"] = null;
-  }
-
-  // Step 2: Pick opener and closer, anchored to main's location
-  const flexRoles: StopRole[] = ["opener", "closer"];
-  for (const role of flexRoles) {
-    const { best, scored } = pickBestForRole(
-      venues, role, answers, weather, usedIds, main, jitter
-    );
-
-    if (best) {
-      usedIds.add(best.id);
-      stops.push({
-        role,
-        venue: best,
-        curation_note: best.curation_note,
-        spend_estimate: spendEstimate(best.price_tier),
-        is_fixed: false,
-        plan_b: null,
-      });
-
-      // Plan B: next best candidate still within walk range
-      const backup = scored.find((v) => v.id !== best.id) ?? null;
-      planBs[role] = backup;
-    } else {
-      planBs[role] = null;
-    }
-  }
-
-  // Reorder: opener → main → closer
-  const ordered = ["opener", "main", "closer"]
-    .map((r) => stops.find((s) => s.role === r))
-    .filter(Boolean) as ItineraryStop[];
-
-  // Attach plan B
-  for (const stop of ordered) {
-    if (!stop.is_fixed && planBs[stop.role]) {
-      stop.plan_b = planBs[stop.role];
-    }
-  }
-
-  return { stops: ordered, planBs };
-}
-
-function spendEstimate(tier: number): string {
-  switch (tier) {
-    case 1:
-      return "$15–30";
-    case 2:
-      return "$35–65";
-    case 3:
-      return "$75–150";
-    default:
-      return "$30–60";
-  }
 }

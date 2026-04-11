@@ -20,7 +20,7 @@ const VIBE_LABELS: Record<string, string> = {
   "mix-it-up": "Mix It Up",
 };
 
-export default function CompositionHeader({
+export function CompositionHeader({
   header,
 }: {
   header: ItineraryResponse["header"];

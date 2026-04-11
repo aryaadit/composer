@@ -25,7 +25,7 @@ const NEIGHBORHOOD_LABELS: Record<string, string> = {
   "upper-west-side": "Upper West Side",
 };
 
-export default function StopCard({
+export function StopCard({
   stop,
   index,
 }: {

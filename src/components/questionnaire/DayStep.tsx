@@ -32,7 +32,7 @@ function buildUpcomingDays(): UpcomingDay[] {
   });
 }
 
-export default function DayStep({ selectedValue, onSelect }: DayStepProps) {
+export function DayStep({ selectedValue, onSelect }: DayStepProps) {
   const days = buildUpcomingDays();
 
   return (

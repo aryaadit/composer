@@ -1,6 +1,6 @@
 "use client";
 
-import OptionCard from "@/components/ui/OptionCard";
+import { OptionCard } from "@/components/ui/OptionCard";
 
 interface Option {
   value: string;
@@ -14,7 +14,7 @@ interface StandardStepProps {
   onSelect: (value: string) => void;
 }
 
-export default function StandardStep({
+export function StandardStep({
   options,
   selectedValue,
   onSelect,

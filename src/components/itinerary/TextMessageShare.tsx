@@ -62,7 +62,7 @@ interface TextMessageShareProps {
   onClose: () => void;
 }
 
-export default function TextMessageShare({
+export function TextMessageShare({
   itinerary,
   open,
   onClose,

@@ -1,10 +1,14 @@
 "use client";
 
-import { useSyncExternalStore, useCallback } from "react";
+import { useSyncExternalStore, useCallback, useState, useEffect } from "react";
+import { motion, AnimatePresence } from "motion/react";
 import Link from "next/link";
-import Button from "@/components/ui/Button";
+import { Button } from "@/components/ui/Button";
 import { getSavedItineraries, deleteSavedItinerary } from "@/lib/sharing";
+import { createCachedStore } from "@/lib/createCachedStore";
 import { SavedItinerary } from "@/types";
+
+const COACHMARK_FLAG = "composer_seen_coachmark";
 
 interface HomeScreenProps {
   userName: string;
@@ -17,46 +21,40 @@ function getGreeting(): string {
   return "Good evening";
 }
 
-// Cached snapshot so useSyncExternalStore returns a stable reference
-let savedPlansCache: SavedItinerary[] = [];
-let savedPlansCacheKey = "";
-const savedPlansListeners = new Set<() => void>();
-
-function readSavedPlans(): SavedItinerary[] {
-  if (typeof window === "undefined") return [];
-  const fresh = getSavedItineraries();
-  const key = JSON.stringify(fresh.map((s) => s.id));
-  if (key !== savedPlansCacheKey) {
-    savedPlansCache = fresh;
-    savedPlansCacheKey = key;
-  }
-  return savedPlansCache;
-}
-
-function subscribeSavedPlans(cb: () => void): () => void {
-  savedPlansListeners.add(cb);
-  return () => {
-    savedPlansListeners.delete(cb);
-  };
-}
-
-function notifySavedPlans(): void {
-  savedPlansListeners.forEach((cb) => cb());
-}
-
 const EMPTY_SAVED: SavedItinerary[] = [];
 
-export default function HomeScreen({ userName }: HomeScreenProps) {
+const savedPlansStore = createCachedStore<SavedItinerary[]>(
+  () => getSavedItineraries(),
+  (plans) => plans.map((p) => p.id).join("|"),
+  EMPTY_SAVED
+);
+
+export function HomeScreen({ userName }: HomeScreenProps) {
   const savedPlans = useSyncExternalStore(
-    subscribeSavedPlans,
-    readSavedPlans,
-    () => EMPTY_SAVED
+    savedPlansStore.subscribe,
+    savedPlansStore.getSnapshot,
+    savedPlansStore.getServerSnapshot
   );
 
   const handleDelete = useCallback((id: string) => {
     deleteSavedItinerary(id);
-    savedPlansCacheKey = ""; // invalidate cache
-    notifySavedPlans();
+    savedPlansStore.notify();
+  }, []);
+
+  // First-run coachmark — fires only when the user has no saved plans and
+  // hasn't dismissed it before. Stored in localStorage so it stays dismissed.
+  const [showCoachmark, setShowCoachmark] = useState(false);
+  useEffect(() => {
+    if (savedPlans.length === 0 && !localStorage.getItem(COACHMARK_FLAG)) {
+      setShowCoachmark(true);
+    }
+    // Run once on mount; intentionally not reactive to savedPlans changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const dismissCoachmark = useCallback(() => {
+    setShowCoachmark(false);
+    localStorage.setItem(COACHMARK_FLAG, "1");
   }, []);
 
   const totalStops = savedPlans.reduce(
@@ -74,10 +72,15 @@ export default function HomeScreen({ userName }: HomeScreenProps) {
         <h1 className="font-serif text-4xl text-charcoal">Compose your night.</h1>
       </div>
 
-      {/* Main CTA */}
-      <div className="px-6 mb-8 max-w-lg w-full mx-auto">
+      {/* Main CTA — lifted above the dim overlay when coachmark is active */}
+      <div
+        className={`px-6 mb-8 max-w-lg w-full mx-auto ${
+          showCoachmark ? "relative z-50" : ""
+        }`}
+      >
         <Link
           href="/compose"
+          onClick={dismissCoachmark}
           className="block w-full p-6 rounded-2xl bg-burgundy text-cream relative overflow-hidden hover:bg-burgundy-light transition-colors"
         >
           <div className="relative z-10">
@@ -157,6 +160,45 @@ export default function HomeScreen({ userName }: HomeScreenProps) {
           </div>
         </div>
       </div>
+
+      {/* First-run coachmark */}
+      <AnimatePresence>
+        {showCoachmark && (
+          <>
+            <motion.button
+              type="button"
+              className="fixed inset-0 z-40 bg-charcoal/60 cursor-pointer"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.25 }}
+              onClick={dismissCoachmark}
+              aria-label="Dismiss tip"
+            />
+            <motion.div
+              className="fixed left-1/2 top-[58%] -translate-x-1/2 z-50 w-[88%] max-w-xs bg-cream rounded-2xl shadow-2xl p-5 text-center"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 10 }}
+              transition={{ duration: 0.3, delay: 0.1 }}
+            >
+              <div className="font-serif text-lg text-charcoal mb-2">
+                Tap to start
+              </div>
+              <p className="font-sans text-sm text-warm-gray mb-4">
+                Three quick questions and we&apos;ll compose your night.
+              </p>
+              <button
+                type="button"
+                onClick={dismissCoachmark}
+                className="font-sans text-xs font-medium text-burgundy"
+              >
+                Got it
+              </button>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

@@ -4,39 +4,44 @@ import { useState, useEffect } from 'react';
 import OnboardingFlow from '@/components/OnboardingFlow';
 import HomeScreen from '@/components/HomeScreen';
 
+const STORAGE_KEY = 'composer_prefs_v2';
+
 export default function Home() {
   const [hasOnboarded, setHasOnboarded] = useState(false);
-  const [userName, setUserName] = useState('');
-  const [userContext, setUserContext] = useState(null);
+  const [userPrefs, setUserPrefs] = useState(null);
+  const [justOnboarded, setJustOnboarded] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check if user has completed onboarding (stored in state for now)
-    // In production, this comes from Firebase auth + Firestore
-    const savedName = typeof window !== 'undefined'
-      ? sessionStorage.getItem('composer_name')
-      : null;
-    if (savedName) {
-      setUserName(savedName);
-      setHasOnboarded(true);
+    if (typeof window === 'undefined') return;
+    try {
+      const saved = sessionStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        setUserPrefs(parsed);
+        setHasOnboarded(true);
+      }
+    } catch {
+      /* ignore */
     }
     setLoading(false);
   }, []);
 
-  const handleOnboardingComplete = (data) => {
-    setUserName(data.name);
-    setUserContext(data.context);
+  const handleOnboardingComplete = (prefs) => {
+    setUserPrefs(prefs);
     setHasOnboarded(true);
-    if (typeof window !== 'undefined') {
-      sessionStorage.setItem('composer_name', data.name);
-      sessionStorage.setItem('composer_context', data.context);
+    setJustOnboarded(true);
+    try {
+      sessionStorage.setItem(STORAGE_KEY, JSON.stringify(prefs));
+    } catch {
+      /* ignore */
     }
   };
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="w-8 h-8 border-3 border-orange-400 border-t-transparent rounded-full animate-spin" />
+      <div className="flex items-center justify-center min-h-[100dvh]">
+        <div className="w-8 h-8 border-3 border-[var(--mango)] border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
@@ -45,5 +50,11 @@ export default function Home() {
     return <OnboardingFlow onComplete={handleOnboardingComplete} />;
   }
 
-  return <HomeScreen userName={userName} userContext={userContext} />;
+  return (
+    <HomeScreen
+      userName={userPrefs?.name || 'friend'}
+      userPrefs={userPrefs}
+      justOnboarded={justOnboarded}
+    />
+  );
 }

@@ -23,3 +23,11 @@ body {
 h1, h2, h3, h4 {
   font-family: var(--font-serif), Georgia, serif;
 }
+
+/* Hide scrollbars cross-browser. Used by the wheel time picker. */
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}

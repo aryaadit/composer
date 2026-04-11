@@ -1,8 +1,7 @@
 'use client';
 
 import { useState, useRef } from 'react';
-import { motion } from 'framer-motion';
-import { ArrowLeft, Copy, Check, MessageSquare } from 'lucide-react';
+import { Copy, Check, MessageSquare } from 'lucide-react';
 import { MESSAGE_TONES } from '@/lib/constants';
 
 export default function TextMessageShare({ itinerary, userName, meta, onBack }) {
@@ -16,7 +15,6 @@ export default function TextMessageShare({ itinerary, userName, meta, onBack }) 
   const firstStop = itinerary.stops[0];
   const tone = MESSAGE_TONES.find((t) => t.id === selectedTone);
 
-  // Get day info from the meta
   const dateStr = meta?.date;
   let dayDisplay = '';
   if (dateStr) {
@@ -24,22 +22,14 @@ export default function TextMessageShare({ itinerary, userName, meta, onBack }) 
     const today = new Date();
     const tomorrow = new Date();
     tomorrow.setDate(today.getDate() + 1);
-
-    if (d.toDateString() === today.toDateString()) {
-      dayDisplay = 'tonight';
-    } else if (d.toDateString() === tomorrow.toDateString()) {
-      dayDisplay = 'tomorrow';
-    } else {
-      dayDisplay = d.toLocaleDateString('en-US', { weekday: 'long' });
-    }
+    if (d.toDateString() === today.toDateString()) dayDisplay = 'tonight';
+    else if (d.toDateString() === tomorrow.toDateString()) dayDisplay = 'tomorrow';
+    else dayDisplay = d.toLocaleDateString('en-US', { weekday: 'long' });
   }
 
-  const message = tone?.template(
-    dateName || 'there',
-    firstStop.place.name,
-    dayDisplay,
-    firstStop.arriveAt
-  ) || '';
+  const message =
+    tone?.template(dateName || 'there', firstStop.place.name, dayDisplay, firstStop.arriveAt) ||
+    '';
 
   const handleCopy = async () => {
     try {
@@ -47,7 +37,6 @@ export default function TextMessageShare({ itinerary, userName, meta, onBack }) 
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      // Fallback for clipboard API
       if (textRef.current) {
         textRef.current.select();
         document.execCommand('copy');
@@ -58,17 +47,18 @@ export default function TextMessageShare({ itinerary, userName, meta, onBack }) 
   };
 
   return (
-    <div className="min-h-screen bg-white flex flex-col">
-      {/* Header */}
+    <div className="min-h-[100dvh] bg-white flex flex-col relative">
       <div className="flex items-center gap-3 px-4 pt-12 pb-2">
-        <button onClick={onBack} className="p-2 -ml-2 rounded-full hover:bg-gray-100">
-          <ArrowLeft size={22} />
+        <button
+          onClick={onBack}
+          className="w-10 h-10 -ml-2 rounded-full hover:bg-gray-100 flex items-center justify-center text-2xl"
+        >
+          ‹
         </button>
-        <h1 className="text-lg font-bold font-display">Send the text</h1>
+        <h1 className="text-lg font-bold serif">Send the text</h1>
       </div>
 
       <div className="flex-1 px-6 pt-4">
-        {/* Their name */}
         <div className="mb-6">
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Their name (optional)
@@ -78,15 +68,12 @@ export default function TextMessageShare({ itinerary, userName, meta, onBack }) 
             value={dateName}
             onChange={(e) => setDateName(e.target.value)}
             placeholder="Name"
-            className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-orange-400 focus:outline-none transition-colors"
+            className="w-full px-4 py-3 border-1.5 border border-[#e5e5e5] rounded-2xl focus:border-[var(--mango)] focus:outline-none transition-colors"
           />
         </div>
 
-        {/* Tone selector */}
         <div className="mb-6">
-          <label className="block text-sm font-medium text-gray-700 mb-3">
-            Pick a tone
-          </label>
+          <label className="block text-sm font-medium text-gray-700 mb-3">Pick a tone</label>
           <div className="flex gap-2">
             {MESSAGE_TONES.map((t) => (
               <button
@@ -98,21 +85,13 @@ export default function TextMessageShare({ itinerary, userName, meta, onBack }) 
               </button>
             ))}
           </div>
-          <p className="text-xs text-gray-400 mt-2">{tone?.description}</p>
+          <p className="text-xs text-[var(--muted)] mt-2">{tone?.description}</p>
         </div>
 
-        {/* Message preview — styled like iMessage */}
         <div className="mb-6">
-          <label className="block text-sm font-medium text-gray-700 mb-3">
-            Preview
-          </label>
+          <label className="block text-sm font-medium text-gray-700 mb-3">Preview</label>
           <div className="bg-gray-100 rounded-2xl p-4">
-            {/* Their "name" as a chat header */}
-            <div className="text-center text-xs text-gray-400 mb-3">
-              iMessage
-            </div>
-
-            {/* The message bubble */}
+            <div className="text-center text-xs text-[var(--muted)] mb-3">iMessage</div>
             <div className="flex justify-end">
               <div className="max-w-[85%] bg-blue-500 text-white px-4 py-3 rounded-2xl rounded-br-md text-sm leading-relaxed">
                 {message}
@@ -121,41 +100,30 @@ export default function TextMessageShare({ itinerary, userName, meta, onBack }) 
           </div>
         </div>
 
-        {/* Hidden textarea for clipboard fallback */}
-        <textarea
-          ref={textRef}
-          value={message}
-          readOnly
-          className="sr-only"
-          aria-hidden
-        />
+        <textarea ref={textRef} value={message} readOnly className="sr-only" aria-hidden />
 
-        {/* Info note */}
-        <div className="bg-orange-50 rounded-xl p-4 text-sm text-orange-800">
-          <p className="font-medium mb-1">Only the first stop is mentioned</p>
-          <p className="text-orange-600 text-xs">
-            The full itinerary stays with you. They just see the plan for the first stop —
-            the rest is your secret advantage.
+        <div className="bg-[var(--mango-soft)] rounded-2xl p-4 text-sm text-[var(--mango-dark)]">
+          <p className="font-semibold mb-1">Only the first stop is mentioned</p>
+          <p className="text-xs opacity-80">
+            The full itinerary stays with you. They just see the plan for the first stop — the rest
+            is your secret advantage.
           </p>
         </div>
       </div>
 
-      {/* Copy button */}
       <div className="px-6 pb-10 pt-4">
         <button
           onClick={handleCopy}
-          className="w-full py-4 rounded-xl font-semibold text-white flex items-center justify-center gap-2 transition-all"
-          style={{ background: copied ? '#22c55e' : 'var(--brand-primary)' }}
+          className="btn-primary"
+          style={copied ? { background: '#22c55e' } : undefined}
         >
           {copied ? (
             <>
-              <Check size={18} />
-              Copied!
+              <Check size={18} /> Copied!
             </>
           ) : (
             <>
-              <Copy size={18} />
-              Copy to clipboard
+              <Copy size={18} /> Copy to clipboard
             </>
           )}
         </button>

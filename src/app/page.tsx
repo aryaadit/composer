@@ -1,11 +1,12 @@
 "use client";
 
 import { useSyncExternalStore, useCallback } from "react";
-import Hero from "@/components/landing/Hero";
-import OnboardingFlow from "@/components/onboarding/OnboardingFlow";
-import HomeScreen from "@/components/home/HomeScreen";
+import { Hero } from "@/components/landing/Hero";
+import { OnboardingFlow } from "@/components/onboarding/OnboardingFlow";
+import { HomeScreen } from "@/components/home/HomeScreen";
 import { getUserPrefs } from "@/lib/userPrefs";
 import { getSavedItineraries } from "@/lib/sharing";
+import { createCachedStore } from "@/lib/createCachedStore";
 import type { UserPrefs } from "@/types";
 
 type View = "loading" | "onboarding" | "landing" | "home";
@@ -16,10 +17,6 @@ interface Snapshot {
 }
 
 const LOADING_SNAPSHOT: Snapshot = { view: "loading", prefs: null };
-
-let cachedSnapshot: Snapshot = LOADING_SNAPSHOT;
-let cachedKey = "";
-const listeners = new Set<() => void>();
 
 function computeSnapshot(): Snapshot {
   if (typeof window === "undefined") return LOADING_SNAPSHOT;
@@ -32,42 +29,21 @@ function computeSnapshot(): Snapshot {
   };
 }
 
-function getSnapshot(): Snapshot {
-  if (typeof window === "undefined") return LOADING_SNAPSHOT;
-  const fresh = computeSnapshot();
-  const key = `${fresh.view}|${fresh.prefs?.name ?? ""}`;
-  if (key !== cachedKey) {
-    cachedSnapshot = fresh;
-    cachedKey = key;
-  }
-  return cachedSnapshot;
-}
-
-function getServerSnapshot(): Snapshot {
-  return LOADING_SNAPSHOT;
-}
-
-function subscribe(cb: () => void): () => void {
-  listeners.add(cb);
-  return () => {
-    listeners.delete(cb);
-  };
-}
-
-function notify(): void {
-  cachedKey = ""; // invalidate
-  listeners.forEach((cb) => cb());
-}
+const homeStore = createCachedStore<Snapshot>(
+  computeSnapshot,
+  (s) => `${s.view}|${s.prefs?.name ?? ""}`,
+  LOADING_SNAPSHOT
+);
 
 export default function Home() {
   const { view, prefs } = useSyncExternalStore(
-    subscribe,
-    getSnapshot,
-    getServerSnapshot
+    homeStore.subscribe,
+    homeStore.getSnapshot,
+    homeStore.getServerSnapshot
   );
 
   const handleOnboardingComplete = useCallback(() => {
-    notify();
+    homeStore.notify();
   }, []);
 
   if (view === "loading") {

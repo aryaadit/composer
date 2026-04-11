@@ -1,9 +1,9 @@
 "use client";
 
 import { motion } from "motion/react";
-import Button from "@/components/ui/Button";
+import { Button } from "@/components/ui/Button";
 
-export default function Hero() {
+export function Hero() {
   return (
     <section className="flex flex-1 flex-col items-center justify-center px-6 text-center">
       <motion.p

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSupabase } from "@/lib/supabase";
 import { fetchWeather } from "@/lib/weather";
-import { selectTrio } from "@/lib/scoring";
+import { composeItinerary } from "@/lib/composer";
 import { generateCopy } from "@/lib/claude";
 import { walkTimeMinutes, walkDistanceKm, buildGoogleMapsUrl } from "@/lib/geo";
 import {
@@ -55,8 +55,8 @@ export async function POST(request: Request) {
       );
     }
 
-    // Score and select trio
-    const { stops } = selectTrio(venues, inputs, weather);
+    // Plan the stop mix from the time window, then score + assemble stops
+    const { stops } = composeItinerary(venues, inputs, weather);
 
     if (stops.length === 0) {
       return NextResponse.json(

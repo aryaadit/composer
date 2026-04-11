@@ -1,4 +1,4 @@
-import QuestionnaireShell from "@/components/questionnaire/QuestionnaireShell";
+import { QuestionnaireShell } from "@/components/questionnaire/QuestionnaireShell";
 
 export default function ComposePage() {
   return (

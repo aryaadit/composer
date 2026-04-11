@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { motion } from "motion/react";
-import Button from "@/components/ui/Button";
-import TextMessageShare from "@/components/itinerary/TextMessageShare";
+import { Button } from "@/components/ui/Button";
+import { TextMessageShare } from "@/components/itinerary/TextMessageShare";
 import { ItineraryResponse } from "@/types";
 import { saveItinerary } from "@/lib/sharing";
 
@@ -13,7 +13,7 @@ interface ActionBarProps {
   isRegenerating: boolean;
 }
 
-export default function ActionBar({
+export function ActionBar({
   itinerary,
   onRegenerate,
   isRegenerating,

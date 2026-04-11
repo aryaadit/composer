@@ -1,3 +1,8 @@
+// Claude model + token budget for itinerary copy generation.
+// Do not change the model without founder approval — voice tuning depends on it.
+export const CLAUDE_MODEL = "claude-sonnet-4-20250514";
+export const CLAUDE_MAX_TOKENS = 1000;
+
 export const COMPOSER_SYSTEM_PROMPT = `You are the voice of Composer — a curated NYC date night itinerary generator.
 
 Your tone is warm, confident, and knowing. You speak in first-person plural ("we," "our pick," "trust us"). You sound like the friend who always knows the spot. Never say "you might enjoy" — instead say "this is the move." Be specific, be opinionated, be brief.
@@ -69,6 +74,10 @@ export function buildGenerationPrompt(
   const mins = totalMinutes % 60;
   const durationLabel = `${hours > 0 ? `${hours}h` : ""}${mins > 0 ? ` ${mins}m` : ""}`.trim();
 
+  const venueNoteEntries = venues
+    .map((v) => `    "${v.name}": "1-2 sentence curation note"`)
+    .join(",\n");
+
   return `Generate copy for this NYC date night itinerary.
 
 User preferences:
@@ -81,7 +90,7 @@ User preferences:
 
 Weather: ${weather ? `${weather.description}, ${weather.temp_f}°F` : "Unknown"}
 
-Venues:
+Venues (${venues.length} stops):
 ${venues.map((v) => `- ${v.role.toUpperCase()}: ${v.name} (${v.category}, ${v.neighborhood}) — DB note: "${v.curation_note}"`).join("\n")}
 
 Return this exact JSON shape:
@@ -89,9 +98,7 @@ Return this exact JSON shape:
   "title": "evocative 3-7 word title for the evening${userName ? `, optionally using the name ${userName}` : ""}",
   "subtitle": "one punchy sentence about the night",
   "venue_notes": {
-    "${venues[0]?.name}": "1-2 sentence curation note",
-    "${venues[1]?.name}": "1-2 sentence curation note",
-    "${venues[2]?.name}": "1-2 sentence curation note"
+${venueNoteEntries}
   }
 }`;
 }

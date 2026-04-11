@@ -4,11 +4,11 @@ import { Suspense, useEffect, useState, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import { ItineraryResponse, QuestionnaireAnswers } from "@/types";
 import { decodeParamsToInputs } from "@/lib/sharing";
-import CompositionHeader from "@/components/itinerary/CompositionHeader";
-import ItineraryView from "@/components/itinerary/ItineraryView";
-import ActionBar from "@/components/itinerary/ActionBar";
-import StepLoading from "@/components/questionnaire/StepLoading";
-import Button from "@/components/ui/Button";
+import { CompositionHeader } from "@/components/itinerary/CompositionHeader";
+import { ItineraryView } from "@/components/itinerary/ItineraryView";
+import { ActionBar } from "@/components/itinerary/ActionBar";
+import { StepLoading } from "@/components/questionnaire/StepLoading";
+import { Button } from "@/components/ui/Button";
 
 function ItineraryContent() {
   const searchParams = useSearchParams();

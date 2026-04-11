@@ -2,7 +2,7 @@
 
 import { useCallback, useState } from "react";
 import { motion } from "motion/react";
-import Button from "@/components/ui/Button";
+import { Button } from "@/components/ui/Button";
 
 interface Option {
   value: string;
@@ -17,7 +17,7 @@ interface NeighborhoodStepProps {
 
 const MAX_HOODS = 3;
 
-export default function NeighborhoodStep({
+export function NeighborhoodStep({
   options,
   initialSelected = [],
   onContinue,

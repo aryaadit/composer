@@ -1,5 +1,10 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { COMPOSER_SYSTEM_PROMPT, buildGenerationPrompt } from "@/config/prompts";
+import {
+  COMPOSER_SYSTEM_PROMPT,
+  CLAUDE_MODEL,
+  CLAUDE_MAX_TOKENS,
+  buildGenerationPrompt,
+} from "@/config/prompts";
 import { ItineraryStop, QuestionnaireAnswers, WeatherInfo } from "@/types";
 
 const anthropic = new Anthropic({
@@ -30,8 +35,8 @@ export async function generateCopy(
 
   try {
     const response = await anthropic.messages.create({
-      model: "claude-sonnet-4-20250514",
-      max_tokens: 1000,
+      model: CLAUDE_MODEL,
+      max_tokens: CLAUDE_MAX_TOKENS,
       system: COMPOSER_SYSTEM_PROMPT,
       messages: [{ role: "user", content: prompt }],
     });
@@ -53,7 +58,7 @@ export async function generateCopy(
 
     return {
       title: userName ? `Here's your night, ${userName}` : "Your Night, Composed",
-      subtitle: "Three stops, one perfect evening.",
+      subtitle: `${stops.length} stops, one perfect evening.`,
       venue_notes,
     };
   }

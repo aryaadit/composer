@@ -2,15 +2,11 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import Button from "@/components/ui/Button";
+import { Button } from "@/components/ui/Button";
+import { OnboardingMapBg } from "@/components/onboarding/OnboardingMapBg";
 import { saveUserPrefs } from "@/lib/userPrefs";
 import { UserPrefs, DrinksPref } from "@/types";
-import {
-  CONTEXT_OPTIONS,
-  DRINK_OPTIONS,
-  DIETARY_OPTIONS,
-  FAVORITE_HOODS,
-} from "@/config/onboarding";
+import { CONTEXT_OPTIONS, DRINK_OPTIONS, DIETARY_OPTIONS, FAVORITE_HOODS } from "@/config/onboarding";
 
 interface OnboardingFlowProps {
   onComplete: (prefs: UserPrefs) => void;
@@ -23,7 +19,7 @@ const pillClass = (selected: boolean, extra = "px-4 py-2") =>
       : "bg-white border border-border text-charcoal hover:border-burgundy/30"
   }`;
 
-export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
+export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
   const [step, setStep] = useState(0); // 0 = name, 1 = context, 2 = preferences, 3 = neighborhoods
   const [name, setName] = useState("");
   const [context, setContext] = useState("");
@@ -67,9 +63,10 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-cream">
+    <div className="min-h-screen flex flex-col bg-cream relative overflow-hidden">
+      <OnboardingMapBg />
       {/* Progress dots */}
-      <div className="flex items-center justify-center gap-2 pt-12 pb-6 px-6">
+      <div className="relative z-10 flex items-center justify-center gap-2 pt-12 pb-6 px-6">
         {Array.from({ length: totalSteps }).map((_, i) => (
           <div
             key={i}
@@ -85,7 +82,7 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
       </div>
 
       {/* Content */}
-      <div className="flex-1 flex flex-col px-6 max-w-lg w-full mx-auto">
+      <div className="relative z-10 flex-1 flex flex-col px-6 max-w-lg w-full mx-auto">
         <AnimatePresence mode="wait">
           <motion.div
             key={step}
@@ -223,7 +220,7 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
       </div>
 
       {/* Bottom action area */}
-      <div className="px-6 pb-10 pt-4 max-w-lg w-full mx-auto">
+      <div className="relative z-10 px-6 pb-10 pt-4 max-w-lg w-full mx-auto">
         {step < 3 ? (
           <Button
             variant="primary"

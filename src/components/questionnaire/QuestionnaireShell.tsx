@@ -16,14 +16,14 @@ import {
   slideVariants,
 } from "@/lib/questionnaireReducer";
 import { getUserPrefs } from "@/lib/userPrefs";
-import ProgressBar from "@/components/ui/ProgressBar";
-import StepLoading from "./StepLoading";
-import NeighborhoodStep from "./NeighborhoodStep";
-import StandardStep from "./StandardStep";
-import DayStep from "./DayStep";
-import TimeStep from "./TimeStep";
+import { ProgressBar } from "@/components/ui/ProgressBar";
+import { StepLoading } from "./StepLoading";
+import { NeighborhoodStep } from "./NeighborhoodStep";
+import { StandardStep } from "./StandardStep";
+import { DayStep } from "./DayStep";
+import { TimeStep } from "./TimeStep";
 
-export default function QuestionnaireShell() {
+export function QuestionnaireShell() {
   const router = useRouter();
   const [state, dispatch] = useReducer(questionnaireReducer, initialState);
 

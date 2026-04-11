@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import Button from "@/components/ui/Button";
+import { Button } from "@/components/ui/Button";
 
 const ITEM_HEIGHT = 44;
 const VISIBLE_ITEMS = 5;
@@ -72,38 +72,34 @@ function WheelColumn({ items, selectedIndex, onSelect }: WheelColumnProps) {
 
   const padCount = Math.floor(VISIBLE_ITEMS / 2);
 
+  // Bridge JS layout constants to CSS custom properties so Tailwind utilities
+  // remain the single source of truth for visual properties below.
+  const wheelVars = {
+    "--wheel-item-h": `${ITEM_HEIGHT}px`,
+    "--wheel-h": `${WHEEL_HEIGHT}px`,
+    "--wheel-pad": `${padCount * ITEM_HEIGHT}px`,
+    "--wheel-fade": `${ITEM_HEIGHT * 1.5}px`,
+  } as React.CSSProperties;
+
   return (
-    <div className="relative" style={{ height: WHEEL_HEIGHT, width: 130 }}>
+    <div
+      className="relative w-[130px] h-[var(--wheel-h)]"
+      style={wheelVars}
+    >
       {/* Selection band */}
-      <div
-        className="absolute left-0 right-0 rounded-xl pointer-events-none z-10 bg-burgundy/10"
-        style={{ top: padCount * ITEM_HEIGHT, height: ITEM_HEIGHT }}
-      />
+      <div className="absolute left-0 right-0 top-[var(--wheel-pad)] h-[var(--wheel-item-h)] rounded-xl pointer-events-none z-10 bg-burgundy/10" />
       {/* Top fade */}
-      <div
-        className="absolute top-0 left-0 right-0 z-20 pointer-events-none"
-        style={{
-          height: ITEM_HEIGHT * 1.5,
-          background: "linear-gradient(to bottom, #FAF8F5 10%, transparent)",
-        }}
-      />
+      <div className="absolute top-0 left-0 right-0 h-[var(--wheel-fade)] z-20 pointer-events-none bg-gradient-to-b from-cream from-10% to-transparent" />
       {/* Bottom fade */}
-      <div
-        className="absolute bottom-0 left-0 right-0 z-20 pointer-events-none"
-        style={{
-          height: ITEM_HEIGHT * 1.5,
-          background: "linear-gradient(to top, #FAF8F5 10%, transparent)",
-        }}
-      />
+      <div className="absolute bottom-0 left-0 right-0 h-[var(--wheel-fade)] z-20 pointer-events-none bg-gradient-to-t from-cream from-10% to-transparent" />
 
       <div
         ref={containerRef}
         onScroll={handleScroll}
-        className="h-full overflow-y-scroll no-scrollbar"
-        style={{ scrollSnapType: "y mandatory", scrollbarWidth: "none" }}
+        className="h-full overflow-y-scroll no-scrollbar [scroll-snap-type:y_mandatory]"
       >
         {Array.from({ length: padCount }).map((_, i) => (
-          <div key={`pad-top-${i}`} style={{ height: ITEM_HEIGHT }} />
+          <div key={`pad-top-${i}`} className="h-[var(--wheel-item-h)]" />
         ))}
         {items.map((item, i) => {
           const isSelected = i === selectedIndex;
@@ -115,21 +111,18 @@ function WheelColumn({ items, selectedIndex, onSelect }: WheelColumnProps) {
                 if (el) el.scrollTo({ top: i * ITEM_HEIGHT, behavior: "smooth" });
                 onSelect(i);
               }}
-              className="flex items-center justify-center cursor-pointer select-none transition-all font-serif"
-              style={{
-                height: ITEM_HEIGHT,
-                scrollSnapAlign: "start",
-                fontWeight: isSelected ? 700 : 400,
-                fontSize: isSelected ? 22 : 17,
-                color: isSelected ? "#6B1E2E" : "#9A9A9A",
-              }}
+              className={`flex items-center justify-center cursor-pointer select-none transition-all font-serif h-[var(--wheel-item-h)] [scroll-snap-align:start] ${
+                isSelected
+                  ? "font-bold text-[22px] text-burgundy"
+                  : "font-normal text-[17px] text-warm-gray"
+              }`}
             >
               {item}
             </div>
           );
         })}
         {Array.from({ length: padCount }).map((_, i) => (
-          <div key={`pad-bot-${i}`} style={{ height: ITEM_HEIGHT }} />
+          <div key={`pad-bot-${i}`} className="h-[var(--wheel-item-h)]" />
         ))}
       </div>
     </div>
@@ -142,7 +135,7 @@ interface TimeStepProps {
   onContinue: (startTime: string, endTime: string) => void;
 }
 
-export default function TimeStep({ initialStart, initialEnd, onContinue }: TimeStepProps) {
+export function TimeStep({ initialStart, initialEnd, onContinue }: TimeStepProps) {
   const allSlots = buildSlots();
   const [startTime, setStartTime] = useState<string>(initialStart || defaultStartTime());
   const [endTime, setEndTime] = useState<string>(

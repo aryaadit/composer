@@ -10,7 +10,7 @@ interface OptionCardProps {
   index: number;
 }
 
-export default function OptionCard({
+export function OptionCard({
   label,
   description,
   selected,

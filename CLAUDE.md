@@ -85,15 +85,15 @@ create table venues (
   category text not null,
   price_tier int not null,          -- 1=$ 2=$$ 3=$$$ 4=$$$$
   vibe_tags text[],                 -- canonical tags only (see Canonical Tags below)
-  occasion_fit text[],              -- first_date | dating | couple | friends | solo
-  stop_role text[],                 -- opener | main | closer
+  occasion_tags text[],             -- first_date | dating | couple | friends | solo
+  stop_roles text[],                -- opener | main | closer
   outdoor_seating boolean default false,
   reservation_url text,             -- deep link to venue page on Resy/OpenTable
   maps_url text,
   curation_note text,               -- 1-2 sentence human-written note
   curated_by text,                  -- reid | adit | community
-  lat float,
-  lng float,
+  latitude float,
+  longitude float,
   active boolean default true,
   created_at timestamptz default now()
 );
@@ -294,6 +294,9 @@ Order: React → Next.js → third-party → internal (`@/lib`, `@/components`, 
 ### Git Commits
 Format: `type(scope): description`
 Types: `feat`, `fix`, `chore`, `refactor`, `style`, `docs`
+
+**Keep commit messages concise — one line only.** No multi-line bodies, no bullet lists, no co-author trailers. The git history should stay scannable. If a change is so large it can't be summarized in one line, that's a signal to split it into multiple commits.
+
 Examples:
 ```
 feat(scoring): add progressive filter relaxation for thin neighborhoods

@@ -11,7 +11,7 @@ const messages = [
   "Adding the finishing touches...",
 ];
 
-export default function StepLoading() {
+export function StepLoading() {
   const [messageIndex, setMessageIndex] = useState(0);
 
   useEffect(() => {

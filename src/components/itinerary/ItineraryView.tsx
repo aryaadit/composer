@@ -1,10 +1,10 @@
 "use client";
 
 import { ItineraryResponse } from "@/types";
-import StopCard from "@/components/ui/StopCard";
-import WalkConnector from "@/components/ui/WalkConnector";
+import { StopCard } from "@/components/ui/StopCard";
+import { WalkConnector } from "@/components/ui/WalkConnector";
 
-export default function ItineraryView({
+export function ItineraryView({
   stops,
   walks,
 }: {
