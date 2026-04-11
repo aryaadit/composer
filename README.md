@@ -2,128 +2,207 @@
 
 **Compose your night.**
 
-Composer is a curated date night itinerary generator for New York City. Answer four questions in under a minute and get a full evening — Opener, Main, Closer — built around your occasion, neighborhood, budget, and vibe. Every recommendation is human-curated, weather-aware, and assembled by AI in the voice of two people who actually know the city.
+Composer is a curated date night itinerary generator for New York City. Answer six quick questions in under a minute and get a full evening — Opener, Main, Closer — built around your occasion, neighborhood, budget, vibe, and time window. Every recommendation is human-curated, weather-aware, and assembled by AI in the voice of two people who actually know the city.
 
-Live at [composer.onpalate.com](https://composer.onpalate.com)
+Live at [composer.onpalate.com](https://composer.onpalate.com).
 
 ---
 
 ## What it does
 
-You answer four questions:
-1. **What kind of night is this?** — First date, established couple, friends, solo
-2. **Where do you want to be?** — West Village, Williamsburg, SoHo, and more
-3. **How are we feeling tonight?** — Casual to splurge
-4. **What's the energy?** — Food-forward, drinks-led, activity, walk and explore
+A user answers a six-step questionnaire:
 
-Composer returns a three-stop evening — Opener, Main, Closer — with walk times between stops, reservation links, weather awareness, and a Plan B on flexible stops. The itinerary is shareable as a link and exportable to Google Maps.
+1. **Occasion** — first date, second date, dating, established, friends, solo
+2. **Neighborhoods** — pick up to three from a curated set
+3. **Budget** — casual, nice-out, splurge, no preference
+4. **Vibe** — food-forward, drinks-led, activity + food, walk & explore, mix it up
+5. **Day** — today through next week
+6. **Time window** — start and end times via a wheel picker
+
+Composer returns a 2-to-4 stop evening, with the count driven by the time window:
+
+- **Under 2.5 hours** → 2 stops (Opener + Main)
+- **2.5 to 4.5 hours** → 3 stops (Opener + Main + Closer)
+- **Over 4.5 hours** → 4 stops (Opener + Main + Closer + Closer)
+
+Each itinerary includes walk times between stops, reservation links where available, weather-aware filtering, Plan B alternatives on flexible stops, a Google Maps export, and a shareable iMessage-ready text.
 
 ---
 
-## Stack
+## Tech stack
 
 | Layer | Technology |
 |-------|-----------|
-| Framework | Next.js 15 (App Router) + TypeScript |
-| Styling | Tailwind CSS |
-| Database | Supabase (PostgreSQL) |
-| AI | Google Gemini 2.5 Flash |
-| Weather | OpenWeatherMap API |
-| Auth | Supabase Auth (in progress) |
-| Deployment | Vercel |
+| Framework | Next.js 16.2 (App Router, Turbopack) + TypeScript (strict) |
+| UI | React 19, Tailwind CSS 4, Motion (Framer fork) |
+| Database | Supabase (Postgres + Row Level Security) |
+| AI | Google Gemini 2.5 Flash via `@google/generative-ai` |
+| Weather | OpenWeatherMap (free tier, called per request, not cached) |
+| Auth | Anonymous — no login. (User accounts are Phase 2.) |
+| Deployment | Vercel — auto-deploy from `main` |
 | Domain | composer.onpalate.com |
 
 ---
 
 ## Project structure
 
+The codebase is under `src/`. Everything else at the repo root is config, docs, or assets.
+
 ```
-app/
-├── page.tsx                  # Landing page / home screen gate
-├── compose/page.tsx          # Questionnaire flow (6 steps)
-├── itinerary/page.tsx        # Composition output
-└── api/generate/route.ts     # POST endpoint: weather + scoring + Gemini → itinerary
-
-components/
-├── onboarding/               # First-run onboarding flow (name, context, prefs, neighborhoods)
-├── home/                     # HomeScreen with saved plans and greeting
-├── landing/                  # Hero and CTA
-├── questionnaire/            # 6-step questionnaire (occasion, neighborhood, budget, vibe, day, time)
-└── itinerary/                # CompositionHeader, StopCard, WalkConnector, ActionBar, TextMessageShare
-
-lib/
-├── supabase.ts               # Supabase client
-├── scoring.ts                # Weighted venue scoring + hard filters + proximity enforcement
-├── composer.ts               # Multi-stop assembly via planStopMix + composeItinerary
-├── weather.ts                # OpenWeatherMap fetch + rain/snow classification
-├── geo.ts                    # Haversine + Manhattan grid correction + Maps URL builder
-├── claude.ts                 # Gemini API call + graceful fallback
-├── sharing.ts                # URL param encode/decode + localStorage save
-└── createCachedStore.ts      # Generic useSyncExternalStore factory
-
-config/
-├── options.ts                # All questionnaire step definitions
-└── prompts.ts                # Gemini system prompt + generation prompt builder
-
-supabase/
-└── seed.sql                  # Schema + seed venues
+composer/
+├── src/
+│   ├── app/
+│   │   ├── page.tsx                   # Landing / home gate (onboarding → home → landing routing)
+│   │   ├── compose/page.tsx           # Questionnaire flow
+│   │   ├── itinerary/page.tsx         # Composition output
+│   │   ├── layout.tsx
+│   │   ├── globals.css
+│   │   └── api/generate/route.ts      # POST: weather + scoring + Gemini → itinerary
+│   ├── components/
+│   │   ├── ui/                        # Button, OptionCard, ProgressBar, StopCard, WalkConnector
+│   │   ├── landing/                   # Hero
+│   │   ├── home/                      # HomeScreen with saved plans + first-run coachmark
+│   │   ├── onboarding/                # OnboardingFlow + OnboardingMapBg splash
+│   │   ├── questionnaire/             # Shell + step components (Standard, Neighborhood, Day, Time)
+│   │   └── itinerary/                 # CompositionHeader, ItineraryView, ActionBar, TextMessageShare
+│   ├── lib/
+│   │   ├── supabase.ts                # Lazy-initialized Supabase client
+│   │   ├── scoring.ts                 # Per-venue scoring + filters + per-role pick (with proximity)
+│   │   ├── composer.ts                # planStopMix + composeItinerary (multi-stop assembly)
+│   │   ├── weather.ts                 # OpenWeatherMap fetch + rain/snow classification
+│   │   ├── geo.ts                     # Haversine + Manhattan grid correction + Maps URL builder
+│   │   ├── claude.ts                  # Gemini API call + graceful fallback (filename predates the Gemini swap)
+│   │   ├── sharing.ts                 # URL param encode/decode + localStorage save
+│   │   ├── createCachedStore.ts       # Generic useSyncExternalStore factory
+│   │   ├── questionnaireReducer.ts    # Questionnaire state machine
+│   │   └── userPrefs.ts               # Onboarding prefs in localStorage
+│   ├── config/
+│   │   ├── options.ts                 # Questionnaire step definitions
+│   │   ├── prompts.ts                 # Gemini system prompt + generation prompt builder
+│   │   └── onboarding.ts              # Onboarding option definitions
+│   └── types/
+│       └── index.ts                   # Shared TypeScript types
+├── supabase/
+│   └── seed.sql                       # Schema + seed venues
+├── public/                            # Static assets
+├── .github/
+│   └── pull_request_template.md       # PR template (auto-loaded by GitHub on PR open)
+├── CLAUDE.md                          # Project rules and conventions (loaded by Claude Code)
+├── CONTRIBUTING.md                    # Branch workflow and contributor rules
+└── README.md
 ```
 
 ---
 
 ## How itinerary generation works
 
-1. **Onboarding preferences** (name, drinks preference, favorite neighborhoods) are read from `localStorage`
-2. **Questionnaire answers** (occasion, neighborhood, budget, vibe, day, time window) are posted to `/api/generate`
-3. **planStopMix** determines how many stops fit the time window: `<2.5h → 2 stops`, `<4.5h → 3 stops`, `≥4.5h → 4 stops`
-4. **Weather gate** — OpenWeatherMap is called. Rain or snow eliminates outdoor-only venues and drops max walk distance from 1.5km to 0.4km
-5. **Hard filters** remove closed venues, wrong roles, and dietary conflicts
-6. **Weighted scoring** ranks remaining venues: vibe match 35%, occasion fit 15%, budget 15%, location 10%, time fit 10%, quality 10%, curation boost 5%
-7. **composeItinerary** picks the best walkable combination (not just the top individual scores), anchored to the Main venue
-8. **Plan B** venues are pre-generated for each flexible stop (Opener and Closer)
-9. **Gemini** writes the composition header and personalizes curation notes in brand voice
-10. Itinerary is returned to the client and rendered
+`/api/generate` (POST) is the only generation endpoint. It runs server-side. The client never calls Supabase, OpenWeatherMap, or Gemini directly.
+
+1. **Onboarding preferences** (name, drinks preference, dietary, favorite neighborhoods) are read from `localStorage` and sent with the request body.
+2. **Parallel fetch:** weather is pulled from OpenWeatherMap and active venues are queried from Supabase.
+3. **Drinks filter:** if the user said "no" to drinks, alcohol-forward venues are dropped entirely.
+4. **planStopMix** ([src/lib/composer.ts](src/lib/composer.ts)) decides how many stops fit the time window and which role pattern to use:
+   - `<2.5h` → `["opener", "main"]`
+   - `<4.5h` → `["opener", "main", "closer"]`
+   - `≥4.5h` → `["opener", "main", "closer", "closer"]`
+5. **Hard filters** ([src/lib/scoring.ts](src/lib/scoring.ts)) drop inactive venues, wrong roles, neighborhood mismatches, and outdoor seating in bad weather.
+6. **Bad-weather walking cap** drops the max walking distance from 1.5 km (~20 min) to 0.4 km (~5 min) when it's raining or snowing.
+7. **Weighted scoring** ranks the survivors:
+   - Vibe match — 35% (exact canonical tag matching, no fuzzy)
+   - Occasion fit — 15%
+   - Budget fit — 15%
+   - Location (in selected neighborhoods) — 10%
+   - Time relevance — 10%
+   - Quality signal — up to 10% (from `quality_score`)
+   - Curation boost — up to 10% (from `curation_boost`)
+   - Plus small jitter for variety on regenerate
+8. **composeItinerary** picks the Main first as the geographic anchor, then fills the remaining slots in pattern order subject to walking-distance proximity to Main. **Plan B** alternatives are pulled from the same scored list.
+9. **Progressive relaxation:** if filters return zero venues for a slot, neighborhood filtering is dropped while proximity is preserved.
+10. **Gemini polish layer** writes the composition title, subtitle, and per-venue notes in the founder voice. If the call fails or times out, the route falls back to raw DB curation notes — the itinerary still renders.
+
+---
+
+## Architecture principles
+
+These are enforced by [CLAUDE.md](CLAUDE.md). Read that file for the full rule set; this is a summary.
+
+- **Generation is a single API route.** Client posts answers, gets back a complete itinerary. No client-side Supabase, weather, or AI calls.
+- **Scoring lives in `lib/scoring.ts`, composition in `lib/composer.ts`.** Never inline scoring or composition logic in the API route or components.
+- **Weather is stateless.** Per-request, no cache layer — itineraries reflect actual current conditions.
+- **Gemini is the polish layer, not the core.** Venue selection happens first; Gemini shapes the copy. If Gemini fails, the itinerary still renders with DB notes.
+- **The vibe tag contract is locked.** Exact canonical tag matching only. No fuzzy or substring matching.
+- **No file over 250 lines.** Split if needed.
+- **No `any`, no `ts-ignore`, no default exports** outside Next.js page files.
+- **Mobile-first.** Every UI decision works on a phone screen first.
 
 ---
 
 ## Venue database
 
-The venue database lives in Supabase (`composer_venues` table). Every venue is human-curated — no AI-generated venues, no Google Places scraping. The curation layer is the product.
+Venues live in the `composer_venues` table in Supabase. **Every venue is human-curated — no AI-generated entries, no Google Places scraping.** The curation layer is the product.
 
-Venues are managed via a Google Sheet (shared between founders) and imported to Supabase via CSV. See the Import Guide tab in the venue sheet for the full process.
+Venues are managed in a Google Sheet shared between the founders and imported to Supabase via CSV. See the Import Guide tab in the venue sheet for the full pipeline.
+
+### Schema (abridged)
+
+```sql
+composer_venues (
+  id              uuid primary key,
+  name            text,
+  category        text,
+  neighborhood    text,                -- hyphenated slug (see below)
+  address         text,
+  latitude        double precision,
+  longitude       double precision,
+  stop_roles      text[],              -- opener | main | closer
+  price_tier      int,                 -- 1 | 2 | 3
+  vibe_tags       text[],              -- canonical only (see below)
+  occasion_tags   text[],
+  outdoor_seating boolean,
+  reservation_url text,
+  curation_note   text,
+  active          boolean,
+  quality_score   int,                 -- 1-10
+  curation_boost  int,                 -- 0-2
+  best_before     text,                -- "21:00"
+  best_after      text                 -- "17:00"
+)
+```
+
+Full schema and seed data in [`supabase/seed.sql`](supabase/seed.sql).
 
 ### Canonical vibe tags
 
-These are the only valid vibe tags. Scoring matches on exact equality — no fuzzy matching.
+Scoring matches on exact equality. Adding a new tag requires updating `lib/scoring.ts` simultaneously.
 
 **Scored tags:**
 
-| Tag | Maps to vibe selection |
-|-----|----------------------|
+| Tag(s) | Maps to vibe |
+|--------|-------------|
 | `food_forward`, `tasting`, `dinner`, `bistro` | Food-forward |
 | `cocktail_forward`, `wine_bar`, `speakeasy`, `drinks` | Drinks-led |
 | `activity`, `comedy`, `karaoke`, `games`, `bowling` | Activity + food |
 | `walk`, `gallery`, `bookstore`, `market`, `park` | Walk & explore |
 
-**Cross-cutting tags** (not scored, use freely):
-`romantic`, `conversation_friendly`, `group_friendly`, `late_night`, `casual`, `upscale`, `outdoor`
+**Cross-cutting tags** (valid, not scored): `romantic`, `conversation_friendly`, `group_friendly`, `late_night`, `casual`, `upscale`, `outdoor`.
 
 ### Neighborhood slugs
 
-Always hyphenated. Must match exactly across the DB, `config/options.ts`, and the venue sheet:
+Always hyphenated. Must match exactly across the DB, [src/config/options.ts](src/config/options.ts), and the venue sheet:
 
-`west-village` · `east-village-les` · `soho-nolita` · `williamsburg` · `midtown` · `hells-kitchen` · `upper-west-side`
+`west-village` · `east-village-les` · `soho-nolita` · `williamsburg` · `midtown-hells-kitchen` · `upper-west-side`
 
 ---
 
 ## Local development
 
 ### Prerequisites
-- Node.js 18+
-- npm
-- A Supabase account (Composer project)
-- A Google AI Studio account (Gemini API key)
-- An OpenWeatherMap account (free tier)
+
+- **Node.js 20+** (project tests against 20.19+ / 22.13+ / 24+)
+- **npm**
+- A **Supabase** account (Composer project)
+- A **Google AI Studio** account for a Gemini API key
+- An **OpenWeatherMap** account, free tier (note: new keys take up to 2 hours to activate)
 
 ### Setup
 
@@ -136,74 +215,37 @@ npm install
 Create `.env.local` in the project root:
 
 ```
-NEXT_PUBLIC_SUPABASE_URL=https://uivpcwacqsqhbpisvmun.supabase.co
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_publishable_key
 GEMINI_API_KEY=your_gemini_api_key
 OPENWEATHERMAP_API_KEY=your_openweathermap_key
 ```
 
-Run the seed SQL in your Supabase project:
+Run the seed SQL in your Supabase project (Dashboard → SQL Editor):
+
 ```
 supabase/seed.sql
 ```
 
 Start the dev server:
+
 ```bash
 npm run dev
 ```
 
-Visit `http://localhost:3000`
+Visit `http://localhost:3000`.
 
----
+### Available scripts
 
-## Contributing
+| Command | What it does |
+|---------|-------------|
+| `npm run dev` | Start the dev server with Turbopack on `localhost:3000` |
+| `npm run build` | Production build |
+| `npm run start` | Run the production build locally |
+| `npm run lint` | ESLint over the project |
+| `npx tsc --noEmit` | TypeScript check (no emit) |
 
-### Branch workflow
-
-This repo has branch protection on `main`. Direct pushes to main are blocked.
-
-```bash
-# Start of every session
-git pull origin main
-
-# Create your branch
-git checkout -b yourname/what-youre-building
-
-# Do your work, then push
-git push origin yourname/what-youre-building
-
-# Open a PR on GitHub → other person reviews → merge to main
-```
-
-**Branch naming:**
-- `adit/feature-name` for Adit's work
-- `reid/feature-name` for Reid's work
-
-### Rules
-
-- Never push directly to main
-- Always pull before starting a new session
-- `tsc --noEmit` and `eslint` must pass before opening a PR
-- No `any` types, no `ts-ignore`, no default exports outside Next.js page files
-- No file over 250 lines — split if needed
-- All Supabase calls go through `lib/supabase.ts` — never from components
-- Never add AI-generated venues to the database — human-verified only
-- Never run `git commit`, `git push`, or `git add` from Claude Code — provide the commit message and stop
-
-### Commit format
-
-```
-type(scope): description
-```
-
-Types: `feat`, `fix`, `chore`, `refactor`, `style`, `docs`
-
-Examples:
-```
-feat(scoring): add progressive filter relaxation for thin neighborhoods
-fix(weather): handle OpenWeatherMap timeout gracefully
-chore(venues): add 12 new West Village venues to seed
-```
+`npx tsc --noEmit` and `npm run lint` must both pass before opening a PR.
 
 ---
 
@@ -211,10 +253,27 @@ chore(venues): add 12 new West Village venues to seed
 
 | Variable | Where to get it | Required |
 |----------|----------------|----------|
-| `NEXT_PUBLIC_SUPABASE_URL` | Supabase → Settings → General (Project ID → construct URL) | Yes |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase → Settings → API → Publishable key | Yes |
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase → Settings → API → Project URL | Yes |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase → Settings → API → Publishable / anon key | Yes |
 | `GEMINI_API_KEY` | aistudio.google.com → API Keys | Yes |
-| `OPENWEATHERMAP_API_KEY` | openweathermap.org → API Keys | Yes (2hr activation delay on new keys) |
+| `OPENWEATHERMAP_API_KEY` | openweathermap.org → API Keys (allow up to 2h to activate) | Yes |
+
+> **Production env vars must be set separately in the Vercel project dashboard.** Vercel does not read your local `.env.local`. If a value is missing in Vercel, the server will silently fall back: a missing `OPENWEATHERMAP_API_KEY` disables the weather gate (logged as a `[weather]` warning), and a missing `GEMINI_API_KEY` causes the copy generation to fall back to raw DB notes (logged as a `[gemini]` warning). Both fallbacks degrade gracefully — the itinerary still renders.
+
+---
+
+## Contributing
+
+This repo uses a branch-and-PR workflow. Full process and rules in [CONTRIBUTING.md](CONTRIBUTING.md). Quick summary:
+
+- Branch naming: `adit/feature-name` or `reid/feature-name`
+- Pull `main` before starting, work on a branch, push, open a PR
+- The other founder reviews and merges
+- Merging to `main` auto-deploys to production via Vercel
+- Never commit or push directly to `main`
+- Every PR auto-loads the [PR template](.github/pull_request_template.md) — fill it out
+
+`npx tsc --noEmit` and `npm run lint` must pass before opening a PR.
 
 ---
 
@@ -222,7 +281,42 @@ chore(venues): add 12 new West Village venues to seed
 
 Composer is deployed on Vercel. Every push to `main` triggers an automatic production deployment to `composer.onpalate.com`. Every PR gets a preview deployment URL.
 
-To deploy manually: push to main (via merged PR) and Vercel handles the rest.
+Production environment variables (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `GEMINI_API_KEY`, `OPENWEATHERMAP_API_KEY`) must be configured in the Vercel project settings — they are **not** read from `.env.local`.
+
+To monitor production: check Vercel → Logs for `[gemini]` and `[weather]` warnings, which surface fallback paths and missing credentials.
+
+---
+
+## Documentation
+
+| File | Audience | Purpose |
+|------|----------|---------|
+| [README.md](README.md) | Everyone | What you're reading now |
+| [CLAUDE.md](CLAUDE.md) | Claude Code + humans | Project rules, conventions, architectural principles, and design system |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | Contributors | Branch workflow and contributor rules |
+| [.github/pull_request_template.md](.github/pull_request_template.md) | GitHub | Auto-loaded PR template |
+
+---
+
+## Roadmap
+
+### MVP (current)
+
+- Anonymous use, no accounts
+- Six-step questionnaire
+- 2-to-4 stop itineraries with walk routing
+- Plan B alternatives, weather gate, share-as-text
+- Manhattan + Brooklyn (selected neighborhoods)
+
+### Phase 2 (not yet building)
+
+- User accounts and saved compositions (server-side)
+- Community venue submissions
+- Live integrations: Google Places / Resy / OpenTable
+- Native reservation booking
+- Implicit preference learning from saved plans
+- iOS app via Capacitor
+- Monetization: venue partnerships, premium tier
 
 ---
 
