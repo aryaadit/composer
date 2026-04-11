@@ -10,7 +10,7 @@ export const questionSteps: QuestionStep[] = [
       { value: "dating", label: "Dating", description: "You know each other" },
       { value: "established", label: "Established Couple", description: "Surprise them" },
       { value: "friends", label: "Friends Night Out", description: "No rules" },
-      { value: "solo", label: "Solo Exploration", description: "Treat yourself" },
+      { value: "solo", label: "Solo", description: "Just me" },
     ],
   },
   {
@@ -29,12 +29,12 @@ export const questionSteps: QuestionStep[] = [
   {
     id: "budget",
     kind: "cards",
-    question: "How are we feeling tonight?",
+    question: "How are we spending tonight?",
     options: [
       { value: "casual", label: "$ Casual", description: "Good times, low key" },
       { value: "nice-out", label: "$$ Nice Out", description: "A proper night" },
       { value: "splurge", label: "$$$ Splurge", description: "Go all in" },
-      { value: "no-preference", label: "No Preference", description: "Just make it great" },
+      { value: "no-preference", label: "No Preference", description: "Surprise me" },
     ],
   },
   {

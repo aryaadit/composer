@@ -49,10 +49,10 @@ function ItineraryContent() {
           return;
         }
 
-        setError("No itinerary data found. Start from the beginning.");
+        setError("We don't have a plan loaded. Start from the top.");
         setLoading(false);
       } catch {
-        setError("Something went wrong generating your night. Try again.");
+        setError("That didn't work. Try again.");
         setLoading(false);
       }
     }
