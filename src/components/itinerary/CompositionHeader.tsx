@@ -12,7 +12,7 @@ export function CompositionHeader({
 }) {
   const weatherNote = header.weather
     ? header.weather.is_bad_weather
-      ? `${header.weather.description} — cozy indoor vibes tonight`
+      ? `${header.weather.description}. Keeping you indoors.`
       : `${header.weather.temp_f}°F, ${header.weather.description}`
     : null;
 

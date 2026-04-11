@@ -17,7 +17,7 @@ export interface ContextOption {
 
 export const CONTEXT_OPTIONS: ContextOption[] = [
   { id: "new", label: "Someone new", emoji: "👋", description: "Planning a first impression" },
-  { id: "partner", label: "My partner", emoji: "❤️", description: "Keeping the spark alive" },
+  { id: "partner", label: "My partner", emoji: "❤️", description: "An ongoing thing" },
   { id: "special", label: "Something special", emoji: "🎁", description: "An occasion worth planning" },
   { id: "exploring", label: "Just exploring", emoji: "🗺️", description: "See what's out there" },
 ];

@@ -87,7 +87,7 @@ export function HomeScreen({ userName }: HomeScreenProps) {
           <div className="relative z-10">
             <div className="font-serif text-2xl mb-2">New Date Plan</div>
             <p className="font-sans text-sm text-cream/80">
-              Pick a vibe, a neighborhood, a time — we&apos;ll handle the rest.
+              Tell us the vibe, the neighborhood, the time. We&apos;ll do the rest.
             </p>
           </div>
           <div
@@ -187,7 +187,7 @@ export function HomeScreen({ userName }: HomeScreenProps) {
                 Tap to start
               </div>
               <p className="font-sans text-sm text-warm-gray mb-4">
-                Three quick questions and we&apos;ll compose your night.
+                Six quick steps and you&apos;ve got a plan.
               </p>
               <button
                 type="button"

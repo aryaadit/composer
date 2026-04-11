@@ -71,7 +71,7 @@ export async function generateCopy(
 
     return {
       title: userName ? `Here's your night, ${userName}` : "Your Night, Composed",
-      subtitle: `${stops.length} stops, one perfect evening.`,
+      subtitle: `${stops.length} stops. Let's go.`,
       venue_notes,
     };
   }
