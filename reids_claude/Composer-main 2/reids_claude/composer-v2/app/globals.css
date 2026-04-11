@@ -1,0 +1,366 @@
+@import "tailwindcss";
+
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Inter:wght@400;500;600;700&display=swap');
+
+:root {
+  --mango: #ff7a11;
+  --mango-dark: #e56700;
+  --mango-soft: #fff5eb;
+  --ink: #1a1a1a;
+  --muted: #6b6b6b;
+  --bg-soft: #faf8f5;
+  /* legacy aliases so older code still compiles */
+  --brand-primary: #ff7a11;
+  --brand-dark: #e56700;
+  --brand-light: #fff5eb;
+  --mango-primary: #ff7a11;
+  --mango-light: #fff5eb;
+  --warm-bg: #fdf8f6;
+}
+
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+  background: #fff;
+  color: var(--ink);
+  min-height: 100dvh;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Mobile-first container */
+.app-container {
+  max-width: 430px;
+  margin: 0 auto;
+  min-height: 100dvh;
+  position: relative;
+  background: #fff;
+}
+
+/* ── Typography ─────────────────────────────────────────── */
+.serif {
+  font-family: 'Fraunces', Georgia, serif;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.h1-display {
+  font-family: 'Fraunces', Georgia, serif;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  font-size: 38px;
+  line-height: 1.1;
+  color: var(--ink);
+}
+
+.h1-splash {
+  font-family: 'Fraunces', Georgia, serif;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  font-size: 56px;
+  line-height: 1.05;
+  color: var(--ink);
+}
+
+.sub {
+  font-size: 17px;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.eyebrow {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  color: var(--mango);
+  text-transform: uppercase;
+}
+
+/* ── Buttons ────────────────────────────────────────────── */
+.btn-primary {
+  background: var(--mango);
+  color: #fff;
+  font-weight: 600;
+  font-size: 17px;
+  border-radius: 9999px;
+  padding: 18px 20px;
+  width: 100%;
+  text-align: center;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.btn-primary:disabled {
+  background: #e5d8cc;
+  cursor: not-allowed;
+}
+.btn-primary:not(:disabled):hover { background: var(--mango-dark); }
+.btn-primary:active { transform: scale(0.98); }
+
+.btn-ghost {
+  background: transparent;
+  color: var(--muted);
+  font-weight: 500;
+  font-size: 15px;
+  padding: 14px 20px;
+  width: 100%;
+  text-align: center;
+}
+
+.btn-secondary {
+  background: #fff;
+  color: var(--ink);
+  font-weight: 600;
+  font-size: 16px;
+  border-radius: 9999px;
+  padding: 16px 20px;
+  border: 1.5px solid #e5e5e5;
+  transition: all 0.15s;
+}
+.btn-secondary:hover { background: #f7f7f7; }
+
+/* Back arrow */
+.back-btn {
+  position: absolute;
+  top: 24px;
+  left: 20px;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  color: var(--ink);
+  z-index: 30;
+}
+.back-btn:hover { background: #f3f3f3; }
+
+/* ── Form controls ──────────────────────────────────────── */
+.field-input {
+  width: 100%;
+  border: none;
+  border-bottom: 1.5px solid #d4d4d4;
+  font-size: 24px;
+  padding: 12px 0;
+  outline: none;
+  background: transparent;
+  font-family: inherit;
+  color: var(--ink);
+}
+.field-input::placeholder { color: #bdbdbd; }
+.field-input:focus { border-color: var(--mango); }
+
+.code-box {
+  width: 52px;
+  height: 64px;
+  border: 1.5px solid #d4d4d4;
+  border-radius: 14px;
+  text-align: center;
+  font-size: 26px;
+  font-weight: 600;
+  font-family: inherit;
+  color: var(--ink);
+  background: #fff;
+  outline: none;
+  transition: all 0.15s;
+}
+.code-box:focus {
+  border-color: var(--mango);
+  background: var(--mango-soft);
+}
+.code-box.filled { border-color: var(--mango); }
+
+/* ── Chips & cards ──────────────────────────────────────── */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border: 1.5px solid #e5e5e5;
+  border-radius: 9999px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #222;
+  background: #fff;
+  cursor: pointer;
+  transition: all 0.15s;
+  -webkit-user-select: none;
+  user-select: none;
+}
+.chip:active { transform: scale(0.96); }
+.chip.selected {
+  border-color: var(--mango);
+  background: var(--mango-soft);
+  color: var(--mango-dark);
+}
+
+.card-option {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 18px;
+  border: 1.5px solid #e5e5e5;
+  border-radius: 18px;
+  background: #fff;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-align: left;
+  width: 100%;
+  -webkit-user-select: none;
+  user-select: none;
+}
+.card-option:active { transform: scale(0.98); }
+.card-option.selected {
+  border-color: var(--mango);
+  background: var(--mango-soft);
+}
+.card-option .title { font-weight: 600; font-size: 16px; color: var(--ink); }
+.card-option .meta { font-size: 13px; color: var(--muted); margin-top: 2px; }
+
+.selection-card {
+  transition: all 0.2s ease;
+  cursor: pointer;
+  -webkit-user-select: none;
+  user-select: none;
+}
+.selection-card:active { transform: scale(0.97); }
+.selection-card.selected {
+  border-color: var(--mango) !important;
+  background: var(--mango-soft);
+  box-shadow: 0 0 0 2px var(--mango);
+}
+
+/* Beli-style list rows */
+.list-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 4px;
+  border-bottom: 1px solid #ececec;
+  font-size: 17px;
+  color: var(--ink);
+  cursor: pointer;
+  transition: background 0.1s;
+  -webkit-user-select: none;
+  user-select: none;
+}
+.list-row:hover { background: #fafafa; }
+.list-row .check {
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #d4d4d4;
+  font-size: 18px;
+  font-weight: 400;
+  transition: all 0.15s;
+}
+.list-row.selected .check {
+  color: var(--mango);
+  font-weight: 700;
+}
+
+.list-scroll {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow-y: auto;
+  margin: 0 -24px 16px;
+  padding: 0 24px 28px;
+  -webkit-mask-image: linear-gradient(180deg, #000 0%, #000 85%, transparent 100%);
+  mask-image: linear-gradient(180deg, #000 0%, #000 85%, transparent 100%);
+}
+
+/* Dot pagination */
+.dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 9999px;
+  background: #d4d4d4;
+  transition: all 0.25s;
+}
+.dot.active {
+  background: var(--mango);
+  width: 22px;
+}
+.progress-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #e5e5e5;
+  transition: all 0.3s;
+}
+.progress-dot.active {
+  background: var(--mango);
+  width: 24px;
+  border-radius: 4px;
+}
+.progress-dot.completed { background: var(--mango); }
+
+/* ── Home card ──────────────────────────────────────────── */
+.home-card {
+  background: linear-gradient(135deg, #ff8a2b 0%, #ff6b11 100%);
+  color: #fff;
+  padding: 22px;
+  border-radius: 24px;
+  box-shadow: 0 8px 24px -8px rgba(255, 122, 17, 0.4);
+  width: 100%;
+  text-align: left;
+  transition: transform 0.15s;
+}
+.home-card:active { transform: scale(0.99); }
+
+/* Coachmark overlay for home first-visit */
+.coachmark {
+  position: absolute;
+  background: var(--ink);
+  color: #fff;
+  padding: 16px 18px;
+  border-radius: 16px;
+  max-width: 260px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+  z-index: 60;
+}
+.coachmark::after {
+  content: '';
+  position: absolute;
+  top: -10px;
+  right: 44px;
+  border-left: 10px solid transparent;
+  border-right: 10px solid transparent;
+  border-bottom: 10px solid var(--ink);
+}
+.dim-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 55;
+}
+
+/* Splash map background */
+.map-bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: linear-gradient(180deg, #e8f0e8 0%, #fff 85%);
+  overflow: hidden;
+}
+.map-bg svg { width: 100%; height: 100%; }
+.map-bg::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0) 45%, #fff 78%);
+}
+
+/* Hide scrollbars */
+::-webkit-scrollbar { width: 0; background: transparent; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
