@@ -22,13 +22,15 @@ export function Button({
   type = "button",
 }: ButtonProps) {
   const base =
-    "inline-flex items-center justify-center rounded-full font-sans font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-burgundy/50 disabled:opacity-50 disabled:pointer-events-none";
+    "inline-flex items-center justify-center rounded-full font-sans font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-burgundy/50 disabled:pointer-events-none";
 
+  // Disabled state uses a neutral gray, not dimmed burgundy — dimmed burgundy
+  // reads as a second, mauve brand color and breaks the accent palette.
   const variants = {
     primary:
-      "bg-burgundy text-cream px-8 py-3.5 text-base hover:bg-burgundy-light",
+      "bg-burgundy text-cream px-8 py-3.5 text-base hover:bg-burgundy-light disabled:bg-border disabled:text-muted",
     secondary:
-      "bg-transparent text-burgundy border border-burgundy px-8 py-3.5 text-base hover:bg-burgundy hover:text-cream",
+      "bg-transparent text-burgundy border border-burgundy px-8 py-3.5 text-base hover:bg-burgundy hover:text-cream disabled:border-border disabled:text-muted",
   };
 
   const classes = `${base} ${variants[variant]} ${className}`;

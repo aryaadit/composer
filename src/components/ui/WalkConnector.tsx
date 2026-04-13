@@ -13,7 +13,7 @@ export function WalkConnector({
 }: WalkConnectorProps) {
   return (
     <motion.div
-      className="flex items-center justify-center py-3"
+      className="flex items-center justify-center py-5"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.3, delay: index * 0.15 + 0.1 }}

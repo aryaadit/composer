@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Button } from "@/components/ui/Button";
-import { OnboardingMapBg } from "@/components/onboarding/OnboardingMapBg";
 import { saveUserPrefs } from "@/lib/userPrefs";
 import { UserPrefs, DrinksPref } from "@/types";
 import { CONTEXT_OPTIONS, DRINK_OPTIONS, DIETARY_OPTIONS, FAVORITE_HOODS } from "@/config/onboarding";
@@ -63,18 +62,17 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-cream relative overflow-hidden">
-      <OnboardingMapBg />
+    <div className="min-h-screen flex flex-col bg-cream">
       {/* Progress dots */}
-      <div className="relative z-10 flex items-center justify-center gap-2 pt-12 pb-6 px-6">
+      <div className="flex items-center justify-center gap-2 pt-12 pb-6 px-6">
         {Array.from({ length: totalSteps }).map((_, i) => (
           <div
             key={i}
-            className={`h-1.5 rounded-full transition-all ${
+            className={`h-1 rounded-full transition-all ${
               i === step
-                ? "w-8 bg-burgundy"
+                ? "w-8 bg-charcoal"
                 : i < step
-                ? "w-1.5 bg-burgundy/60"
+                ? "w-1.5 bg-charcoal/40"
                 : "w-1.5 bg-border"
             }`}
           />
@@ -82,7 +80,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
       </div>
 
       {/* Content */}
-      <div className="relative z-10 flex-1 flex flex-col px-6 max-w-lg w-full mx-auto">
+      <div className="flex-1 flex flex-col px-6 max-w-lg w-full mx-auto">
         <AnimatePresence mode="wait">
           <motion.div
             key={step}
@@ -124,21 +122,21 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                 <p className="font-sans text-sm text-warm-gray mb-8">
                   So we know what kind of night you&apos;re planning.
                 </p>
-                <div className="flex flex-col gap-3">
+                <div className="flex flex-col gap-2">
                   {CONTEXT_OPTIONS.map((opt) => (
                     <button
                       key={opt.id}
                       onClick={() => setContext(opt.id)}
-                      className={`flex items-center gap-4 p-4 rounded-xl border-2 text-left transition-all ${
+                      className={`flex items-center gap-4 px-4 py-3 rounded-md border text-left transition-all ${
                         context === opt.id
-                          ? "border-burgundy bg-burgundy/5"
-                          : "border-border bg-white hover:border-burgundy/30"
+                          ? "border-border bg-burgundy-tint shadow-[inset_3px_0_0_var(--color-burgundy)]"
+                          : "border-border bg-cream hover:border-charcoal/30"
                       }`}
                     >
-                      <span className="text-2xl">{opt.emoji}</span>
+                      <span className="text-xl">{opt.emoji}</span>
                       <div>
-                        <div className="font-sans font-semibold text-charcoal">{opt.label}</div>
-                        <div className="font-sans text-sm text-warm-gray">{opt.description}</div>
+                        <div className="font-sans text-sm font-medium text-charcoal">{opt.label}</div>
+                        <div className="font-sans text-xs text-muted mt-0.5">{opt.description}</div>
                       </div>
                     </button>
                   ))}

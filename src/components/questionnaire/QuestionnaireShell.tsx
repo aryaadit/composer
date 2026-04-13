@@ -119,9 +119,9 @@ export function QuestionnaireShell() {
   if (!step) return <StepLoading />;
 
   return (
-    <div className="flex flex-col min-h-screen px-6 pt-5 pb-8">
+    <div className="grid grid-rows-[auto_auto_1fr] min-h-screen px-6 pt-4 pb-6">
       {/* Header */}
-      <div className="w-full max-w-lg mx-auto flex items-center justify-between mb-4">
+      <div className="w-full max-w-lg mx-auto flex items-center justify-between mb-3">
         <Link
           href="/"
           className="font-sans text-sm text-warm-gray hover:text-charcoal transition-colors"
@@ -141,15 +141,16 @@ export function QuestionnaireShell() {
       </div>
 
       {/* Progress */}
-      <div className="w-full max-w-lg mx-auto mb-6">
+      <div className="w-full max-w-lg mx-auto mb-4">
         <ProgressBar
           currentStep={state.currentStep}
           totalSteps={questionSteps.length}
         />
       </div>
 
-      {/* Content */}
-      <div className="flex-1 flex items-center justify-center">
+      {/* Content — centered in remaining viewport, but pulled up slightly so
+          the visual center lands near the middle of the screen, not below. */}
+      <div className="flex items-center justify-center pb-[10vh]">
         <div className="w-full max-w-lg">
           <AnimatePresence mode="wait" custom={state.direction}>
             <motion.div

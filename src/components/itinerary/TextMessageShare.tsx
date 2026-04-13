@@ -202,11 +202,11 @@ export function TextMessageShare({
               />
 
               {/* The pitch */}
-              <div className="bg-burgundy/5 border border-burgundy/20 rounded-xl p-4 mb-6">
-                <p className="font-sans text-xs font-semibold text-burgundy mb-1">
+              <div className="border border-border rounded-xl p-4 mb-6 bg-cream-dark">
+                <p className="font-sans text-xs font-semibold text-charcoal mb-1">
                   Only the first stop is mentioned
                 </p>
-                <p className="font-sans text-xs text-charcoal/80 leading-relaxed">
+                <p className="font-sans text-xs text-warm-gray leading-relaxed">
                   The full itinerary stays with you. They just see the plan for the first
                   stop — the rest is your secret advantage.
                 </p>

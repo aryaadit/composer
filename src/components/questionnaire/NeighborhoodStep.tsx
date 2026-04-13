@@ -57,7 +57,7 @@ export function NeighborhoodStep({
               disabled={isAtMax}
               className={`rounded-full px-4 py-2 text-sm font-sans font-medium transition-all border ${
                 isSelected
-                  ? "bg-charcoal text-cream border-charcoal"
+                  ? "bg-burgundy text-cream border-burgundy"
                   : isAtMax
                   ? "bg-cream border-border text-muted cursor-not-allowed"
                   : "bg-cream border-border text-charcoal hover:border-charcoal/40"

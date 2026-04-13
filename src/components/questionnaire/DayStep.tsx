@@ -11,7 +11,6 @@ interface UpcomingDay {
   date: string;
   dayName: string;
   dayNum: number;
-  month: string;
 }
 
 function buildUpcomingDays(): UpcomingDay[] {
@@ -25,9 +24,8 @@ function buildUpcomingDays(): UpcomingDay[] {
           ? "Today"
           : i === 1
           ? "Tomorrow"
-          : d.toLocaleDateString("en-US", { weekday: "short" }),
+          : d.toLocaleDateString("en-US", { weekday: "short" }).toUpperCase(),
       dayNum: d.getDate(),
-      month: d.toLocaleDateString("en-US", { month: "short" }),
     };
   });
 }
@@ -36,28 +34,24 @@ export function DayStep({ selectedValue, onSelect }: DayStepProps) {
   const days = buildUpcomingDays();
 
   return (
-    <div className="grid grid-cols-4 gap-2">
+    <div className="flex flex-wrap justify-center gap-2">
       {days.map((day, i) => {
         const isSelected = selectedValue === day.date;
         return (
           <motion.button
             key={day.date}
             onClick={() => onSelect(day.date)}
-            className={`p-3 rounded-md border text-center transition-all ${
+            className={`rounded-full px-4 py-2 text-sm font-sans font-medium transition-all border ${
               isSelected
-                ? "border-border bg-burgundy-tint shadow-[inset_3px_0_0_var(--color-burgundy)]"
-                : "border-border bg-cream hover:border-charcoal/30"
+                ? "bg-burgundy text-cream border-burgundy"
+                : "bg-cream border-border text-charcoal hover:border-charcoal/40"
             }`}
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.2, delay: i * 0.03 }}
             whileTap={{ scale: 0.97 }}
           >
-            <div className="font-sans text-[10px] uppercase tracking-wide text-muted">
-              {day.dayName}
-            </div>
-            <div className="font-sans text-lg font-medium text-charcoal mt-0.5">{day.dayNum}</div>
-            <div className="font-sans text-[10px] text-muted">{day.month}</div>
+            {day.dayName} {day.dayNum}
           </motion.button>
         );
       })}

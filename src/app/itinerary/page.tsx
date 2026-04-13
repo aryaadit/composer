@@ -99,7 +99,7 @@ function ItineraryContent() {
         <ItineraryView stops={itinerary.stops} walks={itinerary.walks} />
       )}
       {regenError && (
-        <p className="font-sans text-sm text-burgundy mt-4">
+        <p className="font-sans text-sm text-charcoal mt-4">
           Couldn&apos;t regenerate — keeping your current night.
         </p>
       )}
