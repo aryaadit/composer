@@ -366,3 +366,4 @@ When in doubt about a product decision, ask: does this make the output feel more
 - Implicit preference learning
 - iOS app via Capacitor
 - Monetization (venue partnerships, premium tier)
+- MAKE MONEY
