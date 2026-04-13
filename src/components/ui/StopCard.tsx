@@ -5,6 +5,12 @@ import { motion } from "motion/react";
 import { ItineraryStop } from "@/types";
 import { ROLE_LABELS, ROLE_COLOR_CLASSES } from "@/config/roles";
 import { neighborhoodLabel } from "@/config/neighborhoods";
+import { detectBookingPlatform } from "@/lib/booking";
+
+// Venues with reservation_difficulty >= this get a "Book ahead" hint.
+// 3 = "medium hard to book" on Reid's 1-4 scale (tier 3 = book 1-2 weeks
+// ahead, tier 4 = 3+ weeks ahead for places like Eleven Madison Park).
+const BOOK_AHEAD_THRESHOLD = 3;
 
 export function StopCard({
   stop,
@@ -17,6 +23,11 @@ export function StopCard({
   const activeVenue = showPlanB && stop.plan_b ? stop.plan_b : stop.venue;
   const activeNote =
     showPlanB && stop.plan_b ? stop.plan_b.curation_note : stop.curation_note;
+
+  const bookAhead =
+    (activeVenue.reservation_difficulty ?? 0) >= BOOK_AHEAD_THRESHOLD;
+  const cashOnly = activeVenue.cash_only === true;
+  const bookingPlatform = detectBookingPlatform(activeVenue.reservation_url);
 
   return (
     <motion.div
@@ -47,20 +58,28 @@ export function StopCard({
         {activeNote}
       </p>
 
-      <div className="flex flex-wrap items-center gap-4">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
         <span className="font-sans text-sm font-medium text-charcoal">
           {stop.spend_estimate}
         </span>
 
-        {activeVenue.reservation_url && (
+        {bookingPlatform && activeVenue.reservation_url && (
           <a
             href={activeVenue.reservation_url}
             target="_blank"
             rel="noopener noreferrer"
             className="font-sans text-sm text-burgundy hover:text-burgundy-light transition-colors underline underline-offset-2"
           >
-            Reserve
+            {bookingPlatform.label}
           </a>
+        )}
+
+        {bookAhead && (
+          <span className="font-sans text-xs text-warm-gray">Book ahead</span>
+        )}
+
+        {cashOnly && (
+          <span className="font-sans text-xs text-warm-gray">Cash only</span>
         )}
 
         {!stop.is_fixed && stop.plan_b && (

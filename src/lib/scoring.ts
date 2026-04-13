@@ -152,12 +152,16 @@ export function pickBestForRole(
     else candidates = [];
   }
 
-  // 3. Progressive relaxation: drop neighborhood, keep proximity
+  // 3. Progressive relaxation: drop neighborhood, KEEP proximity (hard).
+  // The walking cap applies even in the relaxed path — if nothing's within
+  // range of the anchor, we drop this stop rather than pair a cross-borough
+  // venue into the itinerary. Main is picked with anchor=null so it's never
+  // affected by this check; it can still find a venue anywhere when the
+  // user's neighborhoods are thin.
   if (candidates.length === 0) {
     candidates = relaxedFilter(venues, role, usedIds, weather);
     if (anchor && candidates.length > 0) {
-      const nearby = filterByProximity(candidates, anchor, maxWalkKm);
-      if (nearby.length > 0) candidates = nearby;
+      candidates = filterByProximity(candidates, anchor, maxWalkKm);
     }
   }
 
