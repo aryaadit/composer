@@ -16,6 +16,7 @@ import {
   slideVariants,
 } from "@/lib/questionnaireReducer";
 import { getUserPrefs } from "@/lib/userPrefs";
+import { STORAGE_KEYS } from "@/config/storage";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 import { StepLoading } from "./StepLoading";
 import { NeighborhoodStep } from "./NeighborhoodStep";
@@ -30,7 +31,7 @@ export function QuestionnaireShell() {
   const submitAnswers = useCallback(
     (finalAnswers: QuestionnaireAnswers) => {
       dispatch({ type: "SET_LOADING" });
-      sessionStorage.setItem("composer_inputs", JSON.stringify(finalAnswers));
+      sessionStorage.setItem(STORAGE_KEYS.session.questionnaireInputs, JSON.stringify(finalAnswers));
 
       const userPrefs = getUserPrefs() ?? undefined;
       const body: GenerateRequestBody = {
@@ -45,7 +46,7 @@ export function QuestionnaireShell() {
       })
         .then((res) => res.json())
         .then((data) => {
-          sessionStorage.setItem("composer_itinerary", JSON.stringify(data));
+          sessionStorage.setItem(STORAGE_KEYS.session.currentItinerary, JSON.stringify(data));
           router.push("/itinerary");
         })
         .catch(() => {

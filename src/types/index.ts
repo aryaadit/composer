@@ -1,29 +1,21 @@
-export type Occasion =
-  | "first-date"
-  | "second-date"
-  | "dating"
-  | "established"
-  | "friends"
-  | "solo";
+// Shared data shapes used across the app.
+//
+// Taxonomies (Occasion, Neighborhood, Budget, Vibe, StopRole) are derived
+// from the canonical lists in `src/config/*`. Those configs are the single
+// source of truth — adding a value means editing the config, and the type
+// updates automatically.
 
-export type Neighborhood =
-  | "west-village"
-  | "east-village-les"
-  | "soho-nolita"
-  | "williamsburg"
-  | "midtown-hells-kitchen"
-  | "upper-west-side";
+import type { OccasionSlug } from "@/config/occasions";
+import type { NeighborhoodSlug } from "@/config/neighborhoods";
+import type { BudgetSlug } from "@/config/budgets";
+import type { VibeSlug } from "@/config/vibes";
+import type { StopRoleSlug } from "@/config/roles";
 
-export type Budget = "casual" | "nice-out" | "splurge" | "no-preference";
-
-export type Vibe =
-  | "food-forward"
-  | "drinks-led"
-  | "activity-food"
-  | "walk-explore"
-  | "mix-it-up";
-
-export type StopRole = "opener" | "main" | "closer";
+export type Occasion = OccasionSlug;
+export type Neighborhood = NeighborhoodSlug;
+export type Budget = BudgetSlug;
+export type Vibe = VibeSlug;
+export type StopRole = StopRoleSlug;
 
 export type DrinksPref = "yes" | "sometimes" | "no";
 
@@ -78,7 +70,7 @@ export interface ScoredVenue extends Venue {
 export interface ItineraryStop {
   role: StopRole;
   venue: Venue;
-  curation_note: string; // Claude-generated or DB fallback
+  curation_note: string; // AI-generated or DB fallback
   spend_estimate: string;
   is_fixed: boolean;
   plan_b: Venue | null;

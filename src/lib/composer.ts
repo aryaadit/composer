@@ -6,6 +6,7 @@ import {
   StopRole,
 } from "@/types";
 import { pickBestForRole } from "@/lib/scoring";
+import { spendEstimate } from "@/config/budgets";
 
 export type StopPattern = StopRole[];
 
@@ -111,17 +112,4 @@ function makeStop(
     is_fixed: isFixed,
     plan_b: planB,
   };
-}
-
-function spendEstimate(tier: number): string {
-  switch (tier) {
-    case 1:
-      return "$15–30";
-    case 2:
-      return "$35–65";
-    case 3:
-      return "$75–150";
-    default:
-      return "$30–60";
-  }
 }

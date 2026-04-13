@@ -4,6 +4,7 @@ import { Suspense, useEffect, useState, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import { ItineraryResponse, QuestionnaireAnswers } from "@/types";
 import { decodeParamsToInputs } from "@/lib/sharing";
+import { STORAGE_KEYS } from "@/config/storage";
 import { CompositionHeader } from "@/components/itinerary/CompositionHeader";
 import { ItineraryView } from "@/components/itinerary/ItineraryView";
 import { ActionBar } from "@/components/itinerary/ActionBar";
@@ -42,17 +43,17 @@ function ItineraryContent() {
         }
 
         // Check sessionStorage
-        const stored = sessionStorage.getItem("composer_itinerary");
+        const stored = sessionStorage.getItem(STORAGE_KEYS.session.currentItinerary);
         if (stored) {
           setItinerary(JSON.parse(stored));
           setLoading(false);
           return;
         }
 
-        setError("No itinerary data found. Start from the beginning.");
+        setError("We don't have a plan loaded. Start from the top.");
         setLoading(false);
       } catch {
-        setError("Something went wrong generating your night. Try again.");
+        setError("That didn't work. Try again.");
         setLoading(false);
       }
     }
@@ -66,7 +67,7 @@ function ItineraryContent() {
     try {
       const data = await fetchItinerary(itinerary.inputs);
       setItinerary(data);
-      sessionStorage.setItem("composer_itinerary", JSON.stringify(data));
+      sessionStorage.setItem(STORAGE_KEYS.session.currentItinerary, JSON.stringify(data));
     } catch {
       setRegenError(true);
       setTimeout(() => setRegenError(false), 3000);

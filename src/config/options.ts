@@ -1,4 +1,16 @@
+// Questionnaire step definitions. Most step options are derived from the
+// canonical taxonomy configs (`neighborhoods.ts`, `vibes.ts`, `budgets.ts`)
+// so adding a value means touching the taxonomy file, not this one.
+//
+// The `occasion` step is hand-written because it intentionally groups the
+// `first-date` and `second-date` taxonomy values into a single "First /
+// Second Date" card — that grouping is a UX decision and doesn't belong in
+// the taxonomy config.
+
 import { QuestionStep } from "@/types";
+import { NEIGHBORHOODS } from "@/config/neighborhoods";
+import { VIBES } from "@/config/vibes";
+import { BUDGETS } from "@/config/budgets";
 
 export const questionSteps: QuestionStep[] = [
   {
@@ -10,44 +22,34 @@ export const questionSteps: QuestionStep[] = [
       { value: "dating", label: "Dating", description: "You know each other" },
       { value: "established", label: "Established Couple", description: "Surprise them" },
       { value: "friends", label: "Friends Night Out", description: "No rules" },
-      { value: "solo", label: "Solo Exploration", description: "Treat yourself" },
+      { value: "solo", label: "Solo", description: "Just me" },
     ],
   },
   {
     id: "neighborhoods",
     kind: "pills",
     question: "Where do you want to be?",
-    options: [
-      { value: "west-village", label: "West Village" },
-      { value: "east-village-les", label: "East Village / LES" },
-      { value: "soho-nolita", label: "SoHo / Nolita" },
-      { value: "williamsburg", label: "Williamsburg" },
-      { value: "midtown-hells-kitchen", label: "Midtown / HK" },
-      { value: "upper-west-side", label: "Upper West Side" },
-    ],
+    options: NEIGHBORHOODS.map((n) => ({ value: n.slug, label: n.shortLabel })),
   },
   {
     id: "budget",
     kind: "cards",
-    question: "How are we feeling tonight?",
-    options: [
-      { value: "casual", label: "$ Casual", description: "Good times, low key" },
-      { value: "nice-out", label: "$$ Nice Out", description: "A proper night" },
-      { value: "splurge", label: "$$$ Splurge", description: "Go all in" },
-      { value: "no-preference", label: "No Preference", description: "Just make it great" },
-    ],
+    question: "How are we spending tonight?",
+    options: BUDGETS.map((b) => ({
+      value: b.slug,
+      label: b.label,
+      description: b.description,
+    })),
   },
   {
     id: "vibe",
     kind: "cards",
     question: "What's the energy?",
-    options: [
-      { value: "food-forward", label: "Food-Forward", description: "The meal is the move" },
-      { value: "drinks-led", label: "Drinks-Led", description: "Bars & cocktails" },
-      { value: "activity-food", label: "Activity + Food", description: "Do something first" },
-      { value: "walk-explore", label: "Walk & Explore", description: "Wander the city" },
-      { value: "mix-it-up", label: "Mix It Up", description: "A bit of everything" },
-    ],
+    options: VIBES.map((v) => ({
+      value: v.slug,
+      label: v.label,
+      description: v.description,
+    })),
   },
   {
     id: "day",

@@ -3,27 +3,8 @@
 import { useState } from "react";
 import { motion } from "motion/react";
 import { ItineraryStop } from "@/types";
-
-const ROLE_COLORS: Record<string, string> = {
-  opener: "bg-forest/10 text-forest",
-  main: "bg-burgundy/10 text-burgundy",
-  closer: "bg-charcoal/10 text-charcoal",
-};
-
-const ROLE_LABELS: Record<string, string> = {
-  opener: "Opener",
-  main: "Main",
-  closer: "Closer",
-};
-
-const NEIGHBORHOOD_LABELS: Record<string, string> = {
-  "west-village": "West Village",
-  "east-village-les": "East Village / LES",
-  "soho-nolita": "SoHo / Nolita",
-  williamsburg: "Williamsburg",
-  "midtown-hells-kitchen": "Midtown / Hell's Kitchen",
-  "upper-west-side": "Upper West Side",
-};
+import { ROLE_LABELS, ROLE_COLOR_CLASSES } from "@/config/roles";
+import { neighborhoodLabel } from "@/config/neighborhoods";
 
 export function StopCard({
   stop,
@@ -46,7 +27,7 @@ export function StopCard({
     >
       <div className="flex items-center gap-3 mb-4">
         <span
-          className={`px-2.5 py-0.5 text-xs font-sans font-medium rounded-full ${ROLE_COLORS[stop.role]}`}
+          className={`px-2.5 py-0.5 text-xs font-sans font-medium rounded-full ${ROLE_COLOR_CLASSES[stop.role]}`}
         >
           {ROLE_LABELS[stop.role]}
         </span>
@@ -59,9 +40,7 @@ export function StopCard({
         {activeVenue.name}
       </h3>
       <p className="font-sans text-sm text-warm-gray mb-3">
-        {activeVenue.category} &middot;{" "}
-        {NEIGHBORHOOD_LABELS[activeVenue.neighborhood] ??
-          activeVenue.neighborhood}
+        {activeVenue.category} &middot; {neighborhoodLabel(activeVenue.neighborhood)}
       </p>
 
       <p className="font-sans text-base text-charcoal/80 italic mb-4 leading-relaxed">

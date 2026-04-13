@@ -7,8 +7,8 @@ const messages = [
   "Composing your night...",
   "Scouting the neighborhood...",
   "Checking the weather...",
-  "Curating the perfect trio...",
-  "Adding the finishing touches...",
+  "Picking your spots...",
+  "Walking the route...",
 ];
 
 export function StepLoading() {

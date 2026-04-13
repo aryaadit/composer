@@ -30,7 +30,7 @@ export function Hero() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6, delay: 0.3 }}
       >
-        A curated date night, built for you in under a minute.
+        Tell us the vibe, the neighborhood, the time. We&apos;ll figure out the rest.
       </motion.p>
 
       <motion.div
@@ -47,7 +47,7 @@ export function Hero() {
         animate={{ opacity: 1 }}
         transition={{ duration: 0.6, delay: 0.7 }}
       >
-        Opener &middot; Main &middot; Closer — three stops, one perfect night
+        Opener &middot; Main &middot; Closer. Two to four stops, picked by people who live here.
       </motion.p>
     </section>
   );

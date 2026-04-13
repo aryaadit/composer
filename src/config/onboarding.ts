@@ -1,4 +1,12 @@
+// Onboarding option lists.
+//
+// `CONTEXT_OPTIONS`, `DRINK_OPTIONS`, and `DIETARY_OPTIONS` are product UX
+// specific to onboarding and stay hand-written here. `FAVORITE_HOODS` is
+// derived from the canonical `NEIGHBORHOODS` taxonomy — adding a
+// neighborhood there automatically shows up here.
+
 import { DrinksPref } from "@/types";
+import { NEIGHBORHOODS } from "@/config/neighborhoods";
 
 export interface ContextOption {
   id: string;
@@ -9,7 +17,7 @@ export interface ContextOption {
 
 export const CONTEXT_OPTIONS: ContextOption[] = [
   { id: "new", label: "Someone new", emoji: "👋", description: "Planning a first impression" },
-  { id: "partner", label: "My partner", emoji: "❤️", description: "Keeping the spark alive" },
+  { id: "partner", label: "My partner", emoji: "❤️", description: "An ongoing thing" },
   { id: "special", label: "Something special", emoji: "🎁", description: "An occasion worth planning" },
   { id: "exploring", label: "Just exploring", emoji: "🗺️", description: "See what's out there" },
 ];
@@ -35,11 +43,7 @@ export const DIETARY_OPTIONS = [
   { id: "gluten-free", label: "Gluten-free" },
 ];
 
-export const FAVORITE_HOODS = [
-  { id: "west-village", name: "West Village" },
-  { id: "east-village-les", name: "East Village / LES" },
-  { id: "soho-nolita", name: "SoHo / Nolita" },
-  { id: "williamsburg", name: "Williamsburg" },
-  { id: "midtown-hells-kitchen", name: "Midtown / HK" },
-  { id: "upper-west-side", name: "Upper West Side" },
-];
+export const FAVORITE_HOODS = NEIGHBORHOODS.map((n) => ({
+  id: n.slug,
+  name: n.shortLabel,
+}));

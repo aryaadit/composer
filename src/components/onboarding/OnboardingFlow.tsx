@@ -99,7 +99,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                   What should we call you?
                 </h1>
                 <p className="font-sans text-sm text-warm-gray mb-8">
-                  We&apos;ll use this to personalize your nights.
+                  Shows up on every plan we make you.
                 </p>
                 <input
                   type="text"
@@ -122,7 +122,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                   What brings you here?
                 </h1>
                 <p className="font-sans text-sm text-warm-gray mb-8">
-                  Helps us tailor the recommendations.
+                  So we know what kind of night you&apos;re planning.
                 </p>
                 <div className="flex flex-col gap-3">
                   {CONTEXT_OPTIONS.map((opt) => (

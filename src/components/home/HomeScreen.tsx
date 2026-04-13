@@ -6,9 +6,10 @@ import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { getSavedItineraries, deleteSavedItinerary } from "@/lib/sharing";
 import { createCachedStore } from "@/lib/createCachedStore";
+import { STORAGE_KEYS } from "@/config/storage";
 import { SavedItinerary } from "@/types";
 
-const COACHMARK_FLAG = "composer_seen_coachmark";
+const COACHMARK_FLAG = STORAGE_KEYS.local.seenCoachmark;
 
 interface HomeScreenProps {
   userName: string;
@@ -86,7 +87,7 @@ export function HomeScreen({ userName }: HomeScreenProps) {
           <div className="relative z-10">
             <div className="font-serif text-2xl mb-2">New Date Plan</div>
             <p className="font-sans text-sm text-cream/80">
-              Pick a vibe, a neighborhood, a time — we&apos;ll handle the rest.
+              Tell us the vibe, the neighborhood, the time. We&apos;ll do the rest.
             </p>
           </div>
           <div
@@ -186,7 +187,7 @@ export function HomeScreen({ userName }: HomeScreenProps) {
                 Tap to start
               </div>
               <p className="font-sans text-sm text-warm-gray mb-4">
-                Three quick questions and we&apos;ll compose your night.
+                Six quick steps and you&apos;ve got a plan.
               </p>
               <button
                 type="button"
