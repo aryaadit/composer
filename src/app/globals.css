@@ -1,15 +1,23 @@
 @import "tailwindcss";
 
 @theme inline {
-  --color-cream: #FAF8F5;
-  --color-cream-dark: #F0EDE8;
+  /* Surface */
+  --color-cream: #FFFFFF;       /* primary background (was warm cream) */
+  --color-cream-dark: #F7F7F7;  /* subtle elevated surface */
+
+  /* Text */
+  --color-charcoal: #111111;    /* text primary */
+  --color-warm-gray: #6B6B6B;   /* text secondary */
+  --color-muted: #9B9B9B;       /* text tertiary / meta */
+
+  /* Line */
+  --color-border: #E8E8E8;
+
+  /* Accent — used sparingly */
   --color-burgundy: #6B1E2E;
   --color-burgundy-light: #8A2A3E;
-  --color-forest: #1E3D2F;
-  --color-forest-light: #2A5540;
-  --color-charcoal: #2C2C2C;
-  --color-warm-gray: #8A8077;
-  --color-border: #E5E0DA;
+  --color-burgundy-tint: #FDF8F8; /* selected-state bg */
+
   --font-serif: var(--font-playfair);
   --font-sans: var(--font-dm-sans);
 }
@@ -18,10 +26,6 @@ body {
   background: var(--color-cream);
   color: var(--color-charcoal);
   font-family: var(--font-sans), system-ui, sans-serif;
-}
-
-h1, h2, h3, h4 {
-  font-family: var(--font-serif), Georgia, serif;
 }
 
 /* Hide scrollbars cross-browser. Used by the wheel time picker. */

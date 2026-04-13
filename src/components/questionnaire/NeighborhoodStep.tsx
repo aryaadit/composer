@@ -43,7 +43,7 @@ export function NeighborhoodStep({
 
   return (
     <div>
-      <p className="text-center font-sans text-xs text-warm-gray mb-4">
+      <p className="text-center font-sans text-xs text-muted mb-4">
         Pick up to {MAX_HOODS}
       </p>
       <div className="flex flex-wrap justify-center gap-2">
@@ -55,12 +55,12 @@ export function NeighborhoodStep({
               key={option.value}
               onClick={() => handleToggle(option.value)}
               disabled={isAtMax}
-              className={`rounded-full px-4 py-2 text-sm font-sans font-medium transition-all ${
+              className={`rounded-full px-4 py-2 text-sm font-sans font-medium transition-all border ${
                 isSelected
-                  ? "bg-burgundy text-cream"
+                  ? "bg-charcoal text-cream border-charcoal"
                   : isAtMax
-                  ? "bg-white border border-border text-warm-gray/50 cursor-not-allowed"
-                  : "bg-white border border-border text-charcoal hover:border-burgundy/30"
+                  ? "bg-cream border-border text-muted cursor-not-allowed"
+                  : "bg-cream border-border text-charcoal hover:border-charcoal/40"
               }`}
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}

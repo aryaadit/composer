@@ -95,7 +95,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
             {/* Step 0: Name */}
             {step === 0 && (
               <div className="flex-1 flex flex-col justify-center">
-                <h1 className="font-serif text-3xl text-charcoal mb-2">
+                <h1 className="font-sans text-2xl font-medium text-charcoal mb-2">
                   What should we call you?
                 </h1>
                 <p className="font-sans text-sm text-warm-gray mb-8">
@@ -106,7 +106,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="Your first name"
-                  className="w-full px-0 py-3 text-2xl font-serif bg-transparent border-b-2 border-border focus:border-burgundy focus:outline-none transition-colors text-charcoal"
+                  className="w-full px-0 py-3 text-xl font-sans bg-transparent border-b border-border focus:border-charcoal focus:outline-none transition-colors text-charcoal placeholder:text-muted"
                   autoFocus
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && name.trim()) handleNext();
@@ -118,7 +118,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
             {/* Step 1: Context */}
             {step === 1 && (
               <div className="flex-1 flex flex-col justify-center">
-                <h1 className="font-serif text-3xl text-charcoal mb-2">
+                <h1 className="font-sans text-2xl font-medium text-charcoal mb-2">
                   What brings you here?
                 </h1>
                 <p className="font-sans text-sm text-warm-gray mb-8">
@@ -149,7 +149,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
             {/* Step 2: Preferences */}
             {step === 2 && (
               <div className="flex-1 flex flex-col pt-8">
-                <h1 className="font-serif text-3xl text-charcoal mb-2">
+                <h1 className="font-sans text-2xl font-medium text-charcoal mb-2">
                   A couple quick things
                 </h1>
                 <p className="font-sans text-sm text-warm-gray mb-8">
@@ -195,7 +195,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
             {/* Step 3: Favorite neighborhoods */}
             {step === 3 && (
               <div className="flex-1 flex flex-col pt-8">
-                <h1 className="font-serif text-3xl text-charcoal mb-2">
+                <h1 className="font-sans text-2xl font-medium text-charcoal mb-2">
                   Favorite neighborhoods?
                 </h1>
                 <p className="font-sans text-sm text-warm-gray mb-6">

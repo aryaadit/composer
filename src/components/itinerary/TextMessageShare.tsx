@@ -217,7 +217,7 @@ export function TextMessageShare({
                 onClick={handleCopy}
                 className={`w-full py-4 rounded-full font-sans font-medium text-sm transition-colors ${
                   copied
-                    ? "bg-forest text-cream"
+                    ? "bg-charcoal text-cream"
                     : "bg-burgundy text-cream hover:bg-burgundy-light"
                 }`}
               >

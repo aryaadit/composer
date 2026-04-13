@@ -20,21 +20,21 @@ export function OptionCard({
   return (
     <motion.button
       onClick={onClick}
-      className={`w-full text-left rounded-xl px-4 py-3 transition-all ${
+      className={`w-full text-left rounded-md px-4 py-3 border transition-all ${
         selected
-          ? "border-l-4 border-l-burgundy border-y border-r border-y-burgundy/20 border-r-burgundy/20 bg-burgundy/5"
-          : "border border-border bg-white hover:border-burgundy/30"
+          ? "border-border bg-burgundy-tint shadow-[inset_3px_0_0_var(--color-burgundy)]"
+          : "border-border bg-cream hover:border-charcoal/30"
       }`}
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.25, delay: index * 0.04 }}
-      whileTap={{ scale: 0.98 }}
+      whileTap={{ scale: 0.99 }}
     >
       <span className="font-sans text-sm font-medium text-charcoal">
         {label}
       </span>
       {description && (
-        <span className="font-sans text-xs text-warm-gray ml-2">
+        <span className="font-sans text-xs text-muted ml-2">
           {description}
         </span>
       )}

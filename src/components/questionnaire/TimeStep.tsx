@@ -87,7 +87,7 @@ function WheelColumn({ items, selectedIndex, onSelect }: WheelColumnProps) {
       style={wheelVars}
     >
       {/* Selection band */}
-      <div className="absolute left-0 right-0 top-[var(--wheel-pad)] h-[var(--wheel-item-h)] rounded-xl pointer-events-none z-10 bg-burgundy/10" />
+      <div className="absolute left-0 right-0 top-[var(--wheel-pad)] h-[var(--wheel-item-h)] pointer-events-none z-10 border-y border-border" />
       {/* Top fade */}
       <div className="absolute top-0 left-0 right-0 h-[var(--wheel-fade)] z-20 pointer-events-none bg-gradient-to-b from-cream from-10% to-transparent" />
       {/* Bottom fade */}
@@ -111,10 +111,10 @@ function WheelColumn({ items, selectedIndex, onSelect }: WheelColumnProps) {
                 if (el) el.scrollTo({ top: i * ITEM_HEIGHT, behavior: "smooth" });
                 onSelect(i);
               }}
-              className={`flex items-center justify-center cursor-pointer select-none transition-all font-serif h-[var(--wheel-item-h)] [scroll-snap-align:start] ${
+              className={`flex items-center justify-center cursor-pointer select-none transition-all font-sans h-[var(--wheel-item-h)] [scroll-snap-align:start] ${
                 isSelected
-                  ? "font-bold text-[22px] text-burgundy"
-                  : "font-normal text-[17px] text-warm-gray"
+                  ? "font-medium text-[18px] text-charcoal"
+                  : "font-normal text-[15px] text-muted"
               }`}
             >
               {item}
@@ -179,7 +179,7 @@ export function TimeStep({ initialStart, initialEnd, onContinue }: TimeStepProps
     <div>
       <div className="flex items-center justify-center gap-4">
         <div className="flex flex-col items-center">
-          <span className="font-sans text-xs uppercase tracking-wider text-warm-gray mb-2">
+          <span className="font-sans text-xs uppercase tracking-wider text-muted mb-2">
             Start
           </span>
           <WheelColumn
@@ -188,9 +188,9 @@ export function TimeStep({ initialStart, initialEnd, onContinue }: TimeStepProps
             onSelect={handleStartSelect}
           />
         </div>
-        <span className="font-serif text-2xl text-warm-gray mt-7">→</span>
+        <span className="font-sans text-xl text-muted mt-7">→</span>
         <div className="flex flex-col items-center">
-          <span className="font-sans text-xs uppercase tracking-wider text-warm-gray mb-2">
+          <span className="font-sans text-xs uppercase tracking-wider text-muted mb-2">
             End
           </span>
           <WheelColumn
@@ -203,7 +203,7 @@ export function TimeStep({ initialStart, initialEnd, onContinue }: TimeStepProps
 
       {isValid && (
         <div className="text-center mt-4">
-          <span className="inline-block px-4 py-1.5 rounded-full text-sm font-sans font-medium bg-burgundy/10 text-burgundy">
+          <span className="font-sans text-xs tracking-widest uppercase text-muted">
             {durationLabel} window
           </span>
         </div>

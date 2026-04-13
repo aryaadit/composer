@@ -124,7 +124,7 @@ export function QuestionnaireShell() {
       <div className="w-full max-w-lg mx-auto flex items-center justify-between mb-4">
         <Link
           href="/"
-          className="font-serif text-sm text-warm-gray hover:text-charcoal transition-colors"
+          className="font-sans text-sm text-warm-gray hover:text-charcoal transition-colors"
         >
           Composer
         </Link>
@@ -162,7 +162,7 @@ export function QuestionnaireShell() {
               transition={{ duration: 0.25, ease: "easeInOut" }}
               className="w-full"
             >
-              <h2 className="font-serif text-2xl sm:text-3xl text-charcoal mb-6 text-center">
+              <h2 className="font-sans text-2xl font-medium text-charcoal mb-6 text-center leading-tight">
                 {step.question}
               </h2>
 

@@ -43,21 +43,21 @@ export function DayStep({ selectedValue, onSelect }: DayStepProps) {
           <motion.button
             key={day.date}
             onClick={() => onSelect(day.date)}
-            className={`p-3 rounded-xl border-2 text-center transition-all ${
+            className={`p-3 rounded-md border text-center transition-all ${
               isSelected
-                ? "border-burgundy bg-burgundy/5"
-                : "border-border bg-white hover:border-burgundy/30"
+                ? "border-border bg-burgundy-tint shadow-[inset_3px_0_0_var(--color-burgundy)]"
+                : "border-border bg-cream hover:border-charcoal/30"
             }`}
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.2, delay: i * 0.03 }}
-            whileTap={{ scale: 0.96 }}
+            whileTap={{ scale: 0.97 }}
           >
-            <div className="font-sans text-[10px] uppercase tracking-wide text-warm-gray">
+            <div className="font-sans text-[10px] uppercase tracking-wide text-muted">
               {day.dayName}
             </div>
-            <div className="font-serif text-xl text-charcoal mt-0.5">{day.dayNum}</div>
-            <div className="font-sans text-[10px] text-warm-gray">{day.month}</div>
+            <div className="font-sans text-lg font-medium text-charcoal mt-0.5">{day.dayNum}</div>
+            <div className="font-sans text-[10px] text-muted">{day.month}</div>
           </motion.button>
         );
       })}

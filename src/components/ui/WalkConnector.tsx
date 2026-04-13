@@ -18,11 +18,9 @@ export function WalkConnector({
       animate={{ opacity: 1 }}
       transition={{ duration: 0.3, delay: index * 0.15 + 0.1 }}
     >
-      <div className="h-px w-8 bg-border" />
-      <span className="px-3 font-sans text-xs text-warm-gray whitespace-nowrap">
+      <span className="font-sans text-xs text-muted whitespace-nowrap">
         {walkMinutes} min walk
       </span>
-      <div className="h-px w-8 bg-border" />
     </motion.div>
   );
 }

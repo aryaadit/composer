@@ -16,32 +16,32 @@ export function CompositionHeader({
       : `${header.weather.temp_f}°F, ${header.weather.description}`
     : null;
 
+  const metaLine = [
+    occasionLabel(header.occasion_tag),
+    vibeLabel(header.vibe_tag),
+    `${header.estimated_total} total`,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
   return (
     <motion.div
-      className="text-center mb-10"
-      initial={{ opacity: 0, y: 20 }}
+      className="w-full max-w-lg mx-auto mb-8"
+      initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
     >
-      <h1 className="font-serif text-4xl md:text-5xl text-charcoal mb-3">
+      <h1 className="font-sans text-2xl font-medium text-charcoal mb-2 leading-tight">
         {header.title}
       </h1>
-      <p className="font-sans text-lg text-warm-gray mb-5">{header.subtitle}</p>
+      <p className="font-sans text-sm text-warm-gray mb-3">{header.subtitle}</p>
 
-      <div className="flex flex-wrap items-center justify-center gap-2 mb-4">
-        <span className="inline-block px-3 py-1 text-xs font-sans font-medium rounded-full bg-burgundy/10 text-burgundy">
-          {occasionLabel(header.occasion_tag)}
-        </span>
-        <span className="inline-block px-3 py-1 text-xs font-sans font-medium rounded-full bg-forest/10 text-forest">
-          {vibeLabel(header.vibe_tag)}
-        </span>
-        <span className="inline-block px-3 py-1 text-xs font-sans font-medium rounded-full bg-charcoal/10 text-charcoal">
-          {header.estimated_total} total
-        </span>
-      </div>
+      <p className="font-sans text-xs tracking-wide uppercase text-muted">
+        {metaLine}
+      </p>
 
       {weatherNote && (
-        <p className="font-sans text-sm text-warm-gray">{weatherNote}</p>
+        <p className="font-sans text-xs text-muted mt-2">{weatherNote}</p>
       )}
     </motion.div>
   );

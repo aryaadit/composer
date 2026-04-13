@@ -7,7 +7,7 @@ export function Hero() {
   return (
     <section className="flex flex-1 flex-col items-center justify-center px-6 text-center">
       <motion.p
-        className="font-sans text-sm tracking-widest text-warm-gray uppercase mb-6"
+        className="font-sans text-xs tracking-widest text-muted uppercase mb-5"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6 }}
@@ -16,7 +16,7 @@ export function Hero() {
       </motion.p>
 
       <motion.h1
-        className="font-serif text-5xl md:text-7xl text-charcoal leading-tight mb-6"
+        className="font-serif text-4xl md:text-5xl font-normal text-charcoal leading-tight mb-5"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6, delay: 0.15 }}
@@ -25,7 +25,7 @@ export function Hero() {
       </motion.h1>
 
       <motion.p
-        className="font-sans text-lg md:text-xl text-warm-gray max-w-md mb-10"
+        className="font-sans text-base md:text-lg text-warm-gray max-w-md mb-10"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6, delay: 0.3 }}
@@ -34,15 +34,16 @@ export function Hero() {
       </motion.p>
 
       <motion.div
+        className="w-full max-w-xs"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6, delay: 0.45 }}
       >
-        <Button href="/compose">Start Composing</Button>
+        <Button href="/compose" className="w-full">Start Composing</Button>
       </motion.div>
 
       <motion.p
-        className="font-sans text-xs text-warm-gray/60 mt-16"
+        className="font-sans text-xs text-muted mt-14"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.6, delay: 0.7 }}

@@ -24,7 +24,7 @@ export function StepLoading() {
   return (
     <div className="flex flex-1 flex-col items-center justify-center px-6 min-h-[60vh]">
       <motion.div
-        className="w-12 h-12 rounded-full border-2 border-burgundy border-t-transparent mb-8"
+        className="w-10 h-10 rounded-full border-2 border-charcoal border-t-transparent mb-8"
         animate={{ rotate: 360 }}
         transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
       />
@@ -32,7 +32,7 @@ export function StepLoading() {
       <AnimatePresence mode="wait">
         <motion.p
           key={messageIndex}
-          className="font-serif text-2xl text-charcoal text-center"
+          className="font-sans text-base text-warm-gray text-center"
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -10 }}
