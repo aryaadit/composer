@@ -10,30 +10,73 @@ import { spendEstimate } from "@/config/budgets";
 
 export type StopPattern = StopRole[];
 
-const SHORT_WINDOW_MIN = 150; // 2.5h cutoff for 2-stop nights
-const LONG_WINDOW_MIN = 270; // 4.5h cutoff for 4-stop nights
+// ─── Duration model ───────────────────────────────────────────────────
+// Rough per-role duration used by `planStopMix` to pick a stop count. The
+// planner runs BEFORE venue selection, so we can't use per-venue
+// duration_minutes here — that fidelity kicks in post-composition when
+// the API route computes actual arrival times.
+export const ROLE_AVG_DURATION_MIN: Record<StopRole, number> = {
+  opener: 60,   // bar or cafe
+  main: 120,    // restaurant
+  closer: 60,   // nightcap / dessert / bar
+};
 
-/**
- * Decide how many stops fit in the user's evening window and which roles to
- * fill. Always returns 2-4 stops anchored on a single Main.
- *
- * - <2.5h: ["opener", "main"]                  drinks → dinner
- * - <4.5h: ["opener", "main", "closer"]        the classic trio
- * - else:  ["opener", "main", "closer", "closer"]   extended evening
- */
-export function planStopMix(answers: QuestionnaireAnswers): StopPattern {
-  const minutes = windowMinutes(answers.startTime, answers.endTime);
-  if (minutes < SHORT_WINDOW_MIN) return ["opener", "main"];
-  if (minutes < LONG_WINDOW_MIN) return ["opener", "main", "closer"];
-  return ["opener", "main", "closer", "closer"];
+// Conservative walk estimate between stops. Venues pass proximity filtering
+// in scoring (MAX_WALK_KM_NORMAL = 1.5km ≈ 18min), but the typical case is
+// shorter because the composer anchors each stop to Main.
+const AVG_WALK_BETWEEN_STOPS_MIN = 10;
+
+// Tolerance on the "does this template fit the window" check. Without slack,
+// a 2h49m window would fall back to 2 stops when a 3-stop plan is only
+// 1 minute over — leaving 80 min of dead time. Reid's itinerary engine
+// uses the same 15-min slack for the same reason.
+const BUDGET_SLACK_MIN = 15;
+
+// Stop templates ranked largest → smallest. `planStopMix` returns the
+// first one whose budget fits the user's window (+ slack). Minimum of
+// 2 stops is locked by our product design.
+const STOP_TEMPLATES: StopPattern[] = [
+  ["opener", "main", "closer", "closer"],
+  ["opener", "main", "closer"],
+  ["opener", "main"],
+];
+
+function templateBudgetMin(pattern: StopPattern): number {
+  const durations = pattern.reduce(
+    (sum, role) => sum + ROLE_AVG_DURATION_MIN[role],
+    0
+  );
+  const walks = Math.max(0, pattern.length - 1) * AVG_WALK_BETWEEN_STOPS_MIN;
+  return durations + walks;
 }
 
-function windowMinutes(start: string, end: string): number {
+export function windowMinutes(start: string, end: string): number {
   const [sh, sm] = start.split(":").map(Number);
   const [eh, em] = end.split(":").map(Number);
   let diff = eh * 60 + em - (sh * 60 + sm);
   if (diff <= 0) diff += 24 * 60; // wrap past midnight
   return diff;
+}
+
+/**
+ * Pick the largest stop pattern whose budget fits the user's window.
+ *
+ * Budgets (with AVG_WALK=10, slack 15):
+ *   4 stops: 60+120+60+60 + 3×10 = 330 min  (needs ≥ 5h15m window)
+ *   3 stops: 60+120+60   + 2×10 = 260 min  (needs ≥ 4h05m window)
+ *   2 stops: 60+120      + 1×10 = 190 min  (needs ≥ 3h00m window)
+ *   else:    2 stops as the hard minimum.
+ */
+export function planStopMix(answers: QuestionnaireAnswers): StopPattern {
+  const window = windowMinutes(answers.startTime, answers.endTime);
+  for (const template of STOP_TEMPLATES) {
+    if (templateBudgetMin(template) <= window + BUDGET_SLACK_MIN) {
+      return template;
+    }
+  }
+  // Pathologically short window (under ~3h): still return 2 stops. The
+  // end-time buffer check in the API route may drop the closer later.
+  return ["opener", "main"];
 }
 
 /**

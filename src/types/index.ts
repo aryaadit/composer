@@ -141,6 +141,13 @@ export interface WeatherInfo {
   is_bad_weather: boolean;
 }
 
+export interface WalkingMeta {
+  longest_walk_min: number;
+  total_walk_min: number;
+  any_over_cap: boolean;
+  cap_min: number;
+}
+
 export interface ItineraryResponse {
   header: {
     title: string;
@@ -152,6 +159,13 @@ export interface ItineraryResponse {
   };
   stops: ItineraryStop[];
   walks: WalkSegment[];
+  // Summary walk stats. UI can surface a warning when any_over_cap is true
+  // or when longest_walk_min is meaningfully high. Added 2026-04-13 alongside
+  // the end-time buffer so the response has every honest time signal.
+  walking: WalkingMeta;
+  // True when trailing stops were dropped because their arrival would land
+  // too close to the user's endTime (see LAST_START_BUFFER_MIN in the route).
+  truncated_for_end_time: boolean;
   maps_url: string;
   inputs: QuestionnaireAnswers;
 }

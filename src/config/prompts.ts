@@ -35,6 +35,10 @@ VENUE NOTES (1-2 sentences each)
 - Tell them what to order and why, not what they'll feel
   GOOD: "Skip the menu — tell the bartender what you're in the mood for. Their Manhattan is the move."
   BAD:  "Kick things off with bespoke cocktails — trust us, they craft perfection."
+- If a SIGNATURE hint is given for a venue (e.g. "cacio e pepe + a negroni"),
+  use it verbatim when it fits naturally. Do not paraphrase. Do not ignore it.
+  If no SIGNATURE is given, fall back to the DB note or a specific dish
+  you'd tell a friend about.
 
 WEATHER
 - If it's raining or snowing, acknowledge it once, briefly. Never call it "cozy."
@@ -49,6 +53,7 @@ interface VenueForPrompt {
   category: string;
   neighborhood: string;
   curation_note: string;
+  signature_order?: string | null;
 }
 
 interface InputsForPrompt {
@@ -115,7 +120,13 @@ User preferences:
 Weather: ${weather ? `${weather.description}, ${weather.temp_f}°F` : "Unknown"}
 
 Venues (${venues.length} stops):
-${venues.map((v) => `- ${v.role.toUpperCase()}: ${v.name} (${v.category}, ${v.neighborhood}) — DB note: "${v.curation_note}"`).join("\n")}
+${venues
+  .map((v) => {
+    const base = `- ${v.role.toUpperCase()}: ${v.name} (${v.category}, ${v.neighborhood}) — DB note: "${v.curation_note}"`;
+    const sig = v.signature_order ? `\n  SIGNATURE: ${v.signature_order}` : "";
+    return base + sig;
+  })
+  .join("\n")}
 
 Return this exact JSON shape:
 {

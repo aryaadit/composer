@@ -31,6 +31,10 @@ export async function generateCopy(
     category: s.venue.category,
     neighborhood: s.venue.neighborhood,
     curation_note: s.venue.curation_note,
+    // Per-venue "what to order" hint — 117 venues in the curated DB have
+    // this populated. When present, Gemini should use it verbatim rather
+    // than guessing at a dish.
+    signature_order: s.venue.signature_order,
   }));
 
   const prompt = buildGenerationPrompt(venueData, inputs, weather, userName);
