@@ -7,11 +7,6 @@
 // Adding a new vibe means adding one entry here. Removing a vibe tag from an
 // existing vibe's `venueTags` must be coordinated with the venue sheet and
 // the scoring logic since they participate in the 35% weighted scoring tier.
-//
-// The vibe tags listed here are the "scored" canonical tags. Cross-cutting
-// tags (`romantic`, `conversation_friendly`, `group_friendly`, `late_night`,
-// `casual`, `upscale`, `outdoor`) are valid on venues but do not participate
-// in vibe scoring.
 
 export const VIBES = [
   {
@@ -69,3 +64,46 @@ export function vibeLabel(slug: string): string {
 export const ALCOHOL_VIBE_TAGS: ReadonlySet<string> = new Set(
   VIBES.find((v) => v.slug === "drinks-led")?.venueTags ?? []
 );
+
+// ═══════════════════════════════════════════════════════════════════════
+// Cross-cutting vibe tags — valid on venues but NOT scored by vibe matching.
+//
+// These are flavor/atmosphere descriptors that compose with the scored
+// tags above. A venue can be tagged `romantic + food_forward + dinner`;
+// the scorer only uses `food_forward, dinner` for vibe match, but the
+// cross-cutting tags are still canonical and can drive future features
+// (filters, display badges, Phase 2 semantic matching).
+//
+// `classic` was added (2026-04-13) to honor "timeless NYC institution"
+// as a real taste signal — the audience specifically wants to take dates
+// to classic spots (Keens, Balthazar, Blue Note, etc.).
+//
+// Any tag not in this set AND not in any vibe's `venueTags` array is a
+// non-canonical tag. The import script normalizes Reid's rich 81-tag
+// taxonomy down to the scored + cross-cutting canonical set; raw tags
+// stay preserved in `venues.raw_vibe_tags` for Phase 2.
+// ═══════════════════════════════════════════════════════════════════════
+export const CROSS_CUTTING_VIBE_TAGS = [
+  "romantic",
+  "conversation_friendly",
+  "group_friendly",
+  "late_night",
+  "casual",
+  "upscale",
+  "outdoor",
+  "classic",
+] as const;
+
+export type CrossCuttingVibeTag = (typeof CROSS_CUTTING_VIBE_TAGS)[number];
+
+export const CROSS_CUTTING_TAG_SET: ReadonlySet<string> = new Set(CROSS_CUTTING_VIBE_TAGS);
+
+/**
+ * Every canonical tag the scorer + cross-cutting layer recognizes. A venue
+ * whose `vibe_tags` contains tags NOT in this union will score-poorly but
+ * still be valid. The import script uses this to validate normalized tags.
+ */
+export const ALL_CANONICAL_VIBE_TAGS: ReadonlySet<string> = new Set([
+  ...VIBES.flatMap((v) => v.venueTags),
+  ...CROSS_CUTTING_VIBE_TAGS,
+]);

@@ -29,7 +29,7 @@ export interface UserPrefs {
 
 export interface QuestionnaireAnswers {
   occasion: Occasion;
-  neighborhoods: Neighborhood[];
+  neighborhoods: Neighborhood[]; // expanded storage slugs
   budget: Budget;
   vibe: Vibe;
   day: string; // ISO date "2026-04-09"
@@ -41,26 +41,77 @@ export interface GenerateRequestBody extends QuestionnaireAnswers {
   userPrefs?: UserPrefs;
 }
 
+// Venue shape — mirrors the `composer_venues` Supabase table exactly.
+// See `supabase/migrations/20260413_venue_import_prep.sql` for the schema.
 export interface Venue {
   id: string;
   name: string;
+
+  // Primary category (granular; 56 distinct values across imported data).
   category: string;
+  // Coarse grouping surfaced from Reid's "Category 2" column — good for
+  // display badges ("Restaurant" / "Bar" / "Museum"). Nullable because
+  // older seed rows don't have it.
+  category_group: string | null;
+
   neighborhood: Neighborhood;
-  address: string;
+
+  // Address is nullable because Reid's spreadsheet doesn't have a
+  // dedicated address column (street addresses lived in the internal
+  // notes column, which we don't import). Nothing in the app currently
+  // surfaces address, so null is acceptable.
+  address: string | null;
+
   latitude: number;
   longitude: number;
+
+  // Canonical stop roles used by the composer (opener / main / closer).
   stop_roles: StopRole[];
-  price_tier: 1 | 2 | 3;
+  // Path-A preservation: Reid's spreadsheet also uses `drinks`, `activity`,
+  // and `coffee`. The import script maps those into `stop_roles` (e.g.
+  // drinks -> [opener, closer]), but the original string is preserved here
+  // for Phase 2 features that want the richer categorization.
+  raw_stop_role: string | null;
+
+  // Extended to 1-4 by the 20260413 migration. Tier 4 = $150+ / person.
+  price_tier: 1 | 2 | 3 | 4;
+
+  // Canonical vibe tags used by scoring. Normalized at import time from
+  // the rich free-text taxonomy in Reid's spreadsheet (see Bucket 2 of
+  // the tag-mapping audit).
   vibe_tags: string[];
+  // Path-A preservation: Reid's original 81-tag-strong raw tag list
+  // (including free-text flavor descriptors like `iykyk`, `grown-up`,
+  // `pasta-forward`). Not used by scoring; reserved for future semantic
+  // matching / embeddings work.
+  raw_vibe_tags: string[];
+
   occasion_tags: Occasion[];
-  outdoor_seating: boolean;
+
+  // Tri-state: true, false, or null (unknown). Reid's data uses "unknown"
+  // for 187 / 496 venues; we treat unknown as null and let the weather
+  // filter skip the venue rather than assume false.
+  outdoor_seating: boolean | null;
+
   reservation_url: string | null;
   curation_note: string;
   active: boolean;
   quality_score: number;
   curation_boost: number;
   best_before: string | null; // time like "21:00"
-  best_after: string | null; // time like "17:00"
+  best_after: string | null;
+
+  // ── Enrichment columns (added by 20260413 migration) ─────────────
+  duration_minutes: number | null;        // 60 / 120 / 180 typical
+  curated_by: string | null;              // 'reid' | 'adit' | 'community'
+  hours: string | null;                   // free-text, e.g. "Mon-Fri 11am-11pm"
+  last_verified: string | null;           // ISO date, e.g. "2026-04-11"
+  reservation_difficulty: number | null;  // 1..4
+  dog_friendly: boolean | null;
+  kid_friendly: boolean | null;
+  wheelchair_accessible: string | null;   // 'yes' | 'no' | 'partial'
+  signature_order: string | null;         // "Get the cacio e pepe"
+  cash_only: boolean | null;
 }
 
 export interface ScoredVenue extends Venue {

@@ -3,6 +3,11 @@
 // per-stop `spendEstimate()` in `lib/composer.ts` and the total calculator
 // `calculateTotalSpend()` in `app/api/generate/route.ts`), with identical
 // values that could silently drift apart. This file holds both.
+//
+// Tier 4 ("All Out") was added by the 2026-04-13 migration alongside
+// extending `composer_venues.price_tier CHECK (BETWEEN 1 AND 4)`. It
+// captures the fine-dining tier ($150+/person) — Eleven Madison Park,
+// Per Se, Atomix, etc. Reid's spreadsheet has 41 tier-4 venues.
 
 export const BUDGETS = [
   {
@@ -24,10 +29,16 @@ export const BUDGETS = [
     tiers: [3] as readonly number[],
   },
   {
+    slug: "all-out",
+    label: "$$$$ All Out",
+    description: "The full experience",
+    tiers: [4] as readonly number[],
+  },
+  {
     slug: "no-preference",
     label: "No Preference",
     description: "Surprise me",
-    tiers: [1, 2, 3] as readonly number[],
+    tiers: [1, 2, 3, 4] as readonly number[],
   },
 ] as const;
 
@@ -38,12 +49,17 @@ export const BUDGET_TIER_MAP: Record<BudgetSlug, readonly number[]> = Object.fro
   BUDGETS.map((b) => [b.slug, b.tiers])
 ) as Record<BudgetSlug, readonly number[]>;
 
-// Canonical price ranges by tier. Tier 1 = $, Tier 2 = $$, Tier 3 = $$$.
+// Canonical price ranges by tier.
+//   Tier 1 = $    — casual, under $30/person
+//   Tier 2 = $$   — nice out, $35-65/person
+//   Tier 3 = $$$  — splurge, $75-150/person
+//   Tier 4 = $$$$ — all out, $150+/person (fine dining, tasting menus)
 // Used by both the per-stop spend estimate and the itinerary total.
 export const PRICE_TIER_RANGES: Record<number, readonly [number, number]> = {
   1: [15, 30],
   2: [35, 65],
   3: [75, 150],
+  4: [150, 300],
 };
 
 // Fallback range when a venue has an unknown price tier. Kept loose so the

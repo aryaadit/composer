@@ -38,7 +38,7 @@ export function walkTimeMinutes(
 }
 
 export function buildGoogleMapsUrl(
-  stops: { address: string; latitude: number; longitude: number }[]
+  stops: { latitude: number; longitude: number }[]
 ): string {
   if (stops.length === 0) return "https://maps.google.com";
 

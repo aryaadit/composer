@@ -1,12 +1,16 @@
 // Onboarding option lists.
 //
 // `CONTEXT_OPTIONS`, `DRINK_OPTIONS`, and `DIETARY_OPTIONS` are product UX
-// specific to onboarding and stay hand-written here. `FAVORITE_HOODS` is
-// derived from the canonical `NEIGHBORHOODS` taxonomy — adding a
-// neighborhood there automatically shows up here.
+// specific to onboarding and stay hand-written here.
+//
+// `FAVORITE_HOODS` is derived from the user-facing `NEIGHBORHOOD_GROUPS`
+// (not the raw 68-slug `NEIGHBORHOODS` list) so the onboarding picker
+// stays at ~11 manageable options. When favoriteHoods is eventually used
+// for scoring / personalization (Phase 2), the group ids can be expanded
+// to storage slugs via `expandNeighborhoodGroup()`.
 
 import { DrinksPref } from "@/types";
-import { NEIGHBORHOODS } from "@/config/neighborhoods";
+import { NEIGHBORHOOD_GROUPS } from "@/config/neighborhoods";
 
 export interface ContextOption {
   id: string;
@@ -43,7 +47,9 @@ export const DIETARY_OPTIONS = [
   { id: "gluten-free", label: "Gluten-free" },
 ];
 
-export const FAVORITE_HOODS = NEIGHBORHOODS.map((n) => ({
-  id: n.slug,
-  name: n.shortLabel,
+// Derived from user-facing groups. Stored `id` values are group ids; to
+// resolve to storage slugs for scoring, call `expandNeighborhoodGroup(id)`.
+export const FAVORITE_HOODS = NEIGHBORHOOD_GROUPS.map((g) => ({
+  id: g.id,
+  name: g.label,
 }));

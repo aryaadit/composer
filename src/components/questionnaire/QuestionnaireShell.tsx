@@ -11,6 +11,10 @@ import {
   Neighborhood,
 } from "@/types";
 import {
+  expandNeighborhoodGroup,
+  deriveGroupIds,
+} from "@/config/neighborhoods";
+import {
   questionnaireReducer,
   initialState,
   slideVariants,
@@ -72,11 +76,17 @@ export function QuestionnaireShell() {
     [state.answers]
   );
 
-  const handleNeighborhoodContinue = useCallback((values: string[]) => {
+  const handleNeighborhoodContinue = useCallback((groupIds: string[]) => {
+    // The picker hands us NEIGHBORHOOD_GROUPS ids; expand to storage slugs
+    // (deduped) before committing to state. Downstream scoring only sees
+    // slugs, so this expansion is the one and only translation point.
+    const expanded = Array.from(
+      new Set(groupIds.flatMap((id) => expandNeighborhoodGroup(id)))
+    ) as Neighborhood[];
     dispatch({
       type: "SET_FIELD",
       field: "neighborhoods",
-      value: values as Neighborhood[],
+      value: expanded,
       advance: true,
     });
   }, []);
@@ -160,7 +170,9 @@ export function QuestionnaireShell() {
                 <NeighborhoodStep
                   key={`hoods-${state.currentStep}`}
                   options={step.options}
-                  initialSelected={state.answers.neighborhoods ?? []}
+                  // State stores expanded storage slugs; reverse-derive which
+                  // picker groups to pre-select on back-nav.
+                  initialSelected={deriveGroupIds(state.answers.neighborhoods ?? [])}
                   onContinue={handleNeighborhoodContinue}
                 />
               )}

@@ -1,14 +1,18 @@
-// Questionnaire step definitions. Most step options are derived from the
-// canonical taxonomy configs (`neighborhoods.ts`, `vibes.ts`, `budgets.ts`)
-// so adding a value means touching the taxonomy file, not this one.
+// Questionnaire step definitions.
 //
-// The `occasion` step is hand-written because it intentionally groups the
-// `first-date` and `second-date` taxonomy values into a single "First /
-// Second Date" card — that grouping is a UX decision and doesn't belong in
-// the taxonomy config.
+// Most step options are derived from the canonical taxonomy configs
+// (`vibes.ts`, `budgets.ts`). The `occasion` step is hand-written because
+// it intentionally groups the `first-date` and `second-date` taxonomy
+// values into a single "First / Second Date" card — that grouping is a
+// UX decision and doesn't belong in the taxonomy config.
+//
+// The `neighborhoods` step uses `NEIGHBORHOOD_GROUPS` (the 11 user-facing
+// groups), NOT the full 68-slug `NEIGHBORHOODS` list. Each group id maps
+// to 1+ storage slugs; expansion happens in `QuestionnaireShell` before
+// state is committed, so the scoring layer always sees storage slugs.
 
 import { QuestionStep } from "@/types";
-import { NEIGHBORHOODS } from "@/config/neighborhoods";
+import { NEIGHBORHOOD_GROUPS } from "@/config/neighborhoods";
 import { VIBES } from "@/config/vibes";
 import { BUDGETS } from "@/config/budgets";
 
@@ -29,7 +33,9 @@ export const questionSteps: QuestionStep[] = [
     id: "neighborhoods",
     kind: "pills",
     question: "Where do you want to be?",
-    options: NEIGHBORHOODS.map((n) => ({ value: n.slug, label: n.shortLabel })),
+    // Values here are group IDs. QuestionnaireShell expands them to
+    // storage slugs before dispatching into state.
+    options: NEIGHBORHOOD_GROUPS.map((g) => ({ value: g.id, label: g.label })),
   },
   {
     id: "budget",
