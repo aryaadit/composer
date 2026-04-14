@@ -201,12 +201,12 @@ export function TimeStep({ initialStart, initialEnd, onContinue }: TimeStepProps
         </div>
       )}
 
-      <div className="flex justify-center mt-8">
+      <div className="mt-8">
         <Button
           variant="primary"
           onClick={() => onContinue(startTime, endTime)}
           disabled={!isValid}
-          className="px-10 py-3 text-sm"
+          className="w-full"
         >
           Build my night
         </Button>

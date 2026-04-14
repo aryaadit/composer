@@ -72,12 +72,12 @@ export function NeighborhoodStep({
           );
         })}
       </div>
-      <div className="flex justify-center mt-6">
+      <div className="mt-8">
         <Button
           variant="primary"
           onClick={handleContinue}
           disabled={selected.size === 0}
-          className="px-10 py-3 text-sm"
+          className="w-full"
         >
           Continue
         </Button>

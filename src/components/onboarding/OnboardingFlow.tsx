@@ -14,10 +14,13 @@ interface OnboardingFlowProps {
 type PillTone = "burgundy" | "charcoal";
 
 const pillClass = (selected: boolean, tone: PillTone = "burgundy") => {
+  // Selected pills are pure fill — no visible border. The non-selected pill
+  // keeps a 1px border for shape; selected uses border-transparent so the
+  // outline doesn't double-up against the fill and read as a focus ring.
   const fill =
     tone === "charcoal"
-      ? "bg-charcoal text-cream border-charcoal"
-      : "bg-burgundy text-cream border-burgundy";
+      ? "bg-charcoal text-cream border-transparent"
+      : "bg-burgundy text-cream border-transparent";
   return `px-4 py-2 rounded-full text-sm font-sans font-medium transition-all border ${
     selected
       ? fill

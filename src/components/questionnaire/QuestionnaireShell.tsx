@@ -150,9 +150,10 @@ export function QuestionnaireShell() {
         </div>
       </div>
 
-      {/* Content — viewport-centered. The pt-24 keeps content from sliding
-          under the absolute top chrome on short viewports. */}
-      <div className="min-h-screen flex flex-col justify-center items-center pt-24 pb-10">
+      {/* Content — viewport-centered. Equal pt/pb so the centered content
+          actually lands at viewport center, not below it. pt-24 covers the
+          absolute top chrome on short viewports. */}
+      <div className="min-h-screen flex flex-col justify-center items-center py-24">
         <div className="w-full max-w-lg">
           <AnimatePresence mode="wait" custom={state.direction}>
             <motion.div
