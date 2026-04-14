@@ -57,7 +57,9 @@ composer/
 │   │   ├── itinerary/page.tsx         # Composition output
 │   │   ├── layout.tsx
 │   │   ├── globals.css
-│   │   └── api/generate/route.ts      # POST: weather + scoring + Gemini → itinerary
+│   │   └── api/
+│   │       ├── generate/route.ts      # POST: weather + scoring + Gemini → itinerary
+│   │       └── health/route.ts        # GET: diagnostic report (Supabase + scoring + Gemini)
 │   ├── components/
 │   │   ├── ui/                        # Button, OptionCard, ProgressBar, StopCard, WalkConnector
 │   │   ├── landing/                   # Hero
@@ -284,6 +286,52 @@ Composer is deployed on Vercel. Every push to `main` triggers an automatic produ
 Production environment variables (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `GEMINI_API_KEY`, `OPENWEATHERMAP_API_KEY`) must be configured in the Vercel project settings — they are **not** read from `.env.local`.
 
 To monitor production: check Vercel → Logs for `[gemini]` and `[weather]` warnings, which surface fallback paths and missing credentials.
+
+---
+
+## Health check
+
+`GET /api/health` returns a JSON report verifying the three layers Composer depends on. Use it after a deploy, or any time you want to confirm production is wired up end-to-end.
+
+Hit it in a browser or with `curl`:
+
+```bash
+curl https://composer.onpalate.com/api/health
+# or locally:
+curl http://localhost:3000/api/health
+```
+
+Response shape:
+
+```json
+{
+  "ok": true,
+  "timestamp": "2026-04-13T21:45:12.104Z",
+  "checks": {
+    "supabase": { "ok": true, "active_venue_count": 495 },
+    "scoring":  {
+      "ok": true,
+      "input": { "occasion": "first-date", "neighborhoods": ["west-village"], "budget": "nice-out", "vibe": "food-forward", "day": "2026-04-13", "startTime": "18:00", "endTime": "22:00" },
+      "hard_filtered": 37,
+      "scored": 37,
+      "top3": [
+        { "name": "Via Carota", "neighborhood": "west-village", "price_tier": 2, "score": 87.2 },
+        { "name": "I Sodi",     "neighborhood": "west-village", "price_tier": 3, "score": 82.4 },
+        { "name": "Buvette",    "neighborhood": "west-village", "price_tier": 2, "score": 79.1 }
+      ]
+    },
+    "gemini":   { "ok": true, "latency_ms": 412, "response": "OK" }
+  }
+}
+```
+
+What each check does:
+
+1. **Supabase** — counts active rows in `composer_venues`. Fails loud if the DB is unreachable or empty.
+2. **Scoring** — runs the real scorer against a fixed test input (first-date · West Village · nice-out · food-forward · 6pm–10pm) with jitter disabled for determinism. Reports how many venues cleared the hard filter, how many scored, and the top three with their scores. Catches silent regressions in the scoring pipeline that unit tests wouldn't notice.
+3. **Gemini** — sends a minimal "Reply with the word OK" prompt to `gemini-2.5-flash` with thinking disabled and an 8-second timeout. Reports round-trip latency and the first 40 chars of the response.
+
+The endpoint always returns HTTP 200 — inspect the top-level `ok` plus per-check flags. It never returns secrets, env vars, or full error stacks; only counts, names, scores, latency, and short error messages. Read-only: no writes, no weather call, no copy generation.
 
 ---
 
