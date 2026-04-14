@@ -119,37 +119,41 @@ export function QuestionnaireShell() {
   if (!step) return <StepLoading />;
 
   return (
-    <div className="flex flex-col min-h-screen px-6 pt-5 pb-8">
-      {/* Header */}
-      <div className="w-full max-w-lg mx-auto flex items-center justify-between mb-4">
-        <Link
-          href="/"
-          className="font-serif text-sm text-warm-gray hover:text-charcoal transition-colors"
-        >
-          Composer
-        </Link>
-        {state.currentStep > 0 ? (
-          <button
-            onClick={() => dispatch({ type: "BACK" })}
+    <div className="relative min-h-screen px-6">
+      {/* Top chrome — pulled out of the centering math via absolute positioning
+          so the question content can be true-centered in the viewport, not in
+          the leftover space below the header + progress. */}
+      <div className="absolute top-0 inset-x-0 px-6 pt-4 z-10">
+        <div className="w-full max-w-lg mx-auto flex items-center justify-between mb-3">
+          <Link
+            href="/"
             className="font-sans text-sm text-warm-gray hover:text-charcoal transition-colors"
           >
-            &larr; Back
-          </button>
-        ) : (
-          <span />
-        )}
+            Composer
+          </Link>
+          {state.currentStep > 0 ? (
+            <button
+              onClick={() => dispatch({ type: "BACK" })}
+              className="font-sans text-sm text-warm-gray hover:text-charcoal transition-colors"
+            >
+              &larr; Back
+            </button>
+          ) : (
+            <span />
+          )}
+        </div>
+        <div className="w-full max-w-lg mx-auto">
+          <ProgressBar
+            currentStep={state.currentStep}
+            totalSteps={questionSteps.length}
+          />
+        </div>
       </div>
 
-      {/* Progress */}
-      <div className="w-full max-w-lg mx-auto mb-6">
-        <ProgressBar
-          currentStep={state.currentStep}
-          totalSteps={questionSteps.length}
-        />
-      </div>
-
-      {/* Content */}
-      <div className="flex-1 flex items-center justify-center">
+      {/* Content — viewport-centered. Equal pt/pb so the centered content
+          actually lands at viewport center, not below it. pt-24 covers the
+          absolute top chrome on short viewports. */}
+      <div className="min-h-screen flex flex-col justify-center items-center py-24">
         <div className="w-full max-w-lg">
           <AnimatePresence mode="wait" custom={state.direction}>
             <motion.div
@@ -162,7 +166,7 @@ export function QuestionnaireShell() {
               transition={{ duration: 0.25, ease: "easeInOut" }}
               className="w-full"
             >
-              <h2 className="font-serif text-2xl sm:text-3xl text-charcoal mb-6 text-center">
+              <h2 className="font-sans text-2xl font-medium text-charcoal mb-6 text-center leading-tight">
                 {step.question}
               </h2>
 

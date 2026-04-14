@@ -11,7 +11,6 @@ interface UpcomingDay {
   date: string;
   dayName: string;
   dayNum: number;
-  month: string;
 }
 
 function buildUpcomingDays(): UpcomingDay[] {
@@ -25,9 +24,8 @@ function buildUpcomingDays(): UpcomingDay[] {
           ? "Today"
           : i === 1
           ? "Tomorrow"
-          : d.toLocaleDateString("en-US", { weekday: "short" }),
+          : d.toLocaleDateString("en-US", { weekday: "short" }).toUpperCase(),
       dayNum: d.getDate(),
-      month: d.toLocaleDateString("en-US", { month: "short" }),
     };
   });
 }
@@ -36,28 +34,27 @@ export function DayStep({ selectedValue, onSelect }: DayStepProps) {
   const days = buildUpcomingDays();
 
   return (
-    <div className="grid grid-cols-4 gap-2">
+    // Single horizontal row — never wraps. On narrow viewports the trailing
+    // days slide off the right edge and the user scrolls; that's intentional
+    // so SAT / SUN don't get orphaned on a second line.
+    <div className="flex flex-nowrap overflow-x-auto no-scrollbar gap-2 px-4 -mx-4">
       {days.map((day, i) => {
         const isSelected = selectedValue === day.date;
         return (
           <motion.button
             key={day.date}
             onClick={() => onSelect(day.date)}
-            className={`p-3 rounded-xl border-2 text-center transition-all ${
+            className={`shrink-0 rounded-full px-4 py-2 text-sm font-sans font-medium transition-all border ${
               isSelected
-                ? "border-burgundy bg-burgundy/5"
-                : "border-border bg-white hover:border-burgundy/30"
+                ? "bg-burgundy text-cream border-transparent"
+                : "bg-cream border-border text-charcoal hover:border-charcoal/40"
             }`}
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.2, delay: i * 0.03 }}
-            whileTap={{ scale: 0.96 }}
+            whileTap={{ scale: 0.97 }}
           >
-            <div className="font-sans text-[10px] uppercase tracking-wide text-warm-gray">
-              {day.dayName}
-            </div>
-            <div className="font-serif text-xl text-charcoal mt-0.5">{day.dayNum}</div>
-            <div className="font-sans text-[10px] text-warm-gray">{day.month}</div>
+            {day.dayName} {day.dayNum}
           </motion.button>
         );
       })}

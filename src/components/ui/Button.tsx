@@ -22,8 +22,12 @@ export function Button({
   type = "button",
 }: ButtonProps) {
   const base =
-    "inline-flex items-center justify-center rounded-full font-sans font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-burgundy/50 disabled:opacity-50 disabled:pointer-events-none";
+    "inline-flex items-center justify-center rounded-full font-sans font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-burgundy/50 disabled:pointer-events-none disabled:cursor-not-allowed";
 
+  // Disabled state keeps full burgundy. Dimming to opacity reads as a mauve
+  // second brand color; dimming to gray reads as broken. Buttons that aren't
+  // ready simply don't respond — the form-level affordance (a missing
+  // selection) is enough cue.
   const variants = {
     primary:
       "bg-burgundy text-cream px-8 py-3.5 text-base hover:bg-burgundy-light",

@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Button } from "@/components/ui/Button";
-import { OnboardingMapBg } from "@/components/onboarding/OnboardingMapBg";
 import { saveUserPrefs } from "@/lib/userPrefs";
 import { UserPrefs, DrinksPref } from "@/types";
 import { CONTEXT_OPTIONS, DRINK_OPTIONS, DIETARY_OPTIONS, FAVORITE_HOODS } from "@/config/onboarding";
@@ -12,12 +11,22 @@ interface OnboardingFlowProps {
   onComplete: (prefs: UserPrefs) => void;
 }
 
-const pillClass = (selected: boolean, extra = "px-4 py-2") =>
-  `${extra} rounded-full text-sm font-sans font-medium transition-all ${
+type PillTone = "burgundy" | "charcoal";
+
+const pillClass = (selected: boolean, tone: PillTone = "burgundy") => {
+  // Selected pills are pure fill — no visible border. The non-selected pill
+  // keeps a 1px border for shape; selected uses border-transparent so the
+  // outline doesn't double-up against the fill and read as a focus ring.
+  const fill =
+    tone === "charcoal"
+      ? "bg-charcoal text-cream border-transparent"
+      : "bg-burgundy text-cream border-transparent";
+  return `px-4 py-2 rounded-full text-sm font-sans font-medium transition-all border ${
     selected
-      ? "bg-burgundy text-cream"
-      : "bg-white border border-border text-charcoal hover:border-burgundy/30"
+      ? fill
+      : "bg-cream border-border text-charcoal hover:border-charcoal/40"
   }`;
+};
 
 export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
   const [step, setStep] = useState(0); // 0 = name, 1 = context, 2 = preferences, 3 = neighborhoods
@@ -63,18 +72,17 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-cream relative overflow-hidden">
-      <OnboardingMapBg />
+    <div className="min-h-screen flex flex-col bg-cream">
       {/* Progress dots */}
-      <div className="relative z-10 flex items-center justify-center gap-2 pt-12 pb-6 px-6">
+      <div className="flex items-center justify-center gap-2 pt-12 pb-6 px-6">
         {Array.from({ length: totalSteps }).map((_, i) => (
           <div
             key={i}
-            className={`h-1.5 rounded-full transition-all ${
+            className={`h-1 rounded-full transition-all ${
               i === step
-                ? "w-8 bg-burgundy"
+                ? "w-8 bg-charcoal"
                 : i < step
-                ? "w-1.5 bg-burgundy/60"
+                ? "w-1.5 bg-charcoal/40"
                 : "w-1.5 bg-border"
             }`}
           />
@@ -82,7 +90,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
       </div>
 
       {/* Content */}
-      <div className="relative z-10 flex-1 flex flex-col px-6 max-w-lg w-full mx-auto">
+      <div className="flex-1 flex flex-col px-6 max-w-lg w-full mx-auto">
         <AnimatePresence mode="wait">
           <motion.div
             key={step}
@@ -95,7 +103,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
             {/* Step 0: Name */}
             {step === 0 && (
               <div className="flex-1 flex flex-col justify-center">
-                <h1 className="font-serif text-3xl text-charcoal mb-2">
+                <h1 className="font-sans text-2xl font-medium text-charcoal mb-2">
                   What should we call you?
                 </h1>
                 <p className="font-sans text-sm text-warm-gray mb-8">
@@ -106,7 +114,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="Your first name"
-                  className="w-full px-0 py-3 text-2xl font-serif bg-transparent border-b-2 border-border focus:border-burgundy focus:outline-none transition-colors text-charcoal"
+                  className="w-full px-0 py-3 text-xl font-sans bg-transparent border-b border-border focus:border-charcoal focus:outline-none transition-colors text-charcoal placeholder:text-muted"
                   autoFocus
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && name.trim()) handleNext();
@@ -118,28 +126,25 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
             {/* Step 1: Context */}
             {step === 1 && (
               <div className="flex-1 flex flex-col justify-center">
-                <h1 className="font-serif text-3xl text-charcoal mb-2">
+                <h1 className="font-sans text-2xl font-medium text-charcoal mb-2">
                   What brings you here?
                 </h1>
                 <p className="font-sans text-sm text-warm-gray mb-8">
                   So we know what kind of night you&apos;re planning.
                 </p>
-                <div className="flex flex-col gap-3">
+                <div className="flex flex-col gap-2">
                   {CONTEXT_OPTIONS.map((opt) => (
                     <button
                       key={opt.id}
                       onClick={() => setContext(opt.id)}
-                      className={`flex items-center gap-4 p-4 rounded-xl border-2 text-left transition-all ${
+                      className={`px-4 py-3 rounded-md border text-left transition-all ${
                         context === opt.id
-                          ? "border-burgundy bg-burgundy/5"
-                          : "border-border bg-white hover:border-burgundy/30"
+                          ? "border-border bg-burgundy-tint shadow-[inset_3px_0_0_var(--color-burgundy)]"
+                          : "border-border bg-cream hover:border-charcoal/30"
                       }`}
                     >
-                      <span className="text-2xl">{opt.emoji}</span>
-                      <div>
-                        <div className="font-sans font-semibold text-charcoal">{opt.label}</div>
-                        <div className="font-sans text-sm text-warm-gray">{opt.description}</div>
-                      </div>
+                      <div className="font-sans text-sm font-medium text-charcoal">{opt.label}</div>
+                      <div className="font-sans text-xs text-muted mt-0.5">{opt.description}</div>
                     </button>
                   ))}
                 </div>
@@ -149,7 +154,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
             {/* Step 2: Preferences */}
             {step === 2 && (
               <div className="flex-1 flex flex-col pt-8">
-                <h1 className="font-serif text-3xl text-charcoal mb-2">
+                <h1 className="font-sans text-2xl font-medium text-charcoal mb-2">
                   A couple quick things
                 </h1>
                 <p className="font-sans text-sm text-warm-gray mb-8">
@@ -157,24 +162,24 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                 </p>
 
                 <div className="mb-8">
-                  <h3 className="font-sans font-semibold text-sm text-charcoal mb-3">
+                  <h3 className="font-sans text-xs tracking-widest uppercase text-muted mb-3">
                     Do you drink?
                   </h3>
-                  <div className="flex gap-3">
+                  <div className="flex flex-wrap gap-2">
                     {DRINK_OPTIONS.map((opt) => (
                       <button
                         key={opt.id}
                         onClick={() => setDrinks(opt.id)}
-                        className={pillClass(drinks === opt.id, "flex-1 py-3")}
+                        className={pillClass(drinks === opt.id)}
                       >
-                        {opt.emoji} {opt.label}
+                        {opt.label}
                       </button>
                     ))}
                   </div>
                 </div>
 
                 <div>
-                  <h3 className="font-sans font-semibold text-sm text-charcoal mb-3">
+                  <h3 className="font-sans text-xs tracking-widest uppercase text-muted mb-3">
                     Any dietary restrictions?
                   </h3>
                   <div className="flex flex-wrap gap-2">
@@ -182,7 +187,14 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                       <button
                         key={opt.id}
                         onClick={() => toggleDietary(opt.id)}
-                        className={pillClass(dietary.includes(opt.id))}
+                        // "No restrictions" is a default-style choice (the
+                        // absence of a filter), not an active preference —
+                        // render it in neutral charcoal so it doesn't read
+                        // as an urgent burgundy selection.
+                        className={pillClass(
+                          dietary.includes(opt.id),
+                          opt.id === "none" ? "charcoal" : "burgundy"
+                        )}
                       >
                         {opt.label}
                       </button>
@@ -195,7 +207,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
             {/* Step 3: Favorite neighborhoods */}
             {step === 3 && (
               <div className="flex-1 flex flex-col pt-8">
-                <h1 className="font-serif text-3xl text-charcoal mb-2">
+                <h1 className="font-sans text-2xl font-medium text-charcoal mb-2">
                   Favorite neighborhoods?
                 </h1>
                 <p className="font-sans text-sm text-warm-gray mb-6">

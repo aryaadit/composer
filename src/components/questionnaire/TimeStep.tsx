@@ -1,18 +1,20 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/Button";
 
-const ITEM_HEIGHT = 44;
-const VISIBLE_ITEMS = 5;
-const WHEEL_HEIGHT = ITEM_HEIGHT * VISIBLE_ITEMS;
+const ITEM_HEIGHT = 36;
+const VISIBLE_ABOVE = 3;
+const VISIBLE_BELOW = 2;
+const COLUMN_HEIGHT = ITEM_HEIGHT * (VISIBLE_ABOVE + 1 + VISIBLE_BELOW); // 6 rows
 
+// 30-minute slots from 5:00 PM (17:00) through 2:00 AM next day (26:00).
 function buildSlots(): string[] {
   const slots: string[] = [];
-  for (let h = 0; h < 24; h++) {
-    for (let m = 0; m < 60; m += 15) {
-      slots.push(`${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`);
-    }
+  for (let m = 17 * 60; m <= 26 * 60; m += 30) {
+    const h = Math.floor(m / 60) % 24;
+    const min = m % 60;
+    slots.push(`${String(h).padStart(2, "0")}:${String(min).padStart(2, "0")}`);
   }
   return slots;
 }
@@ -24,106 +26,108 @@ function format12h(time24: string): string {
   return `${display}:${String(m).padStart(2, "0")} ${period}`;
 }
 
-function defaultStartTime(): string {
+function defaultStartTime(allSlots: string[]): string {
+  // Pick the slot closest to "now + 1 hour", clamped to the available range.
   const now = new Date();
-  const mins = now.getHours() * 60 + now.getMinutes();
-  const rounded = Math.ceil(mins / 15) * 15 + 60; // 1 hr from now
-  const h = Math.floor(rounded / 60) % 24;
-  const m = rounded % 60;
-  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+  const targetMins = now.getHours() * 60 + now.getMinutes() + 60;
+  const fallback = "19:00";
+  let best = fallback;
+  let bestDelta = Infinity;
+  for (const slot of allSlots) {
+    const [h, m] = slot.split(":").map(Number);
+    const slotMins = h < 5 ? (h + 24) * 60 + m : h * 60 + m;
+    const delta = Math.abs(slotMins - targetMins);
+    if (delta < bestDelta) {
+      bestDelta = delta;
+      best = slot;
+    }
+  }
+  return best;
 }
 
-function defaultEndTime(start: string): string {
-  const [h, m] = start.split(":").map(Number);
-  const end = h * 60 + m + 180; // +3 hours
-  const eh = Math.floor(end / 60) % 24;
-  const em = end % 60;
-  return `${String(eh).padStart(2, "0")}:${String(em).padStart(2, "0")}`;
+function defaultEndTime(allSlots: string[], start: string): string {
+  // 3 hours after start by default — typical evening window.
+  const idx = allSlots.indexOf(start);
+  const target = Math.min(idx + 6, allSlots.length - 1);
+  return allSlots[target];
 }
 
-interface WheelColumnProps {
-  items: string[];
-  selectedIndex: number;
-  onSelect: (index: number) => void;
+interface TimeColumnProps {
+  label: string;
+  slots: string[];
+  selected: string;
+  onSelect: (value: string) => void;
 }
 
-function WheelColumn({ items, selectedIndex, onSelect }: WheelColumnProps) {
+function TimeColumn({ label, slots, selected, onSelect }: TimeColumnProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const snapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const selectedIdx = Math.max(0, slots.indexOf(selected));
 
+  // Center the selected row on mount and whenever the selection changes.
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
-    el.scrollTop = selectedIndex * ITEM_HEIGHT;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    el.scrollTo({
+      top: selectedIdx * ITEM_HEIGHT,
+      behavior: "smooth",
+    });
+  }, [selectedIdx]);
 
-  const handleScroll = useCallback(() => {
-    if (snapTimerRef.current) clearTimeout(snapTimerRef.current);
-    snapTimerRef.current = setTimeout(() => {
-      const el = containerRef.current;
-      if (!el) return;
-      const idx = Math.round(el.scrollTop / ITEM_HEIGHT);
-      const clamped = Math.max(0, Math.min(idx, items.length - 1));
-      el.scrollTo({ top: clamped * ITEM_HEIGHT, behavior: "smooth" });
-      onSelect(clamped);
-    }, 80);
-  }, [items.length, onSelect]);
-
-  const padCount = Math.floor(VISIBLE_ITEMS / 2);
-
-  // Bridge JS layout constants to CSS custom properties so Tailwind utilities
-  // remain the single source of truth for visual properties below.
-  const wheelVars = {
-    "--wheel-item-h": `${ITEM_HEIGHT}px`,
-    "--wheel-h": `${WHEEL_HEIGHT}px`,
-    "--wheel-pad": `${padCount * ITEM_HEIGHT}px`,
-    "--wheel-fade": `${ITEM_HEIGHT * 1.5}px`,
-  } as React.CSSProperties;
+  const padCount = VISIBLE_ABOVE;
 
   return (
-    <div
-      className="relative w-[130px] h-[var(--wheel-h)]"
-      style={wheelVars}
-    >
-      {/* Selection band */}
-      <div className="absolute left-0 right-0 top-[var(--wheel-pad)] h-[var(--wheel-item-h)] rounded-xl pointer-events-none z-10 bg-burgundy/10" />
-      {/* Top fade */}
-      <div className="absolute top-0 left-0 right-0 h-[var(--wheel-fade)] z-20 pointer-events-none bg-gradient-to-b from-cream from-10% to-transparent" />
-      {/* Bottom fade */}
-      <div className="absolute bottom-0 left-0 right-0 h-[var(--wheel-fade)] z-20 pointer-events-none bg-gradient-to-t from-cream from-10% to-transparent" />
-
+    <div className="flex flex-col items-center">
+      <span className="font-sans text-xs uppercase tracking-widest text-muted mb-3">
+        {label}
+      </span>
       <div
-        ref={containerRef}
-        onScroll={handleScroll}
-        className="h-full overflow-y-scroll no-scrollbar [scroll-snap-type:y_mandatory]"
+        className="relative"
+        style={{
+          width: 110,
+          height: COLUMN_HEIGHT,
+          maskImage:
+            "linear-gradient(to bottom, transparent 0%, black 25%, black 75%, transparent 100%)",
+          WebkitMaskImage:
+            "linear-gradient(to bottom, transparent 0%, black 25%, black 75%, transparent 100%)",
+        }}
       >
-        {Array.from({ length: padCount }).map((_, i) => (
-          <div key={`pad-top-${i}`} className="h-[var(--wheel-item-h)]" />
-        ))}
-        {items.map((item, i) => {
-          const isSelected = i === selectedIndex;
-          return (
-            <div
-              key={i}
-              onClick={() => {
-                const el = containerRef.current;
-                if (el) el.scrollTo({ top: i * ITEM_HEIGHT, behavior: "smooth" });
-                onSelect(i);
-              }}
-              className={`flex items-center justify-center cursor-pointer select-none transition-all font-serif h-[var(--wheel-item-h)] [scroll-snap-align:start] ${
-                isSelected
-                  ? "font-bold text-[22px] text-burgundy"
-                  : "font-normal text-[17px] text-warm-gray"
-              }`}
-            >
-              {item}
-            </div>
-          );
-        })}
-        {Array.from({ length: padCount }).map((_, i) => (
-          <div key={`pad-bot-${i}`} className="h-[var(--wheel-item-h)]" />
-        ))}
+        <div
+          ref={containerRef}
+          className="h-full overflow-y-auto no-scrollbar"
+          style={{ scrollSnapType: "y mandatory" }}
+        >
+          {Array.from({ length: padCount }).map((_, i) => (
+            <div key={`pad-top-${i}`} style={{ height: ITEM_HEIGHT }} />
+          ))}
+          {slots.map((slot) => {
+            const isSelected = slot === selected;
+            return (
+              <button
+                key={slot}
+                type="button"
+                onClick={() => onSelect(slot)}
+                style={{
+                  height: ITEM_HEIGHT,
+                  scrollSnapAlign: "start",
+                }}
+                className="w-full flex items-center justify-center font-sans text-sm transition-colors"
+              >
+                <span
+                  className={
+                    isSelected
+                      ? "font-medium text-charcoal border-b-2 border-charcoal pb-0.5"
+                      : "text-muted hover:text-charcoal"
+                  }
+                >
+                  {format12h(slot)}
+                </span>
+              </button>
+            );
+          })}
+          {Array.from({ length: VISIBLE_BELOW }).map((_, i) => (
+            <div key={`pad-bot-${i}`} style={{ height: ITEM_HEIGHT }} />
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -137,39 +141,35 @@ interface TimeStepProps {
 
 export function TimeStep({ initialStart, initialEnd, onContinue }: TimeStepProps) {
   const allSlots = buildSlots();
-  const [startTime, setStartTime] = useState<string>(initialStart || defaultStartTime());
+  const [startTime, setStartTime] = useState<string>(
+    initialStart && allSlots.includes(initialStart)
+      ? initialStart
+      : defaultStartTime(allSlots)
+  );
   const [endTime, setEndTime] = useState<string>(
-    initialEnd || defaultEndTime(initialStart || defaultStartTime())
+    initialEnd && allSlots.includes(initialEnd)
+      ? initialEnd
+      : defaultEndTime(allSlots, initialStart || defaultStartTime(allSlots))
   );
 
-  const startDisplaySlots = allSlots.map(format12h);
-  const endSlotsRaw = allSlots.filter((s) => s > startTime);
-  const endDisplaySlots = endSlotsRaw.map(format12h);
-
-  const startIdx = Math.max(0, allSlots.indexOf(startTime));
-  const endIdx = Math.max(0, endSlotsRaw.indexOf(endTime));
-
-  const handleStartSelect = (idx: number) => {
-    const t = allSlots[idx];
-    setStartTime(t);
-    // If new start >= current end, bump end by 2 hours
-    if (t >= endTime) {
-      const [h, m] = t.split(":").map(Number);
-      const end = h * 60 + m + 120;
-      const eh = Math.floor(end / 60) % 24;
-      const em = end % 60;
-      setEndTime(`${String(eh).padStart(2, "0")}:${String(em).padStart(2, "0")}`);
+  // End must come after start. If the user picks a start that's >= end,
+  // bump end forward by 2 hours (or clamp to last slot).
+  const handleStartSelect = (value: string) => {
+    setStartTime(value);
+    const sIdx = allSlots.indexOf(value);
+    const eIdx = allSlots.indexOf(endTime);
+    if (eIdx <= sIdx) {
+      const bumped = Math.min(sIdx + 4, allSlots.length - 1);
+      setEndTime(allSlots[bumped]);
     }
   };
 
-  const handleEndSelect = (idx: number) => {
-    setEndTime(endSlotsRaw[idx]);
-  };
+  const endSlots = allSlots.filter((s) => allSlots.indexOf(s) > allSlots.indexOf(startTime));
 
-  // Compute duration label
-  const [sh, sm] = startTime.split(":").map(Number);
-  const [eh, em] = endTime.split(":").map(Number);
-  const diffMin = eh * 60 + em - (sh * 60 + sm);
+  // Compute window duration label.
+  const sIdx = allSlots.indexOf(startTime);
+  const eIdx = allSlots.indexOf(endTime);
+  const diffMin = (eIdx - sIdx) * 30;
   const hrs = Math.floor(diffMin / 60);
   const mins = diffMin % 60;
   const durationLabel = `${hrs > 0 ? `${hrs}h` : ""}${mins > 0 ? ` ${mins}m` : ""}`.trim();
@@ -177,44 +177,36 @@ export function TimeStep({ initialStart, initialEnd, onContinue }: TimeStepProps
 
   return (
     <div>
-      <div className="flex items-center justify-center gap-4">
-        <div className="flex flex-col items-center">
-          <span className="font-sans text-xs uppercase tracking-wider text-warm-gray mb-2">
-            Start
-          </span>
-          <WheelColumn
-            items={startDisplaySlots}
-            selectedIndex={startIdx}
-            onSelect={handleStartSelect}
-          />
-        </div>
-        <span className="font-serif text-2xl text-warm-gray mt-7">→</span>
-        <div className="flex flex-col items-center">
-          <span className="font-sans text-xs uppercase tracking-wider text-warm-gray mb-2">
-            End
-          </span>
-          <WheelColumn
-            items={endDisplaySlots}
-            selectedIndex={endIdx}
-            onSelect={handleEndSelect}
-          />
-        </div>
+      <div className="flex items-center justify-center gap-6">
+        <TimeColumn
+          label="Start"
+          slots={allSlots}
+          selected={startTime}
+          onSelect={handleStartSelect}
+        />
+        <span className="font-sans text-lg text-muted self-center mt-6">→</span>
+        <TimeColumn
+          label="End"
+          slots={endSlots}
+          selected={endTime}
+          onSelect={setEndTime}
+        />
       </div>
 
       {isValid && (
-        <div className="text-center mt-4">
-          <span className="inline-block px-4 py-1.5 rounded-full text-sm font-sans font-medium bg-burgundy/10 text-burgundy">
+        <div className="text-center mt-6">
+          <span className="font-sans text-xs tracking-widest uppercase text-muted">
             {durationLabel} window
           </span>
         </div>
       )}
 
-      <div className="flex justify-center mt-6">
+      <div className="mt-8">
         <Button
           variant="primary"
           onClick={() => onContinue(startTime, endTime)}
           disabled={!isValid}
-          className="px-10 py-3 text-sm"
+          className="w-full"
         >
           Build my night
         </Button>
