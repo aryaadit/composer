@@ -3,6 +3,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { motion } from "motion/react";
 import { Button } from "@/components/ui/Button";
+import { CitySwitcher, CitySwitcherButton } from "./CitySwitcher";
 import {
   NEIGHBORHOOD_GROUPS,
   BOROUGH_LABELS,
@@ -29,6 +30,7 @@ export function NeighborhoodStep({
   onContinue,
 }: NeighborhoodStepProps) {
   const [selected, setSelected] = useState<Set<string>>(new Set(initialSelected));
+  const [cityDrawerOpen, setCityDrawerOpen] = useState(false);
 
   // Group the incoming options by borough using the canonical group config.
   // Keeps the `options` prop flat for back-compat, while letting this step
@@ -112,6 +114,8 @@ export function NeighborhoodStep({
         ))}
       </div>
 
+      <CitySwitcherButton onClick={() => setCityDrawerOpen(true)} />
+
       <div className="mt-8">
         <Button
           variant="primary"
@@ -122,6 +126,11 @@ export function NeighborhoodStep({
           Continue
         </Button>
       </div>
+
+      <CitySwitcher
+        open={cityDrawerOpen}
+        onClose={() => setCityDrawerOpen(false)}
+      />
     </div>
   );
 }
