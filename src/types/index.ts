@@ -112,6 +112,13 @@ export interface Venue {
   wheelchair_accessible: string | null;   // 'yes' | 'no' | 'partial'
   signature_order: string | null;         // "Get the cacio e pepe"
   cash_only: boolean | null;
+
+  // ── StopCard enrichment (added by 20260414 migration) ─────────────
+  photo_url: string | null;
+  awards: string[] | null;                // slugs; see src/config/awards.ts
+  amex_dining: boolean | null;            // Amex Platinum Global Dining Access
+  chase_sapphire: boolean | null;         // Chase Sapphire Reserve Dining
+  dress_code: string | null;              // free-text, e.g. "Smart casual"
 }
 
 export interface ScoredVenue extends Venue {
