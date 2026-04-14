@@ -119,38 +119,40 @@ export function QuestionnaireShell() {
   if (!step) return <StepLoading />;
 
   return (
-    <div className="grid grid-rows-[auto_auto_1fr] min-h-screen px-6 pt-4 pb-6">
-      {/* Header */}
-      <div className="w-full max-w-lg mx-auto flex items-center justify-between mb-3">
-        <Link
-          href="/"
-          className="font-sans text-sm text-warm-gray hover:text-charcoal transition-colors"
-        >
-          Composer
-        </Link>
-        {state.currentStep > 0 ? (
-          <button
-            onClick={() => dispatch({ type: "BACK" })}
+    <div className="relative min-h-screen px-6">
+      {/* Top chrome — pulled out of the centering math via absolute positioning
+          so the question content can be true-centered in the viewport, not in
+          the leftover space below the header + progress. */}
+      <div className="absolute top-0 inset-x-0 px-6 pt-4 z-10">
+        <div className="w-full max-w-lg mx-auto flex items-center justify-between mb-3">
+          <Link
+            href="/"
             className="font-sans text-sm text-warm-gray hover:text-charcoal transition-colors"
           >
-            &larr; Back
-          </button>
-        ) : (
-          <span />
-        )}
+            Composer
+          </Link>
+          {state.currentStep > 0 ? (
+            <button
+              onClick={() => dispatch({ type: "BACK" })}
+              className="font-sans text-sm text-warm-gray hover:text-charcoal transition-colors"
+            >
+              &larr; Back
+            </button>
+          ) : (
+            <span />
+          )}
+        </div>
+        <div className="w-full max-w-lg mx-auto">
+          <ProgressBar
+            currentStep={state.currentStep}
+            totalSteps={questionSteps.length}
+          />
+        </div>
       </div>
 
-      {/* Progress */}
-      <div className="w-full max-w-lg mx-auto mb-4">
-        <ProgressBar
-          currentStep={state.currentStep}
-          totalSteps={questionSteps.length}
-        />
-      </div>
-
-      {/* Content — centered in remaining viewport, but pulled up slightly so
-          the visual center lands near the middle of the screen, not below. */}
-      <div className="flex items-center justify-center pb-[10vh]">
+      {/* Content — viewport-centered. The pt-24 keeps content from sliding
+          under the absolute top chrome on short viewports. */}
+      <div className="min-h-screen flex flex-col justify-center items-center pt-24 pb-10">
         <div className="w-full max-w-lg">
           <AnimatePresence mode="wait" custom={state.direction}>
             <motion.div
