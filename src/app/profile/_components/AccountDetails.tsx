@@ -31,8 +31,14 @@ export function AccountDetails({ profile, userId, refreshProfile }: Props) {
         Account
       </h2>
       <div className="flex flex-col gap-7 divide-y divide-border">
+        {/* Name is set once at onboarding and intentionally read-only —
+            no pencil. If this ever needs to change, add a NameField
+            component back. */}
         <div className="pb-2">
-          <NameField profile={profile} userId={userId} onSaved={refreshProfile} />
+          <label className="font-sans text-xs tracking-widest uppercase text-muted block mb-3">
+            Name
+          </label>
+          <p className="font-sans text-base text-charcoal">{profile.name}</p>
         </div>
         <div className="pt-5 pb-2">
           <DrinksField profile={profile} userId={userId} onSaved={refreshProfile} />
@@ -52,41 +58,6 @@ interface FieldProps {
   profile: ComposerUser;
   userId: string;
   onSaved: () => Promise<void>;
-}
-
-function NameField({ profile, userId, onSaved }: FieldProps) {
-  const f = useFieldEditor<string>(profile.name, userId, onSaved);
-  const canSave =
-    f.draft.trim().length > 0 && f.draft.trim() !== profile.name;
-  return (
-    <FieldShell
-      label="Name"
-      editing={f.editing}
-      onEdit={f.beginEdit}
-      justSaved={f.justSaved}
-    >
-      {f.editing ? (
-        <>
-          <input
-            type="text"
-            value={f.draft}
-            onChange={(e) => f.setDraft(e.target.value)}
-            className="w-full px-0 py-2 text-base font-sans bg-transparent border-b border-border focus:border-charcoal focus:outline-none transition-colors text-charcoal"
-            autoFocus
-          />
-          <EditActions
-            onSave={() => void f.save("name", f.draft.trim())}
-            onCancel={f.cancel}
-            saving={f.saving}
-            canSave={canSave}
-            error={f.error}
-          />
-        </>
-      ) : (
-        <p className="font-sans text-base text-charcoal">{profile.name}</p>
-      )}
-    </FieldShell>
-  );
 }
 
 function DrinksField({ profile, userId, onSaved }: FieldProps) {
