@@ -6,29 +6,47 @@
 // duration → concrete startTime/endTime before the rest of the pipeline
 // runs, so `planStopMix` and friends stay unchanged.
 
-import { useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { motion } from "motion/react";
 import { Button } from "@/components/ui/Button";
 import { DURATIONS, DEFAULT_DURATION } from "@/config/durations";
 import type { Duration } from "@/types";
 
 interface UpcomingDay {
-  date: string; // ISO
-  label: string; // "Today" | "Tomorrow" | "WED 16"
+  date: string; // ISO "YYYY-MM-DD"
+  label: string; // "Today" | "Tomorrow" | "Fri 17"
 }
 
 function buildUpcomingDays(): UpcomingDay[] {
   return Array.from({ length: 7 }, (_, i) => {
     const d = new Date();
     d.setDate(d.getDate() + i);
-    const iso = d.toISOString().split("T")[0];
+    const iso = toLocalISODate(d);
     if (i === 0) return { date: iso, label: "Today" };
     if (i === 1) return { date: iso, label: "Tomorrow" };
-    const weekday = d
-      .toLocaleDateString("en-US", { weekday: "short" })
-      .toUpperCase();
+    const weekday = d.toLocaleDateString("en-US", { weekday: "short" });
     return { date: iso, label: `${weekday} ${d.getDate()}` };
   });
+}
+
+// Format an ISO date string as "Wed May 7" for the custom-date pill.
+// Uses UTC noon to dodge any DST / timezone shenanigans that would
+// otherwise push a boundary date to the previous day.
+function formatCustomDate(iso: string): string {
+  const d = new Date(`${iso}T12:00:00`);
+  const weekday = d.toLocaleDateString("en-US", { weekday: "short" });
+  const month = d.toLocaleDateString("en-US", { month: "short" });
+  return `${weekday} ${month} ${d.getDate()}`;
+}
+
+// Build a local-time ISO date ("YYYY-MM-DD") without UTC shift — using
+// `toISOString().split("T")[0]` on a local Date can roll the day back
+// one when the user is west of UTC, which matters for "today".
+function toLocalISODate(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
 }
 
 interface WhenStepProps {
@@ -42,31 +60,68 @@ export function WhenStep({
   initialDuration,
   onContinue,
 }: WhenStepProps) {
-  const days = buildUpcomingDays();
+  const days = useMemo(() => buildUpcomingDays(), []);
 
   const [day, setDay] = useState<string>(() => initialDay ?? days[0].date);
   const [duration, setDuration] = useState<Duration>(
     initialDuration ?? DEFAULT_DURATION
   );
 
+  const dateInputRef = useRef<HTMLInputElement | null>(null);
+
+  // A "custom" date is any selection that isn't one of the first 7
+  // pills. Keeping this derived (rather than a separate state) means
+  // picking Today/Tomorrow after a custom date just works — the 8th
+  // pill flips back to "+ Pick a date" on its own.
+  const builtInDates = useMemo(() => new Set(days.map((d) => d.date)), [days]);
+  const customSelected = !builtInDates.has(day);
+
+  const todayISO = days[0].date;
+
+  const openDatePicker = () => {
+    const el = dateInputRef.current;
+    if (!el) return;
+    // showPicker is the modern way to summon the native date popover
+    // on a button press without relying on the input being visible.
+    // Falls back to click for older browsers.
+    if (typeof el.showPicker === "function") {
+      try {
+        el.showPicker();
+        return;
+      } catch {
+        // fallthrough
+      }
+    }
+    el.click();
+  };
+
+  const handleDatePicked = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    if (!value) return;
+    setDay(value);
+  };
+
+  const pillClassFor = (selected: boolean) =>
+    `rounded-full px-4 py-2 text-sm font-sans font-medium transition-all border ${
+      selected
+        ? "bg-burgundy text-cream border-transparent"
+        : "bg-cream border-border text-charcoal hover:border-charcoal/40"
+    }`;
+
   return (
     <div>
-      {/* ── Day ─────────────────────────────────────────────── */}
+      {/* ── When ────────────────────────────────────────────── */}
       <h3 className="font-sans text-xs tracking-widest uppercase text-muted mb-3 text-center">
         When
       </h3>
-      <div className="flex flex-nowrap overflow-x-auto no-scrollbar gap-2 px-4 -mx-4 mb-10">
+      <div className="flex flex-wrap justify-center gap-2 mb-10">
         {days.map((d, i) => {
           const isSelected = day === d.date;
           return (
             <motion.button
               key={d.date}
               onClick={() => setDay(d.date)}
-              className={`shrink-0 rounded-full px-4 py-2 text-sm font-sans font-medium transition-all border ${
-                isSelected
-                  ? "bg-burgundy text-cream border-transparent"
-                  : "bg-cream border-border text-charcoal hover:border-charcoal/40"
-              }`}
+              className={pillClassFor(isSelected)}
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.2, delay: i * 0.03 }}
@@ -76,6 +131,32 @@ export function WhenStep({
             </motion.button>
           );
         })}
+
+        {/* Custom-date pill — 8th slot. Displays the picked date when
+            set, otherwise "+ Pick a date". Native <input type="date">
+            is offscreen but focusable; tapping the pill summons it. */}
+        <motion.button
+          key="custom-date"
+          type="button"
+          onClick={openDatePicker}
+          className={pillClassFor(customSelected)}
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.2, delay: days.length * 0.03 }}
+          whileTap={{ scale: 0.97 }}
+        >
+          {customSelected ? formatCustomDate(day) : "+ Pick a date"}
+        </motion.button>
+        <input
+          ref={dateInputRef}
+          type="date"
+          min={todayISO}
+          value={customSelected ? day : ""}
+          onChange={handleDatePicked}
+          className="sr-only"
+          aria-hidden
+          tabIndex={-1}
+        />
       </div>
 
       {/* ── Duration ────────────────────────────────────────── */}
@@ -89,11 +170,7 @@ export function WhenStep({
             <motion.button
               key={opt.id}
               onClick={() => setDuration(opt.id)}
-              className={`rounded-full px-4 py-2 text-sm font-sans font-medium transition-all border ${
-                isSelected
-                  ? "bg-burgundy text-cream border-transparent"
-                  : "bg-cream border-border text-charcoal hover:border-charcoal/40"
-              }`}
+              className={pillClassFor(isSelected)}
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.2, delay: i * 0.03 + 0.1 }}
