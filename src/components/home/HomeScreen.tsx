@@ -45,7 +45,7 @@ function getGreeting(): string {
 }
 
 export function HomeScreen({ userName }: HomeScreenProps) {
-  const { user, signOut } = useAuth();
+  const { user } = useAuth();
   // `loadedFor` tracks which user id the `plans` array belongs to. When
   // that doesn't match the current `user.id`, UI shows the loading
   // state. Packing both into one state keeps the effect's only setState
@@ -116,21 +116,13 @@ export function HomeScreen({ userName }: HomeScreenProps) {
             Compose your night.
           </h1>
         </div>
-        <div className="flex items-center gap-4 mt-1">
-          <Link
-            href="/profile"
-            aria-label="Profile"
-            className="text-muted hover:text-charcoal transition-colors"
-          >
-            <UserIcon />
-          </Link>
-          <button
-            onClick={() => void signOut()}
-            className="font-sans text-xs tracking-wide uppercase text-muted hover:text-charcoal transition-colors"
-          >
-            Sign out
-          </button>
-        </div>
+        <Link
+          href="/profile"
+          aria-label="Profile"
+          className="text-muted hover:text-charcoal transition-colors mt-1"
+        >
+          <UserIcon />
+        </Link>
       </div>
 
       {/* Main CTA */}
