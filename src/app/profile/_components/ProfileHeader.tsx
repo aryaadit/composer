@@ -7,18 +7,21 @@ interface ProfileHeaderProps {
 }
 
 export function ProfileHeader({ name, email, onSignOut }: ProfileHeaderProps) {
-  // Name + email render as one muted identity line beneath the title —
-  // they're read-only identity info, not editable fields, so they sit
-  // in the header rather than the Account block below.
+  // Name + email are read-only identity info — stacked on two lines
+  // with the name slightly weightier than the email so the eye lands
+  // on the person, then the handle. `text-charcoal` is the project's
+  // `gray-800` equivalent (primary body color); `text-muted` is the
+  // `gray-400` secondary.
   return (
-    <div className="flex items-start justify-between mb-10">
+    <div className="flex items-start justify-between mb-8">
       <div>
         <h1 className="font-serif text-2xl font-normal text-charcoal leading-tight">
           Your Profile
         </h1>
-        <p className="font-sans text-sm text-muted mt-1">
-          {name} &middot; {email}
+        <p className="font-sans text-base font-medium text-charcoal mt-2">
+          {name}
         </p>
+        <p className="font-sans text-sm text-muted mt-0.5">{email}</p>
       </div>
       <button
         onClick={() => void onSignOut()}
