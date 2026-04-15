@@ -14,6 +14,25 @@ import { useAuth } from "@/components/providers/AuthProvider";
 import type { SavedItinerary } from "@/types";
 import type { PostgrestError } from "@supabase/supabase-js";
 
+function UserIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width="16"
+      height="16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+      <circle cx="12" cy="7" r="4" />
+    </svg>
+  );
+}
+
 interface HomeScreenProps {
   userName: string;
 }
@@ -97,12 +116,21 @@ export function HomeScreen({ userName }: HomeScreenProps) {
             Compose your night.
           </h1>
         </div>
-        <button
-          onClick={() => void signOut()}
-          className="font-sans text-xs tracking-wide uppercase text-muted hover:text-charcoal transition-colors mt-1"
-        >
-          Sign out
-        </button>
+        <div className="flex items-center gap-4 mt-1">
+          <Link
+            href="/profile"
+            aria-label="Profile"
+            className="text-muted hover:text-charcoal transition-colors"
+          >
+            <UserIcon />
+          </Link>
+          <button
+            onClick={() => void signOut()}
+            className="font-sans text-xs tracking-wide uppercase text-muted hover:text-charcoal transition-colors"
+          >
+            Sign out
+          </button>
+        </div>
       </div>
 
       {/* Main CTA */}
