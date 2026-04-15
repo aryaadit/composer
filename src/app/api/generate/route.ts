@@ -5,6 +5,7 @@ import { fetchWeather } from "@/lib/weather";
 import { composeItinerary, ROLE_AVG_DURATION_MIN } from "@/lib/composer";
 import { generateCopy } from "@/lib/claude";
 import { walkTimeMinutes, walkDistanceKm, buildGoogleMapsUrl } from "@/lib/geo";
+import { buildWalkMapUrl } from "@/lib/mapbox";
 import { calculateTotalSpend } from "@/config/budgets";
 import { ALCOHOL_VIBE_TAGS } from "@/config/vibes";
 import {
@@ -206,7 +207,27 @@ export async function POST(request: Request) {
 
     const maps_url = buildGoogleMapsUrl(stops.map((s) => s.venue));
 
-    const copy = await generateCopy(stops, inputs, weather, prefs?.name ?? undefined);
+    // Enrich each walk with a Mapbox static image URL in parallel with copy
+    // generation. Failures resolve to null and render text-only in the UI.
+    const [copy, mapUrls] = await Promise.all([
+      generateCopy(stops, inputs, weather, prefs?.name ?? undefined),
+      Promise.all(
+        walks.map((_, i) => {
+          const from = stops[i].venue;
+          const to = stops[i + 1].venue;
+          return buildWalkMapUrl(
+            from.latitude,
+            from.longitude,
+            to.latitude,
+            to.longitude
+          );
+        })
+      ),
+    ]);
+
+    for (let i = 0; i < walks.length; i++) {
+      walks[i].map_url = mapUrls[i];
+    }
 
     for (const stop of stops) {
       const aiNote = copy.venue_notes[stop.venue.name];
