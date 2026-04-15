@@ -4,34 +4,50 @@
 //
 // Share URLs remain stateless — the itinerary page reads the inputs
 // from the query string and re-generates, so a shared link is a
-// recipe, not a snapshot.
+// recipe, not a snapshot. The URL carries `duration` (a preset), not
+// startTime/endTime; the server resolves it on each generation so a
+// shared link regenerated at a different hour still produces a
+// coherent window.
 
-import { QuestionnaireAnswers, Neighborhood } from "@/types";
+import {
+  GenerateRequestBody,
+  Duration,
+  Neighborhood,
+} from "@/types";
+import { DURATIONS } from "@/config/durations";
 
-export function encodeInputsToParams(inputs: QuestionnaireAnswers): string {
+const DURATION_IDS = new Set<string>(DURATIONS.map((d) => d.id));
+
+export function encodeInputsToParams(inputs: GenerateRequestBody): string {
   const params = new URLSearchParams();
   params.set("occasion", inputs.occasion);
   params.set("neighborhoods", inputs.neighborhoods.join(","));
   params.set("budget", inputs.budget);
   params.set("vibe", inputs.vibe);
   params.set("day", inputs.day);
-  params.set("startTime", inputs.startTime);
-  params.set("endTime", inputs.endTime);
+  params.set("duration", inputs.duration);
   return params.toString();
 }
 
 export function decodeParamsToInputs(
   searchParams: URLSearchParams
-): QuestionnaireAnswers | null {
+): GenerateRequestBody | null {
   const occasion = searchParams.get("occasion");
   const neighborhoodsRaw = searchParams.get("neighborhoods");
   const budget = searchParams.get("budget");
   const vibe = searchParams.get("vibe");
   const day = searchParams.get("day");
-  const startTime = searchParams.get("startTime");
-  const endTime = searchParams.get("endTime");
+  const durationRaw = searchParams.get("duration");
 
-  if (!occasion || !neighborhoodsRaw || !budget || !vibe || !day || !startTime || !endTime) {
+  if (
+    !occasion ||
+    !neighborhoodsRaw ||
+    !budget ||
+    !vibe ||
+    !day ||
+    !durationRaw ||
+    !DURATION_IDS.has(durationRaw)
+  ) {
     return null;
   }
 
@@ -40,17 +56,16 @@ export function decodeParamsToInputs(
     .filter(Boolean) as Neighborhood[];
 
   return {
-    occasion: occasion as QuestionnaireAnswers["occasion"],
+    occasion: occasion as GenerateRequestBody["occasion"],
     neighborhoods,
-    budget: budget as QuestionnaireAnswers["budget"],
-    vibe: vibe as QuestionnaireAnswers["vibe"],
+    budget: budget as GenerateRequestBody["budget"],
+    vibe: vibe as GenerateRequestBody["vibe"],
     day,
-    startTime,
-    endTime,
+    duration: durationRaw as Duration,
   };
 }
 
-export function buildShareUrl(inputs: QuestionnaireAnswers): string {
+export function buildShareUrl(inputs: GenerateRequestBody): string {
   const params = encodeInputsToParams(inputs);
   return `${window.location.origin}/itinerary?${params}`;
 }

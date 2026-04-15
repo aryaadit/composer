@@ -5,8 +5,10 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { AnimatePresence, motion } from "motion/react";
 import { questionSteps } from "@/config/options";
-import {
+import type {
   QuestionnaireAnswers,
+  GenerateRequestBody,
+  Duration,
   Neighborhood,
 } from "@/types";
 import {
@@ -23,25 +25,28 @@ import { ProgressBar } from "@/components/ui/ProgressBar";
 import { StepLoading } from "./StepLoading";
 import { NeighborhoodStep } from "./NeighborhoodStep";
 import { StandardStep } from "./StandardStep";
-import { DayStep } from "./DayStep";
-import { TimeStep } from "./TimeStep";
+import { WhenStep } from "./WhenStep";
 
 export function QuestionnaireShell() {
   const router = useRouter();
   const [state, dispatch] = useReducer(questionnaireReducer, initialState);
 
   const submitAnswers = useCallback(
-    (finalAnswers: QuestionnaireAnswers) => {
+    (body: GenerateRequestBody) => {
       dispatch({ type: "SET_LOADING" });
-      sessionStorage.setItem(STORAGE_KEYS.session.questionnaireInputs, JSON.stringify(finalAnswers));
+      sessionStorage.setItem(
+        STORAGE_KEYS.session.questionnaireInputs,
+        JSON.stringify(body)
+      );
 
       // Auth-derived prefs (name, drinks, etc.) are read server-side from
-      // the session cookie — the client just sends the questionnaire
-      // answers.
+      // the session cookie. Time window (startTime/endTime) is resolved
+      // server-side from `duration`. Client sends day + duration, not
+      // concrete times.
       fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(finalAnswers),
+        body: JSON.stringify(body),
       })
         .then((res) => res.json())
         .then((data) => {
@@ -86,24 +91,18 @@ export function QuestionnaireShell() {
     });
   }, []);
 
-  const handleDaySelect = useCallback((dayISO: string) => {
-    setTimeout(() => {
-      dispatch({ type: "SET_FIELD", field: "day", value: dayISO, advance: true });
-    }, 150);
-  }, []);
-
-  const handleTimeContinue = useCallback(
-    (startTime: string, endTime: string) => {
-      const finalAnswers = {
-        ...state.answers,
-        startTime,
-        endTime,
-      } as QuestionnaireAnswers;
-      dispatch({
-        type: "SET_FIELDS",
-        values: { startTime, endTime },
+  const handleWhenContinue = useCallback(
+    (day: string, duration: Duration) => {
+      // Combined step — day and duration land together, then we submit
+      // immediately. Reducer gets the update for consistency / back-nav,
+      // but the fetch body is built from local values to avoid racing
+      // the reducer's next render.
+      dispatch({ type: "SET_FIELDS", values: { day, duration } });
+      submitAnswers({
+        ...(state.answers as Omit<GenerateRequestBody, "day" | "duration">),
+        day,
+        duration,
       });
-      submitAnswers(finalAnswers);
     },
     [state.answers, submitAnswers]
   );
@@ -186,18 +185,11 @@ export function QuestionnaireShell() {
                 />
               )}
 
-              {step.kind === "day" && (
-                <DayStep
-                  selectedValue={state.answers.day}
-                  onSelect={handleDaySelect}
-                />
-              )}
-
-              {step.kind === "time" && (
-                <TimeStep
-                  initialStart={state.answers.startTime}
-                  initialEnd={state.answers.endTime}
-                  onContinue={handleTimeContinue}
+              {step.kind === "when" && (
+                <WhenStep
+                  initialDay={state.answers.day}
+                  initialDuration={state.answers.duration}
+                  onContinue={handleWhenContinue}
                 />
               )}
             </motion.div>

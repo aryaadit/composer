@@ -33,8 +33,9 @@ const SCORING_TEST_INPUT: QuestionnaireAnswers = {
   budget: "nice-out", // price_tier 2, the slug for the "$$ Nice Out" option
   vibe: "food-forward",
   day: new Date().toISOString().split("T")[0],
-  startTime: "18:00",
-  endTime: "22:00",
+  duration: "3.5h",
+  startTime: "19:00",
+  endTime: "22:30",
 };
 
 interface SupabaseCheck {

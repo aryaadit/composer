@@ -10,12 +10,14 @@ import type { NeighborhoodSlug } from "@/config/neighborhoods";
 import type { BudgetSlug } from "@/config/budgets";
 import type { VibeSlug } from "@/config/vibes";
 import type { StopRoleSlug } from "@/config/roles";
+import type { DurationSlug } from "@/config/durations";
 
 export type Occasion = OccasionSlug;
 export type Neighborhood = NeighborhoodSlug;
 export type Budget = BudgetSlug;
 export type Vibe = VibeSlug;
 export type StopRole = StopRoleSlug;
+export type Duration = DurationSlug;
 
 export type DrinksPref = "yes" | "sometimes" | "no";
 
@@ -51,21 +53,28 @@ export function composerUserToPrefs(u: ComposerUser): UserPrefs {
   };
 }
 
+// Full canonical shape used by every downstream scoring/composition
+// function. `startTime` and `endTime` are computed server-side from
+// `duration` — the client never fills them in.
 export interface QuestionnaireAnswers {
   occasion: Occasion;
   neighborhoods: Neighborhood[]; // expanded storage slugs
   budget: Budget;
   vibe: Vibe;
   day: string; // ISO date "2026-04-09"
-  startTime: string; // "19:00"
-  endTime: string; // "22:00"
+  duration: Duration; // "2h" | "3.5h" | "5h"
+  startTime: string; // "19:00" — resolved server-side from duration
+  endTime: string; // "22:30" — resolved server-side from duration
 }
 
 // Body shape POSTed to /api/generate. Auth-derived preferences (name,
 // drinks, etc.) are read server-side from the session cookie and are
-// *not* part of the request body — the client only sends the
-// questionnaire answers.
-export type GenerateRequestBody = QuestionnaireAnswers;
+// *not* part of the request body. Time window is also resolved on the
+// server from `duration`, so the client omits startTime/endTime.
+export type GenerateRequestBody = Omit<
+  QuestionnaireAnswers,
+  "startTime" | "endTime"
+>;
 
 // Venue shape — mirrors the `composer_venues` Supabase table exactly.
 // See `supabase/migrations/20260413_venue_import_prep.sql` for the schema.
@@ -226,7 +235,7 @@ export interface SavedItinerary {
   created_at: string;
 }
 
-export type StepKind = "cards" | "pills" | "day" | "time";
+export type StepKind = "cards" | "pills" | "when";
 
 export interface QuestionStep {
   id: keyof QuestionnaireAnswers;

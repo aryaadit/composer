@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import {
   ItineraryResponse,
   ItineraryStop,
-  QuestionnaireAnswers,
+  GenerateRequestBody,
   WalkSegment,
 } from "@/types";
 import { decodeParamsToInputs } from "@/lib/sharing";
@@ -24,7 +24,7 @@ function ItineraryContent() {
   const [regenerating, setRegenerating] = useState(false);
   const [regenError, setRegenError] = useState(false);
 
-  const fetchItinerary = useCallback(async (inputs: QuestionnaireAnswers) => {
+  const fetchItinerary = useCallback(async (inputs: GenerateRequestBody) => {
     const res = await fetch("/api/generate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },

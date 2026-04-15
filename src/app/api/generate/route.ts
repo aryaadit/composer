@@ -8,7 +8,9 @@ import { walkTimeMinutes, walkDistanceKm, buildGoogleMapsUrl } from "@/lib/geo";
 import { buildWalkMapUrl } from "@/lib/mapbox";
 import { calculateTotalSpend } from "@/config/budgets";
 import { ALCOHOL_VIBE_TAGS } from "@/config/vibes";
-import {
+import { resolveTimeWindow } from "@/config/durations";
+import type {
+  GenerateRequestBody,
   QuestionnaireAnswers,
   Venue,
   ItineraryResponse,
@@ -134,7 +136,15 @@ async function readAuthedPrefs(): Promise<AuthedPrefs | null> {
 
 export async function POST(request: Request) {
   try {
-    const inputs = (await request.json()) as QuestionnaireAnswers;
+    const body = (await request.json()) as GenerateRequestBody;
+
+    // Resolve duration → concrete startTime/endTime. Downstream scoring
+    // and composition reason in minutes, so we normalize at the edge
+    // and pass a full QuestionnaireAnswers through the rest of the
+    // pipeline. Response.inputs echoes the resolved shape so the UI
+    // (e.g. TextMessageShare) can render real times.
+    const { startTime, endTime } = resolveTimeWindow(body.duration);
+    const inputs: QuestionnaireAnswers = { ...body, startTime, endTime };
 
     const [prefs, weather, venueResult] = await Promise.all([
       readAuthedPrefs(),
