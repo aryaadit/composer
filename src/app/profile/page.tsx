@@ -13,6 +13,7 @@ import { useAuth } from "@/components/providers/AuthProvider";
 import { ProfileHeader } from "./_components/ProfileHeader";
 import { AccountDetails } from "./_components/AccountDetails";
 import { SavedPlansList } from "./_components/SavedPlansList";
+import { AdminSection } from "./_components/AdminSection";
 
 export default function ProfilePage() {
   const { user, profile, isLoading, refreshProfile, signOut } = useAuth();
@@ -54,6 +55,7 @@ export default function ProfilePage() {
           refreshProfile={refreshProfile}
         />
         <SavedPlansList userId={user.id} />
+        <AdminSection email={user.email ?? ""} />
       </div>
     </div>
   );
