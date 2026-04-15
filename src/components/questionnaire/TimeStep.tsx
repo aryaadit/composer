@@ -5,9 +5,9 @@ import { motion } from "motion/react";
 import { Button } from "@/components/ui/Button";
 
 const ITEM_HEIGHT = 36;
-const VISIBLE_ABOVE = 2;
+const VISIBLE_ABOVE = 3;
 const VISIBLE_BELOW = 2;
-const COLUMN_HEIGHT = ITEM_HEIGHT * (VISIBLE_ABOVE + 1 + VISIBLE_BELOW); // 5 rows
+const COLUMN_HEIGHT = ITEM_HEIGHT * (VISIBLE_ABOVE + 1 + VISIBLE_BELOW); // 6 rows
 
 // 30-minute slots across all 24 hours, starting at midnight.
 function buildSlots(): string[] {
@@ -39,20 +39,19 @@ function minutesToSlot(mins: number): string {
   return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
 }
 
-// 7pm is the modal date-night start. Only override when the user picked
-// "Tonight" and it's already past 7pm — then jump to the next 30-min slot.
-function defaultStartTime(allSlots: string[], selectedDay?: string): string {
-  const PREFERRED = "19:00";
-  if (!selectedDay) return PREFERRED;
-  const todayISO = new Date().toISOString().split("T")[0];
-  if (selectedDay !== todayISO) return PREFERRED;
+function defaultStartTime(allSlots: string[]): string {
   const now = new Date();
-  const nowMins = now.getHours() * 60 + now.getMinutes();
-  if (nowMins < 19 * 60) return PREFERRED;
-  // Round up to the next 30-min boundary.
-  const nextMins = Math.ceil(nowMins / 30) * 30;
-  if (nextMins >= 24 * 60) return allSlots[allSlots.length - 1];
-  return minutesToSlot(nextMins);
+  const targetMins = now.getHours() * 60 + now.getMinutes() + 60;
+  let best = "19:00";
+  let bestDelta = Infinity;
+  for (const slot of allSlots) {
+    const delta = Math.abs(slotMinutes(slot) - targetMins);
+    if (delta < bestDelta) {
+      bestDelta = delta;
+      best = slot;
+    }
+  }
+  return best;
 }
 
 interface DurationPreset {
@@ -134,10 +133,7 @@ function TimeColumn({ label, slots, selected, onSelect }: TimeColumnProps) {
         <div
           ref={containerRef}
           className="h-full overflow-y-auto no-scrollbar"
-          style={{
-            scrollSnapType: "y mandatory",
-            overscrollBehavior: "contain",
-          }}
+          style={{ scrollSnapType: "y mandatory" }}
         >
           {Array.from({ length: VISIBLE_ABOVE }).map((_, i) => (
             <div key={`pad-top-${i}`} style={{ height: ITEM_HEIGHT }} />
@@ -179,22 +175,16 @@ function TimeColumn({ label, slots, selected, onSelect }: TimeColumnProps) {
 interface TimeStepProps {
   initialStart?: string;
   initialEnd?: string;
-  selectedDay?: string;
   onContinue: (startTime: string, endTime: string) => void;
 }
 
-export function TimeStep({
-  initialStart,
-  initialEnd,
-  selectedDay,
-  onContinue,
-}: TimeStepProps) {
+export function TimeStep({ initialStart, initialEnd, onContinue }: TimeStepProps) {
   const allSlots = buildSlots();
 
   const [startTime, setStartTime] = useState<string>(
     initialStart && allSlots.includes(initialStart)
       ? initialStart
-      : defaultStartTime(allSlots, selectedDay)
+      : defaultStartTime(allSlots)
   );
   const [durationMin, setDurationMin] = useState<number | null>(() =>
     deriveDurationMin(initialStart, initialEnd)

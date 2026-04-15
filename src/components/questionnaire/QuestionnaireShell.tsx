@@ -197,7 +197,6 @@ export function QuestionnaireShell() {
                 <TimeStep
                   initialStart={state.answers.startTime}
                   initialEnd={state.answers.endTime}
-                  selectedDay={state.answers.day}
                   onContinue={handleTimeContinue}
                 />
               )}
