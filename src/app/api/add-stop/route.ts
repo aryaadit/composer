@@ -4,6 +4,7 @@ import { getServerSupabase } from "@/lib/supabase/server";
 import { fetchWeather } from "@/lib/weather";
 import { pickBestForRole } from "@/lib/scoring";
 import { walkTimeMinutes, walkDistanceKm, buildGoogleMapsUrl } from "@/lib/geo";
+import { buildWalkMapUrl } from "@/lib/mapbox";
 import { calculateTotalSpend, spendEstimate } from "@/config/budgets";
 import { ALCOHOL_VIBE_TAGS } from "@/config/vibes";
 import {
@@ -116,6 +117,12 @@ export async function POST(request: Request) {
         best.longitude
       ),
       walk_minutes: walkTimeMinutes(
+        lastStop.venue.latitude,
+        lastStop.venue.longitude,
+        best.latitude,
+        best.longitude
+      ),
+      map_url: await buildWalkMapUrl(
         lastStop.venue.latitude,
         lastStop.venue.longitude,
         best.latitude,

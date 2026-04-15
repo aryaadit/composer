@@ -26,7 +26,11 @@ export function ItineraryView({
         <Fragment key={stop.venue.id}>
           <StopCard stop={stop} index={i} />
           {i < stops.length - 1 && walks[i] && (
-            <WalkConnector walkMinutes={walks[i].walk_minutes} index={i} />
+            <WalkConnector
+              walkMinutes={walks[i].walk_minutes}
+              index={i}
+              mapUrl={walks[i].map_url}
+            />
           )}
         </Fragment>
       ))}
