@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSupabase } from "@/lib/supabase";
+import { getServerSupabase } from "@/lib/supabase/server";
 import { fetchWeather } from "@/lib/weather";
 import { pickBestForRole } from "@/lib/scoring";
 import { walkTimeMinutes, walkDistanceKm, buildGoogleMapsUrl } from "@/lib/geo";
@@ -10,17 +11,33 @@ import {
   ItineraryResponse,
   ItineraryStop,
   WalkSegment,
-  UserPrefs,
 } from "@/types";
 
 interface AddStopRequest {
   itinerary: ItineraryResponse;
-  userPrefs?: UserPrefs;
+}
+
+async function readDrinksPref(): Promise<string | null> {
+  try {
+    const supabase = await getServerSupabase();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return null;
+    const { data } = await supabase
+      .from("composer_users")
+      .select("drinks")
+      .eq("id", user.id)
+      .maybeSingle();
+    return (data?.drinks as string | null) ?? null;
+  } catch {
+    return null;
+  }
 }
 
 export async function POST(request: Request) {
   try {
-    const { itinerary, userPrefs } = (await request.json()) as AddStopRequest;
+    const { itinerary } = (await request.json()) as AddStopRequest;
     const { inputs, stops: currentStops } = itinerary;
     const lastStop = currentStops[currentStops.length - 1];
     if (!lastStop) {
@@ -30,10 +47,10 @@ export async function POST(request: Request) {
       );
     }
 
-    const supabase = getSupabase();
-    const [weather, venueResult] = await Promise.all([
+    const [drinks, weather, venueResult] = await Promise.all([
+      readDrinksPref(),
       fetchWeather(),
-      supabase.from("composer_venues").select("*").eq("active", true),
+      getSupabase().from("composer_venues").select("*").eq("active", true),
     ]);
 
     if (venueResult.error) {
@@ -46,7 +63,7 @@ export async function POST(request: Request) {
     let venues = venueResult.data as Venue[];
 
     // Drinks filter — same rule as the generate route.
-    if (userPrefs?.drinks === "no") {
+    if (drinks === "no") {
       venues = venues.filter(
         (v) => !v.vibe_tags.some((t) => ALCOHOL_VIBE_TAGS.has(t))
       );
@@ -106,9 +123,6 @@ export async function POST(request: Request) {
       ),
     };
 
-    // Rebuild the summary fields that reference the full stop list. The client
-    // merges these back into the full itinerary so ActionBar's Maps link and
-    // the header total stay accurate.
     const allVenues = [...currentStops.map((s) => s.venue), best];
     const maps_url = buildGoogleMapsUrl(allVenues);
     const estimated_total = calculateTotalSpend(

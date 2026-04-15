@@ -10,7 +10,6 @@ import {
 } from "@/types";
 import { decodeParamsToInputs } from "@/lib/sharing";
 import { STORAGE_KEYS } from "@/config/storage";
-import { getUserPrefs } from "@/lib/userPrefs";
 import { CompositionHeader } from "@/components/itinerary/CompositionHeader";
 import { ItineraryView } from "@/components/itinerary/ItineraryView";
 import { ActionBar } from "@/components/itinerary/ActionBar";
@@ -92,10 +91,9 @@ function ItineraryContent() {
       const res = await fetch("/api/add-stop", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          itinerary,
-          userPrefs: getUserPrefs() ?? undefined,
-        }),
+        // Auth-derived prefs (drinks) are read server-side from the
+        // session cookie — the client just sends the current itinerary.
+        body: JSON.stringify({ itinerary }),
       });
       if (!res.ok) {
         const msg = await res.json().catch(() => ({}));

@@ -19,12 +19,36 @@ export type StopRole = StopRoleSlug;
 
 export type DrinksPref = "yes" | "sometimes" | "no";
 
+// Client-shaped preferences as collected by the onboarding flow. This is
+// what sits in React state; the canonical on-disk shape is `ComposerUser`
+// which uses snake_case to match the Supabase column naming.
 export interface UserPrefs {
   name: string;
   context?: string;
   drinks?: DrinksPref;
   dietary?: string[];
   favoriteHoods?: string[];
+}
+
+// Row shape of the `composer_users` table. `id` matches `auth.users.id`.
+export interface ComposerUser {
+  id: string;
+  name: string;
+  context: string | null;
+  drinks: DrinksPref | string | null;
+  dietary: string[];
+  favorite_hoods: string[];
+  created_at: string;
+}
+
+export function composerUserToPrefs(u: ComposerUser): UserPrefs {
+  return {
+    name: u.name,
+    context: u.context ?? undefined,
+    drinks: (u.drinks as DrinksPref | null) ?? undefined,
+    dietary: u.dietary,
+    favoriteHoods: u.favorite_hoods,
+  };
 }
 
 export interface QuestionnaireAnswers {
@@ -37,9 +61,11 @@ export interface QuestionnaireAnswers {
   endTime: string; // "22:00"
 }
 
-export interface GenerateRequestBody extends QuestionnaireAnswers {
-  userPrefs?: UserPrefs;
-}
+// Body shape POSTed to /api/generate. Auth-derived preferences (name,
+// drinks, etc.) are read server-side from the session cookie and are
+// *not* part of the request body — the client only sends the
+// questionnaire answers.
+export type GenerateRequestBody = QuestionnaireAnswers;
 
 // Venue shape — mirrors the `composer_venues` Supabase table exactly.
 // See `supabase/migrations/20260413_venue_import_prep.sql` for the schema.
@@ -177,10 +203,24 @@ export interface ItineraryResponse {
   inputs: QuestionnaireAnswers;
 }
 
+// Row shape of the `composer_saved_itineraries` table. The full itinerary
+// payload is split across `stops`, `walking`, `weather` (jsonb) plus
+// structured columns for the questionnaire inputs + header copy so the
+// home-screen list can render without unpacking jsonb.
 export interface SavedItinerary {
   id: string;
-  savedAt: string; // ISO timestamp
-  itinerary: ItineraryResponse;
+  user_id: string;
+  title: string | null;
+  subtitle: string | null;
+  occasion: string | null;
+  neighborhoods: string[] | null;
+  budget: string | null;
+  vibe: string | null;
+  day: string | null;
+  stops: ItineraryStop[];
+  walking: WalkingMeta | null;
+  weather: WeatherInfo | null;
+  created_at: string;
 }
 
 export type StepKind = "cards" | "pills" | "day" | "time";

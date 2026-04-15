@@ -7,7 +7,6 @@ import { AnimatePresence, motion } from "motion/react";
 import { questionSteps } from "@/config/options";
 import {
   QuestionnaireAnswers,
-  GenerateRequestBody,
   Neighborhood,
 } from "@/types";
 import {
@@ -19,7 +18,6 @@ import {
   initialState,
   slideVariants,
 } from "@/lib/questionnaireReducer";
-import { getUserPrefs } from "@/lib/userPrefs";
 import { STORAGE_KEYS } from "@/config/storage";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 import { StepLoading } from "./StepLoading";
@@ -37,16 +35,13 @@ export function QuestionnaireShell() {
       dispatch({ type: "SET_LOADING" });
       sessionStorage.setItem(STORAGE_KEYS.session.questionnaireInputs, JSON.stringify(finalAnswers));
 
-      const userPrefs = getUserPrefs() ?? undefined;
-      const body: GenerateRequestBody = {
-        ...finalAnswers,
-        userPrefs,
-      };
-
+      // Auth-derived prefs (name, drinks, etc.) are read server-side from
+      // the session cookie — the client just sends the questionnaire
+      // answers.
       fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
+        body: JSON.stringify(finalAnswers),
       })
         .then((res) => res.json())
         .then((data) => {

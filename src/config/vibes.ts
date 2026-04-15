@@ -60,7 +60,8 @@ export function vibeLabel(slug: string): string {
 
 // Subset of canonical venue tags that imply alcohol. Derived from the
 // `drinks-led` vibe so this list stays consistent if the taxonomy changes.
-// Used by `/api/generate` to drop alcohol venues when `userPrefs.drinks === "no"`.
+// Used by `/api/generate` to drop alcohol venues when the signed-in
+// user's `composer_users.drinks === "no"`.
 export const ALCOHOL_VIBE_TAGS: ReadonlySet<string> = new Set(
   VIBES.find((v) => v.slug === "drinks-led")?.venueTags ?? []
 );

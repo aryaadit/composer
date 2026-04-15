@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSupabase } from "@/lib/supabase";
+import { getServerSupabase } from "@/lib/supabase/server";
 import { fetchWeather } from "@/lib/weather";
 import { composeItinerary, ROLE_AVG_DURATION_MIN } from "@/lib/composer";
 import { generateCopy } from "@/lib/claude";
@@ -7,7 +8,7 @@ import { walkTimeMinutes, walkDistanceKm, buildGoogleMapsUrl } from "@/lib/geo";
 import { calculateTotalSpend } from "@/config/budgets";
 import { ALCOHOL_VIBE_TAGS } from "@/config/vibes";
 import {
-  GenerateRequestBody,
+  QuestionnaireAnswers,
   Venue,
   ItineraryResponse,
   ItineraryStop,
@@ -95,17 +96,49 @@ function computeWalkingMeta(
   };
 }
 
+interface AuthedPrefs {
+  name: string | null;
+  drinks: string | null;
+}
+
+/**
+ * Resolve the authed user's profile for personalization + hard filters.
+ * Returns `null` gracefully when there's no session — callers fall back
+ * to defaults rather than 401ing, since the generation math works
+ * without a profile and the UI has its own session gate.
+ */
+async function readAuthedPrefs(): Promise<AuthedPrefs | null> {
+  try {
+    const supabase = await getServerSupabase();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return null;
+
+    const { data: profile } = await supabase
+      .from("composer_users")
+      .select("name, drinks")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    return {
+      name: (profile?.name as string | null) ?? null,
+      drinks: (profile?.drinks as string | null) ?? null,
+    };
+  } catch (err) {
+    console.error("[generate] readAuthedPrefs failed:", err);
+    return null;
+  }
+}
+
 export async function POST(request: Request) {
   try {
-    const body: GenerateRequestBody = await request.json();
-    const { userPrefs, ...inputs } = body;
+    const inputs = (await request.json()) as QuestionnaireAnswers;
 
-    const supabase = getSupabase();
-
-    // Parallel: fetch weather + query venues
-    const [weather, venueResult] = await Promise.all([
+    const [prefs, weather, venueResult] = await Promise.all([
+      readAuthedPrefs(),
       fetchWeather(),
-      supabase.from("composer_venues").select("*").eq("active", true),
+      getSupabase().from("composer_venues").select("*").eq("active", true),
     ]);
 
     if (venueResult.error) {
@@ -124,8 +157,9 @@ export async function POST(request: Request) {
       );
     }
 
-    // Drinks filter — if user said no, drop alcohol-forward venues entirely
-    if (userPrefs?.drinks === "no") {
+    // Drinks filter — if the signed-in user said no to drinks in their
+    // profile, drop alcohol-forward venues entirely.
+    if (prefs?.drinks === "no") {
       venues = venues.filter(
         (v) => !v.vibe_tags.some((t) => ALCOHOL_VIBE_TAGS.has(t))
       );
@@ -141,7 +175,6 @@ export async function POST(request: Request) {
       );
     }
 
-    // Calculate walk segments between consecutive composed stops
     const allWalks: WalkSegment[] = [];
     for (let i = 0; i < composed.stops.length - 1; i++) {
       const from = composed.stops[i].venue;
@@ -164,7 +197,6 @@ export async function POST(request: Request) {
       });
     }
 
-    // Drop any trailing stops whose arrival would land too close to endTime.
     const { stops, walks, truncated } = applyEndTimeBuffer(
       composed.stops,
       allWalks,
@@ -174,15 +206,11 @@ export async function POST(request: Request) {
 
     const maps_url = buildGoogleMapsUrl(stops.map((s) => s.venue));
 
-    // Generate AI-polished copy (Gemini)
-    const copy = await generateCopy(stops, inputs, weather, userPrefs?.name);
+    const copy = await generateCopy(stops, inputs, weather, prefs?.name ?? undefined);
 
-    // Apply AI-generated curation notes
     for (const stop of stops) {
       const aiNote = copy.venue_notes[stop.venue.name];
-      if (aiNote) {
-        stop.curation_note = aiNote;
-      }
+      if (aiNote) stop.curation_note = aiNote;
     }
 
     const totalRange = calculateTotalSpend(stops.map((s) => s.venue.price_tier));

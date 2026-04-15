@@ -1,15 +1,18 @@
 "use client";
 
-import { useSyncExternalStore, useCallback, useState, useEffect } from "react";
-import { motion, AnimatePresence } from "motion/react";
+// HomeScreen — the signed-in landing view. Saved plans list is fetched
+// from `composer_saved_itineraries` on mount and whenever the user
+// returns to the page (auth state changes, route pops). No client-side
+// caching store — React Query isn't in the dep list, and the fetch is
+// fast enough that a plain useEffect is honest.
+
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
-import { getSavedItineraries, deleteSavedItinerary } from "@/lib/sharing";
-import { createCachedStore } from "@/lib/createCachedStore";
-import { STORAGE_KEYS } from "@/config/storage";
-import { SavedItinerary } from "@/types";
-
-const COACHMARK_FLAG = STORAGE_KEYS.local.seenCoachmark;
+import { getBrowserSupabase } from "@/lib/supabase/browser";
+import { useAuth } from "@/components/providers/AuthProvider";
+import type { SavedItinerary } from "@/types";
+import type { PostgrestError } from "@supabase/supabase-js";
 
 interface HomeScreenProps {
   userName: string;
@@ -22,68 +25,90 @@ function getGreeting(): string {
   return "Good evening";
 }
 
-const EMPTY_SAVED: SavedItinerary[] = [];
-
-const savedPlansStore = createCachedStore<SavedItinerary[]>(
-  () => getSavedItineraries(),
-  (plans) => plans.map((p) => p.id).join("|"),
-  EMPTY_SAVED
-);
-
 export function HomeScreen({ userName }: HomeScreenProps) {
-  const savedPlans = useSyncExternalStore(
-    savedPlansStore.subscribe,
-    savedPlansStore.getSnapshot,
-    savedPlansStore.getServerSnapshot
-  );
+  const { user, signOut } = useAuth();
+  // `loadedFor` tracks which user id the `plans` array belongs to. When
+  // that doesn't match the current `user.id`, UI shows the loading
+  // state. Packing both into one state keeps the effect's only setState
+  // call inside the async `.then` callback — satisfies the
+  // react-hooks/set-state-in-effect rule by treating the Supabase
+  // query as a subscription with a single update path.
+  const [{ plans: savedPlans, loadedFor }, setState] = useState<{
+    plans: SavedItinerary[];
+    loadedFor: string | null;
+  }>({ plans: [], loadedFor: null });
 
-  const handleDelete = useCallback((id: string) => {
-    deleteSavedItinerary(id);
-    savedPlansStore.notify();
-  }, []);
-
-  // First-run coachmark — fires only when the user has no saved plans and
-  // hasn't dismissed it before. Stored in localStorage so it stays dismissed.
-  const [showCoachmark, setShowCoachmark] = useState(false);
   useEffect(() => {
-    if (savedPlans.length === 0 && !localStorage.getItem(COACHMARK_FLAG)) {
-      setShowCoachmark(true);
-    }
-    // Run once on mount; intentionally not reactive to savedPlans changes.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    if (!user) return;
+    let cancelled = false;
+    const userId = user.id;
+    getBrowserSupabase()
+      .from("composer_saved_itineraries")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(10)
+      .then(
+        ({ data, error }: { data: SavedItinerary[] | null; error: PostgrestError | null }) => {
+          if (cancelled) return;
+          if (error) {
+            console.error("[home] load saved plans failed:", error.message);
+            setState({ plans: [], loadedFor: userId });
+          } else {
+            setState({ plans: data ?? [], loadedFor: userId });
+          }
+        }
+      );
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
 
-  const dismissCoachmark = useCallback(() => {
-    setShowCoachmark(false);
-    localStorage.setItem(COACHMARK_FLAG, "1");
-  }, []);
+  const loading = user != null && loadedFor !== user.id;
 
-  const totalStops = savedPlans.reduce(
-    (sum, p) => sum + (p.itinerary?.stops?.length ?? 0),
-    0
+  const handleDelete = useCallback(
+    async (id: string) => {
+      const { error } = await getBrowserSupabase()
+        .from("composer_saved_itineraries")
+        .delete()
+        .eq("id", id);
+      if (error) {
+        console.error("[home] delete failed:", error.message);
+        return;
+      }
+      setState((prev) => ({
+        ...prev,
+        plans: prev.plans.filter((p) => p.id !== id),
+      }));
+    },
+    []
   );
+
+  const totalStops = savedPlans.reduce((sum, p) => sum + (p.stops?.length ?? 0), 0);
 
   return (
     <div className="min-h-screen flex flex-col bg-cream">
       {/* Header */}
-      <div className="px-6 pt-14 pb-8 max-w-lg w-full mx-auto">
-        <p className="font-sans text-xs tracking-widest uppercase text-muted mb-2">
-          {getGreeting()}, {userName}
-        </p>
-        <h1 className="font-serif text-3xl font-normal text-charcoal leading-tight">
-          Compose your night.
-        </h1>
+      <div className="px-6 pt-14 pb-8 max-w-lg w-full mx-auto flex items-start justify-between">
+        <div>
+          <p className="font-sans text-xs tracking-widest uppercase text-muted mb-2">
+            {getGreeting()}, {userName}
+          </p>
+          <h1 className="font-serif text-3xl font-normal text-charcoal leading-tight">
+            Compose your night.
+          </h1>
+        </div>
+        <button
+          onClick={() => void signOut()}
+          className="font-sans text-xs tracking-wide uppercase text-muted hover:text-charcoal transition-colors mt-1"
+        >
+          Sign out
+        </button>
       </div>
 
-      {/* Main CTA — lifted above the dim overlay when coachmark is active */}
-      <div
-        className={`px-6 mb-10 max-w-lg w-full mx-auto ${
-          showCoachmark ? "relative z-50" : ""
-        }`}
-      >
+      {/* Main CTA */}
+      <div className="px-6 mb-10 max-w-lg w-full mx-auto">
         <Link
           href="/compose"
-          onClick={dismissCoachmark}
           className="group block w-full py-5 px-5 rounded-full bg-burgundy text-cream hover:bg-burgundy-light transition-colors text-center"
         >
           <span className="font-sans text-sm font-medium tracking-wide">
@@ -97,7 +122,11 @@ export function HomeScreen({ userName }: HomeScreenProps) {
         <h2 className="font-sans text-xs tracking-widest uppercase text-muted mb-4">
           Your plans
         </h2>
-        {savedPlans.length === 0 ? (
+        {loading ? (
+          <div className="py-10 text-muted border-t border-border">
+            <p className="font-sans text-sm">Loading…</p>
+          </div>
+        ) : savedPlans.length === 0 ? (
           <div className="py-10 text-muted border-t border-border">
             <p className="font-sans text-sm">No saved plans yet.</p>
             <p className="font-sans text-xs mt-1">
@@ -107,18 +136,15 @@ export function HomeScreen({ userName }: HomeScreenProps) {
         ) : (
           <div className="divide-y divide-border border-t border-border">
             {savedPlans.map((plan) => {
-              const stops = plan.itinerary?.stops ?? [];
+              const stops = plan.stops ?? [];
               const firstStop = stops[0];
-              const title = plan.itinerary?.header?.title ?? "Saved night";
-              const date = new Date(plan.savedAt).toLocaleDateString("en-US", {
+              const title = plan.title ?? "Saved night";
+              const date = new Date(plan.created_at).toLocaleDateString("en-US", {
                 month: "short",
                 day: "numeric",
               });
               return (
-                <div
-                  key={plan.id}
-                  className="py-4 flex items-center gap-4"
-                >
+                <div key={plan.id} className="py-4 flex items-center gap-4">
                   <div className="flex-1 min-w-0">
                     <div className="font-serif text-base text-charcoal truncate leading-snug">
                       {title}
@@ -128,7 +154,7 @@ export function HomeScreen({ userName }: HomeScreenProps) {
                     </div>
                   </div>
                   <button
-                    onClick={() => handleDelete(plan.id)}
+                    onClick={() => void handleDelete(plan.id)}
                     className="font-sans text-xs text-muted hover:text-burgundy transition-colors"
                   >
                     Remove
@@ -158,45 +184,6 @@ export function HomeScreen({ userName }: HomeScreenProps) {
           </div>
         </div>
       </div>
-
-      {/* First-run coachmark */}
-      <AnimatePresence>
-        {showCoachmark && (
-          <>
-            <motion.button
-              type="button"
-              className="fixed inset-0 z-40 bg-charcoal/60 cursor-pointer"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.25 }}
-              onClick={dismissCoachmark}
-              aria-label="Dismiss tip"
-            />
-            <motion.div
-              className="fixed left-1/2 top-[58%] -translate-x-1/2 z-50 w-[88%] max-w-xs bg-cream rounded-xl border border-border shadow-xl p-5 text-center"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 10 }}
-              transition={{ duration: 0.3, delay: 0.1 }}
-            >
-              <div className="font-sans text-base font-medium text-charcoal mb-2">
-                Tap to start
-              </div>
-              <p className="font-sans text-sm text-warm-gray mb-4">
-                Six quick steps and you&apos;ve got a plan.
-              </p>
-              <button
-                type="button"
-                onClick={dismissCoachmark}
-                className="font-sans text-xs font-medium text-burgundy"
-              >
-                Got it
-              </button>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
     </div>
   );
 }
