@@ -3,20 +3,16 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Button } from "@/components/ui/Button";
-import { saveUserPrefs } from "@/lib/userPrefs";
+import { sendMagicLinkWithProfile } from "@/lib/auth";
 import { UserPrefs, DrinksPref } from "@/types";
 import { CONTEXT_OPTIONS, DRINK_OPTIONS, DIETARY_OPTIONS, FAVORITE_HOODS } from "@/config/onboarding";
-
-interface OnboardingFlowProps {
-  onComplete: (prefs: UserPrefs) => void;
-}
 
 type PillTone = "burgundy" | "charcoal";
 
 const pillClass = (selected: boolean, tone: PillTone = "burgundy") => {
-  // Selected pills are pure fill — no visible border. The non-selected pill
-  // keeps a 1px border for shape; selected uses border-transparent so the
-  // outline doesn't double-up against the fill and read as a focus ring.
+  // Selected pills are pure fill — no visible border. Unselected keeps a
+  // 1px border for shape; selected uses border-transparent so the outline
+  // doesn't double-up against the fill and read as a focus ring.
   const fill =
     tone === "charcoal"
       ? "bg-charcoal text-cream border-transparent"
@@ -28,21 +24,31 @@ const pillClass = (selected: boolean, tone: PillTone = "burgundy") => {
   }`;
 };
 
-export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
-  const [step, setStep] = useState(0); // 0 = name, 1 = context, 2 = preferences, 3 = neighborhoods
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+export function OnboardingFlow() {
+  const [step, setStep] = useState(0); // 0=name+email, 1=context, 2=preferences, 3=neighborhoods, 4=check-email
   const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
   const [context, setContext] = useState("");
   const [drinks, setDrinks] = useState<DrinksPref | "">("");
   const [dietary, setDietary] = useState<string[]>([]);
   const [favoriteHoods, setFavoriteHoods] = useState<string[]>([]);
+  const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
 
   const totalSteps = 4;
+  const emailValid = EMAIL_RE.test(email.trim());
 
   const handleNext = () => {
     if (step < totalSteps - 1) setStep(step + 1);
   };
 
-  const handleFinish = () => {
+  const handleFinish = async () => {
+    if (sending) return;
+    setSending(true);
+    setSendError(null);
+
     const prefs: UserPrefs = {
       name: name.trim() || "Friend",
       context,
@@ -50,8 +56,20 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
       dietary,
       favoriteHoods,
     };
-    saveUserPrefs(prefs);
-    onComplete(prefs);
+
+    const result = await sendMagicLinkWithProfile(email.trim(), prefs);
+    if (!result.ok) {
+      setSendError(result.error ?? "Couldn't send the link. Try again.");
+      setSending(false);
+      return;
+    }
+
+    // Advance to the "check your email" waiting state. The user may
+    // click the link in this tab (AuthProvider picks it up via
+    // onAuthStateChange → app/page.tsx re-routes to HomeScreen) or in
+    // a new tab (same flow, just in a different window).
+    setStep(totalSteps);
+    setSending(false);
   };
 
   const toggleHood = (id: string) => {
@@ -70,6 +88,29 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
       });
     }
   };
+
+  // ── Check-email waiting screen ──────────────────────────────────────
+  // Rendered after the OTP call succeeds. Deliberately static — no
+  // polling. AuthProvider's onAuthStateChange listener will flip the
+  // app over to HomeScreen the moment the session lands.
+  if (step === totalSteps) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-cream px-6">
+        <div className="max-w-md text-center">
+          <h1 className="font-serif text-3xl text-charcoal mb-3">
+            Check your email
+          </h1>
+          <p className="font-sans text-sm text-warm-gray mb-6">
+            We sent a magic link to <span className="text-charcoal">{email.trim()}</span>.
+            Click it to finish setting up — no password needed.
+          </p>
+          <p className="font-sans text-xs text-muted">
+            You can close this tab. The link works in any browser.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-cream">
@@ -100,7 +141,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
             transition={{ duration: 0.25 }}
             className="flex-1 flex flex-col"
           >
-            {/* Step 0: Name */}
+            {/* Step 0: Name + Email */}
             {step === 0 && (
               <div className="flex-1 flex flex-col justify-center">
                 <h1 className="font-sans text-2xl font-medium text-charcoal mb-2">
@@ -114,12 +155,28 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="Your first name"
-                  className="w-full px-0 py-3 text-xl font-sans bg-transparent border-b border-border focus:border-charcoal focus:outline-none transition-colors text-charcoal placeholder:text-muted"
+                  className="w-full px-0 py-3 text-xl font-sans bg-transparent border-b border-border focus:border-charcoal focus:outline-none transition-colors text-charcoal placeholder:text-muted mb-8"
                   autoFocus
+                />
+
+                <label className="font-sans text-xs tracking-widest uppercase text-muted mb-3 block">
+                  And your email?
+                </label>
+                <input
+                  type="email"
+                  inputMode="email"
+                  autoComplete="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@example.com"
+                  className="w-full px-0 py-3 text-lg font-sans bg-transparent border-b border-border focus:border-charcoal focus:outline-none transition-colors text-charcoal placeholder:text-muted"
                   onKeyDown={(e) => {
-                    if (e.key === "Enter" && name.trim()) handleNext();
+                    if (e.key === "Enter" && name.trim() && emailValid) handleNext();
                   }}
                 />
+                <p className="font-sans text-xs text-muted mt-3">
+                  We&apos;ll send you a magic link — no password needed.
+                </p>
               </div>
             )}
 
@@ -233,22 +290,40 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
 
       {/* Bottom action area */}
       <div className="relative z-10 px-6 pb-10 pt-4 max-w-lg w-full mx-auto">
+        {sendError && (
+          <p className="font-sans text-xs text-charcoal mb-3 text-center">
+            {sendError}
+          </p>
+        )}
         {step < 3 ? (
           <Button
             variant="primary"
             onClick={handleNext}
-            disabled={(step === 0 && !name.trim()) || (step === 1 && !context)}
+            disabled={
+              (step === 0 && (!name.trim() || !emailValid)) ||
+              (step === 1 && !context)
+            }
             className="w-full"
           >
             Next →
           </Button>
         ) : (
           <div className="flex gap-3">
-            <Button variant="secondary" onClick={handleFinish} className="flex-1">
+            <Button
+              variant="secondary"
+              onClick={handleFinish}
+              disabled={sending}
+              className="flex-1"
+            >
               Skip
             </Button>
-            <Button variant="primary" onClick={handleFinish} className="flex-1">
-              Let&apos;s go
+            <Button
+              variant="primary"
+              onClick={handleFinish}
+              disabled={sending}
+              className="flex-1"
+            >
+              {sending ? "Sending…" : "Let's go"}
             </Button>
           </div>
         )}

@@ -3,7 +3,9 @@
 import { useState } from "react";
 import { motion } from "motion/react";
 import { TextMessageShare } from "@/components/itinerary/TextMessageShare";
-import { ItineraryResponse } from "@/types";
+import { getBrowserSupabase } from "@/lib/supabase/browser";
+import { useAuth } from "@/components/providers/AuthProvider";
+import type { ItineraryResponse } from "@/types";
 
 interface ActionBarProps {
   itinerary: ItineraryResponse;
@@ -16,7 +18,58 @@ export function ActionBar({
   onRegenerate,
   isRegenerating,
 }: ActionBarProps) {
+  const { user } = useAuth();
   const [shareOpen, setShareOpen] = useState(false);
+  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
+
+  const handleSave = async () => {
+    if (saveState === "saving" || saveState === "saved") return;
+    if (!user) {
+      // Shouldn't happen — routing gates the itinerary page behind a
+      // session — but degrade gracefully if it does.
+      setSaveState("error");
+      setTimeout(() => setSaveState("idle"), 2000);
+      return;
+    }
+    setSaveState("saving");
+
+    const { inputs, header, stops, walking } = itinerary;
+    const { error } = await getBrowserSupabase()
+      .from("composer_saved_itineraries")
+      .insert({
+        user_id: user.id,
+        title: header.title,
+        subtitle: header.subtitle,
+        occasion: inputs.occasion,
+        neighborhoods: inputs.neighborhoods,
+        budget: inputs.budget,
+        vibe: inputs.vibe,
+        day: inputs.day,
+        stops,
+        walking,
+        weather: header.weather,
+      });
+
+    if (error) {
+      console.error("[itinerary] save failed:", error.message);
+      setSaveState("error");
+      setTimeout(() => setSaveState("idle"), 2500);
+      return;
+    }
+
+    setSaveState("saved");
+    // Saved confirmation is the end of the interaction — no reset. The
+    // user can re-save by regenerating and saving the new plan.
+  };
+
+  const saveLabel =
+    saveState === "saving"
+      ? "Saving…"
+      : saveState === "saved"
+      ? "Saved"
+      : saveState === "error"
+      ? "Try again"
+      : "Save";
 
   return (
     <>
@@ -38,8 +91,16 @@ export function ActionBar({
             <span aria-hidden className="text-muted">→</span>
           </a>
 
-          {/* Right: Regenerate · New Night · Share */}
+          {/* Right: Save · Regenerate · New Night · Share */}
           <div className="flex items-center gap-3">
+            <button
+              onClick={() => void handleSave()}
+              disabled={saveState === "saving" || saveState === "saved"}
+              className="text-charcoal hover:text-burgundy transition-colors disabled:text-muted"
+            >
+              {saveLabel}
+            </button>
+            <span aria-hidden className="text-muted">·</span>
             <button
               onClick={onRegenerate}
               disabled={isRegenerating}

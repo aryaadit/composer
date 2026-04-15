@@ -2,7 +2,12 @@
 
 import { Suspense, useEffect, useState, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
-import { ItineraryResponse, QuestionnaireAnswers } from "@/types";
+import {
+  ItineraryResponse,
+  ItineraryStop,
+  QuestionnaireAnswers,
+  WalkSegment,
+} from "@/types";
 import { decodeParamsToInputs } from "@/lib/sharing";
 import { STORAGE_KEYS } from "@/config/storage";
 import { CompositionHeader } from "@/components/itinerary/CompositionHeader";
@@ -75,6 +80,50 @@ function ItineraryContent() {
     setRegenerating(false);
   };
 
+  const [addingStop, setAddingStop] = useState(false);
+  const [addStopError, setAddStopError] = useState<string | null>(null);
+
+  const handleAddStop = async () => {
+    if (!itinerary || addingStop) return;
+    setAddingStop(true);
+    setAddStopError(null);
+    try {
+      const res = await fetch("/api/add-stop", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        // Auth-derived prefs (drinks) are read server-side from the
+        // session cookie — the client just sends the current itinerary.
+        body: JSON.stringify({ itinerary }),
+      });
+      if (!res.ok) {
+        const msg = await res.json().catch(() => ({}));
+        throw new Error(msg.error ?? "Couldn't add a stop");
+      }
+      const payload = (await res.json()) as {
+        stop: ItineraryStop;
+        walk: WalkSegment;
+        maps_url: string;
+        estimated_total: string;
+      };
+      const next: ItineraryResponse = {
+        ...itinerary,
+        stops: [...itinerary.stops, payload.stop],
+        walks: [...itinerary.walks, payload.walk],
+        maps_url: payload.maps_url,
+        header: { ...itinerary.header, estimated_total: payload.estimated_total },
+      };
+      setItinerary(next);
+      sessionStorage.setItem(
+        STORAGE_KEYS.session.currentItinerary,
+        JSON.stringify(next)
+      );
+    } catch (err) {
+      setAddStopError(err instanceof Error ? err.message : "Couldn't add a stop");
+      setTimeout(() => setAddStopError(null), 3000);
+    }
+    setAddingStop(false);
+  };
+
   if (loading) return <StepLoading />;
 
   if (error || !itinerary) {
@@ -96,12 +145,20 @@ function ItineraryContent() {
           <StepLoading />
         </div>
       ) : (
-        <ItineraryView stops={itinerary.stops} walks={itinerary.walks} />
+        <ItineraryView
+          stops={itinerary.stops}
+          walks={itinerary.walks}
+          onAddStop={handleAddStop}
+          isAddingStop={addingStop}
+        />
       )}
       {regenError && (
         <p className="font-sans text-sm text-charcoal mt-4">
           Couldn&apos;t regenerate — keeping your current night.
         </p>
+      )}
+      {addStopError && (
+        <p className="font-sans text-sm text-charcoal mt-4">{addStopError}</p>
       )}
       <ActionBar
         itinerary={itinerary}

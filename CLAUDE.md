@@ -8,7 +8,7 @@ The product is built on a **hybrid curation model**: the venue database is human
 
 **Primary target: Mobile-responsive web.** Website first at onpalate.com/composer. iOS via Capacitor is Phase 2. Every UI decision should work on a phone screen first.
 
-**Auth: Anonymous.** No login required for MVP. Users do not have accounts. All state is ephemeral or localStorage-based.
+**Auth: Supabase magic link (email OTP).** Users sign in with email only — no passwords, no OAuth. Profile and saved itineraries live in Supabase tables with RLS (`composer_users`, `composer_saved_itineraries`). The one exception to "no client persistence" is the page-to-page sessionStorage bridge between `/compose` and `/itinerary` — that's in-tab flight state, not user state.
 
 ---
 
@@ -30,7 +30,7 @@ The product is built on a **hybrid curation model**: the venue database is human
 ```
 NEXT_PUBLIC_SUPABASE_URL
 NEXT_PUBLIC_SUPABASE_ANON_KEY
-ANTHROPIC_API_KEY
+GEMINI_API_KEY
 OPENWEATHERMAP_API_KEY
 ```
 
@@ -53,17 +53,23 @@ app/
 
 components/
 ├── ui/                       # Base UI primitives (Button, OptionCard, ProgressBar)
+├── providers/                # AuthProvider (context for user/profile/session)
 ├── landing/                  # Hero, CTA
+├── home/                     # HomeScreen (signed-in landing with saved plans)
+├── onboarding/               # OnboardingFlow (name + email + profile → magic link)
 ├── questionnaire/            # QuestionnaireShell, StepLoading, OptionCard
 └── itinerary/                # CompositionHeader, StopCard, WalkConnector, ActionBar
 
 lib/
-├── supabase.ts               # Lazy-initialized Supabase client
+├── supabase.ts               # Anon Supabase client for non-auth reads (venues)
+├── supabase/browser.ts       # Browser auth-aware client (@supabase/ssr, cookie session)
+├── supabase/server.ts        # Server auth-aware client for Route Handlers
+├── auth.ts                   # Magic-link send, session + profile helpers
 ├── scoring.ts                # Weighted venue scoring + itinerary composer
 ├── weather.ts                # OpenWeatherMap fetch + rain/snow classification
 ├── geo.ts                    # Haversine distance + Manhattan grid correction + Maps URL builder
-├── claude.ts                 # Claude API call + graceful fallback
-└── sharing.ts                # URL param encode/decode + localStorage save
+├── claude.ts                 # Gemini API call + graceful fallback
+└── sharing.ts                # URL param encode/decode for share links
 
 config/
 ├── options.ts                # All questionnaire step definitions
@@ -120,6 +126,31 @@ This is the locked tag contract. Do not add new tags without updating `scoring.t
 Always hyphenated. Must match exactly between the database, `config/options.ts`, and the venue sheet:
 `west-village`, `east-village-les`, `soho-nolita`, `williamsburg`, `midtown`, `hells-kitchen`, `upper-west-side`
 
+### Auth Tables (20260415 migration)
+
+Both have RLS on with `auth.uid()`-scoped policies. The anon client can only see the signed-in user's own rows.
+
+```sql
+composer_users (
+  id uuid primary key references auth.users(id) on delete cascade,
+  name text not null,
+  context text,
+  drinks text,
+  dietary text[] default '{}',
+  favorite_hoods text[] default '{}',
+  created_at timestamptz
+)
+
+composer_saved_itineraries (
+  id uuid primary key,
+  user_id uuid references composer_users(id) on delete cascade,
+  title text, subtitle text,
+  occasion text, neighborhoods text[], budget text, vibe text, day text,
+  stops jsonb, walking jsonb, weather jsonb,
+  created_at timestamptz
+)
+```
+
 ---
 
 ## Architecture Principles
@@ -127,8 +158,11 @@ Always hyphenated. Must match exactly between the database, `config/options.ts`,
 ### API Route for Generation
 All itinerary generation happens server-side in `app/api/generate/route.ts`. The client POSTs questionnaire answers and receives a complete itinerary. The client never calls Supabase, OpenWeatherMap, or Claude directly.
 
-### No Direct DB Calls from Components
-All Supabase calls go through `lib/supabase.ts`. Components never import or call Supabase directly. Keep data access in `lib/` or API routes.
+### Supabase Access Splits by Trust Boundary
+- **Anon reads of public data (venues):** `lib/supabase.ts` via `getSupabase()` — no cookie session, fine for Route Handlers that don't need `auth.uid()`.
+- **Client-side user-scoped reads/writes (profile, saved itineraries):** `lib/supabase/browser.ts` via `getBrowserSupabase()`. Session lives in cookies (not localStorage) so the server can see it.
+- **Server-side user-scoped reads:** `lib/supabase/server.ts` via `getServerSupabase()` inside Route Handlers. This is how `/api/generate` resolves the signed-in user's profile for personalization and hard filters.
+- RLS enforces row visibility. Components calling `getBrowserSupabase()` is allowed — RLS gates the data, not the import boundary.
 
 ### Scoring Logic Lives in `lib/scoring.ts`
 The weighted scoring algorithm and itinerary composer are isolated here. Do not inline scoring logic in the API route. If scoring behavior needs to change, it changes in one place.
@@ -273,9 +307,10 @@ Never use generic purple gradients, white backgrounds, or Inter/Roboto. The aest
 - No inline styles. Tailwind only. If a custom value is needed more than once, extract to a CSS variable.
 
 ### Data Fetching
-- Server Components fetch directly (no React Query needed — no auth, no real-time).
-- Client-side state is minimal — questionnaire answers in `useState`, itinerary result passed via URL params or shallow route state.
-- Do not use `useEffect` for data fetching. Fetch in Server Components or API routes.
+- Server Components fetch directly for public data. Route Handlers use `getServerSupabase()` for auth-scoped reads.
+- Client-side state is minimal — questionnaire answers in `useState`, itinerary result passed via URL params or sessionStorage (page-to-page in-tab bridge only).
+- Client components that need the current user read from `useAuth()` rather than fetching auth state themselves.
+- `useEffect` for data fetching is acceptable for user-scoped client-side reads (e.g. HomeScreen's saved plans list) since those fire only on mount and need the session cookie.
 
 ### Error Handling
 - All API routes return typed error responses with appropriate HTTP status codes.
@@ -329,15 +364,15 @@ chore(venues): add 12 new West Village venues to seed
 
 ## What NOT To Do
 
-- Don't call Supabase from client components. Use API routes.
+- Don't call anon Supabase (`lib/supabase.ts`) from client components. For user-scoped data use `getBrowserSupabase()`.
 - Don't add AI-generated venues to the database. Every venue must be human-verified.
 - Don't change the vibe tag matching from exact to substring/fuzzy. This was a deliberate fix.
 - Don't change the Claude system prompt without founder approval.
 - Don't add loading states that feel like the app is doing more work than it is.
-- Don't use `useEffect` for data fetching.
 - Don't use `any` types or `ts-ignore`.
 - Don't add new neighborhood slugs without updating `config/options.ts`, the venue sheet Reference tab, and the DB validation simultaneously.
-- Don't build auth. This is anonymous by design for MVP.
+- Don't re-introduce `localStorage` for user state. Profile and saved plans live in Supabase. `sessionStorage` is acceptable only for page-to-page in-tab flight state.
+- Don't add passwords or OAuth. The auth model is magic-link only.
 - Don't add features that aren't in the PRD without flagging them first. Scope creep kills MVPs.
 - Don't assume desktop-first. Mobile is the primary surface.
 - Don't run `git commit`, `git push`, or `git add`. Provide the commit message and let the developer run it.
@@ -359,10 +394,10 @@ When in doubt about a product decision, ask: does this make the output feel more
 
 ## Phase 2 (Not Building Yet)
 
-- User accounts + saved compositions
 - Community venue submissions
 - Google Places / Resy / OpenTable live sync
 - Native reservation booking
 - Implicit preference learning
 - iOS app via Capacitor
 - Monetization (venue partnerships, premium tier)
+- MAKE MONEY

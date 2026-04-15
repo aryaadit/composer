@@ -120,9 +120,21 @@ export function neighborhoodLabel(slug: string): string {
 // dispatching into state. The scoring logic only ever sees storage slugs.
 // ═══════════════════════════════════════════════════════════════════════
 
+export type Borough = "manhattan" | "brooklyn" | "outer";
+
+export const BOROUGH_LABELS: Record<Borough, string> = {
+  manhattan: "Manhattan",
+  brooklyn: "Brooklyn",
+  outer: "Outer Boroughs",
+};
+
+// Order of sections in the picker UI.
+export const BOROUGH_ORDER: readonly Borough[] = ["manhattan", "brooklyn", "outer"];
+
 interface NeighborhoodGroupDef {
   readonly id: string;
   readonly label: string;
+  readonly borough: Borough;
   readonly slugs: readonly NeighborhoodSlug[];
 }
 
@@ -130,51 +142,73 @@ export const NEIGHBORHOOD_GROUPS = [
   {
     id: "west-village",
     label: "West Village",
+    borough: "manhattan",
     slugs: ["west-village"],
   },
   {
     id: "greenwich-village",
     label: "Greenwich Village",
+    borough: "manhattan",
     slugs: ["greenwich-village"],
   },
   {
     id: "east-village-les",
     label: "East Village / LES",
+    borough: "manhattan",
     slugs: ["east-village", "lower-east-side", "east-village-les", "bowery"],
   },
   {
     id: "soho-nolita-tribeca",
     label: "SoHo / Nolita / Tribeca",
+    borough: "manhattan",
     slugs: ["soho-nolita", "nolita", "noho", "tribeca", "little-italy", "hudson-square"],
   },
   {
     id: "chelsea-flatiron",
     label: "Chelsea / Flatiron",
+    borough: "manhattan",
     slugs: ["chelsea", "flatiron", "nomad", "gramercy-kips-bay", "kips-bay", "murray-hill"],
   },
   {
     id: "midtown-hk",
     label: "Midtown / Hell's Kitchen",
+    borough: "manhattan",
     slugs: ["midtown", "midtown-west", "midtown-east", "midtown-hells-kitchen", "koreatown"],
   },
   {
     id: "chinatown-fidi",
     label: "Chinatown / FiDi",
+    borough: "manhattan",
     slugs: ["chinatown", "fidi", "battery-park-city"],
   },
   {
-    id: "uptown",
-    label: "UWS / UES / Harlem",
-    slugs: ["upper-west-side", "upper-east-side", "harlem", "west-harlem", "washington-heights"],
+    id: "upper-west-side",
+    label: "Upper West Side",
+    borough: "manhattan",
+    slugs: ["upper-west-side"],
+  },
+  {
+    id: "upper-east-side",
+    label: "Upper East Side",
+    borough: "manhattan",
+    slugs: ["upper-east-side"],
+  },
+  {
+    id: "harlem-uptown",
+    label: "Harlem / Washington Heights",
+    borough: "manhattan",
+    slugs: ["harlem", "west-harlem", "washington-heights"],
   },
   {
     id: "williamsburg-greenpoint",
     label: "Williamsburg / Greenpoint",
+    borough: "brooklyn",
     slugs: ["williamsburg", "greenpoint", "east-williamsburg"],
   },
   {
     id: "brooklyn",
     label: "DUMBO / Brooklyn",
+    borough: "brooklyn",
     slugs: [
       "dumbo",
       "brooklyn-heights",
@@ -199,6 +233,7 @@ export const NEIGHBORHOOD_GROUPS = [
   {
     id: "outer-boroughs",
     label: "Queens / Bronx / SI",
+    borough: "outer",
     slugs: [
       "astoria",
       "long-island-city",

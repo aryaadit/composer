@@ -1,52 +1,26 @@
 "use client";
 
-import { useSyncExternalStore, useCallback } from "react";
+// Root gate. Four mutually exclusive states, picked from AuthProvider:
+//
+//   - loading              → nothing (prevents a flash of onboarding
+//                            before the cookie session hydrates)
+//   - no session           → OnboardingFlow (first-time visitor; will
+//                            collect a profile and send a magic link)
+//   - session, no profile  → OnboardingFlow (user clicked the link in
+//                            a fresh tab but the metadata-upsert hasn't
+//                            landed yet, or landed and failed — either
+//                            way, have them re-enter the profile)
+//   - session + profile    → HomeScreen
+
 import { Hero } from "@/components/landing/Hero";
 import { OnboardingFlow } from "@/components/onboarding/OnboardingFlow";
 import { HomeScreen } from "@/components/home/HomeScreen";
-import { getUserPrefs } from "@/lib/userPrefs";
-import { getSavedItineraries } from "@/lib/sharing";
-import { createCachedStore } from "@/lib/createCachedStore";
-import type { UserPrefs } from "@/types";
-
-type View = "loading" | "onboarding" | "landing" | "home";
-
-interface Snapshot {
-  view: View;
-  prefs: UserPrefs | null;
-}
-
-const LOADING_SNAPSHOT: Snapshot = { view: "loading", prefs: null };
-
-function computeSnapshot(): Snapshot {
-  if (typeof window === "undefined") return LOADING_SNAPSHOT;
-  const stored = getUserPrefs();
-  if (!stored) return { view: "onboarding", prefs: null };
-  const saved = getSavedItineraries();
-  return {
-    view: saved.length > 0 ? "home" : "landing",
-    prefs: stored,
-  };
-}
-
-const homeStore = createCachedStore<Snapshot>(
-  computeSnapshot,
-  (s) => `${s.view}|${s.prefs?.name ?? ""}`,
-  LOADING_SNAPSHOT
-);
+import { useAuth } from "@/components/providers/AuthProvider";
 
 export default function Home() {
-  const { view, prefs } = useSyncExternalStore(
-    homeStore.subscribe,
-    homeStore.getSnapshot,
-    homeStore.getServerSnapshot
-  );
+  const { session, profile, isLoading } = useAuth();
 
-  const handleOnboardingComplete = useCallback(() => {
-    homeStore.notify();
-  }, []);
-
-  if (view === "loading") {
+  if (isLoading) {
     return (
       <main className="flex flex-1 items-center justify-center min-h-screen bg-cream">
         <div className="w-6 h-6 border-2 border-charcoal border-t-transparent rounded-full animate-spin" />
@@ -54,12 +28,23 @@ export default function Home() {
     );
   }
 
-  if (view === "onboarding") {
-    return <OnboardingFlow onComplete={handleOnboardingComplete} />;
+  if (!session) {
+    return <OnboardingFlow />;
   }
 
-  if (view === "home" && prefs) {
-    return <HomeScreen userName={prefs.name} />;
+  if (!profile) {
+    // Session is real but the profile row hasn't materialized. Most
+    // common cause: the metadata upsert failed (network, RLS change,
+    // etc). Dropping back to onboarding lets the user retry; Skip on
+    // the last step will re-run upsertProfile via sendMagicLinkWithProfile.
+    return <OnboardingFlow />;
+  }
+
+  // Returning user. Landing/Hero is no longer a separate view — home
+  // is the single entry point once you're signed in. Hero is reserved
+  // for the marketing page, if/when we split marketing from app.
+  if (profile.name) {
+    return <HomeScreen userName={profile.name} />;
   }
 
   return (

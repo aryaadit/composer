@@ -1,24 +1,11 @@
-// All client-side storage keys Composer reads or writes, in one place.
+// In-flight browser storage keys.
 //
-// Grouped by storage type because the two have different lifetimes and
-// should not collide:
-//   - `local.*`   persist across tabs and sessions (onboarding prefs, saved plans)
-//   - `session.*` persist only for the current tab (in-flight generation state)
-//
-// Consumers still pass the storage backend explicitly — this module doesn't
-// wrap localStorage/sessionStorage, it just centralizes the key strings so a
-// typo or rename only has to happen in one file.
+// All persistent user state (profile, saved itineraries) lives in
+// Supabase since auth landed — localStorage is no longer used anywhere.
+// The two keys below are session-scoped and only exist to bridge the
+// questionnaire page to the itinerary page within a single tab.
 
 export const STORAGE_KEYS = {
-  local: {
-    userName: "composer_name",
-    userContext: "composer_context",
-    userDrinks: "composer_drinks",
-    userDietary: "composer_dietary",
-    userFavoriteHoods: "composer_favorite_hoods",
-    savedItineraries: "composer_saved_itineraries",
-    seenCoachmark: "composer_seen_coachmark",
-  },
   session: {
     questionnaireInputs: "composer_inputs",
     currentItinerary: "composer_itinerary",

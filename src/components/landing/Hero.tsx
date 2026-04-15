@@ -6,15 +6,6 @@ import { Button } from "@/components/ui/Button";
 export function Hero() {
   return (
     <section className="flex flex-1 flex-col items-center justify-center px-6 text-center">
-      <motion.p
-        className="font-sans text-xs tracking-widest text-muted uppercase mb-5"
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6 }}
-      >
-        New York City
-      </motion.p>
-
       <motion.h1
         className="font-serif text-4xl md:text-5xl font-normal text-charcoal leading-tight mb-5"
         initial={{ opacity: 0, y: 20 }}

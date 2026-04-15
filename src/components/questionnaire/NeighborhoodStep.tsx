@@ -1,8 +1,15 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { motion } from "motion/react";
 import { Button } from "@/components/ui/Button";
+import { CitySwitcher, CitySwitcherButton } from "./CitySwitcher";
+import {
+  NEIGHBORHOOD_GROUPS,
+  BOROUGH_LABELS,
+  BOROUGH_ORDER,
+  type Borough,
+} from "@/config/neighborhoods";
 
 interface Option {
   value: string;
@@ -23,6 +30,27 @@ export function NeighborhoodStep({
   onContinue,
 }: NeighborhoodStepProps) {
   const [selected, setSelected] = useState<Set<string>>(new Set(initialSelected));
+  const [cityDrawerOpen, setCityDrawerOpen] = useState(false);
+
+  // Group the incoming options by borough using the canonical group config.
+  // Keeps the `options` prop flat for back-compat, while letting this step
+  // render section headers without inventing its own taxonomy.
+  const sections = useMemo(() => {
+    const boroughOf = new Map<string, Borough>(
+      NEIGHBORHOOD_GROUPS.map((g) => [g.id, g.borough])
+    );
+    const buckets = new Map<Borough, Option[]>();
+    for (const opt of options) {
+      const b = boroughOf.get(opt.value) ?? "manhattan";
+      if (!buckets.has(b)) buckets.set(b, []);
+      buckets.get(b)!.push(opt);
+    }
+    return BOROUGH_ORDER.filter((b) => buckets.has(b)).map((b) => ({
+      borough: b,
+      label: BOROUGH_LABELS[b],
+      options: buckets.get(b)!,
+    }));
+  }, [options]);
 
   const handleToggle = useCallback((value: string) => {
     setSelected((prev) => {
@@ -41,37 +69,53 @@ export function NeighborhoodStep({
     onContinue(Array.from(selected));
   }, [selected, onContinue]);
 
+  let delayIndex = 0;
+
   return (
     <div>
       <p className="text-center font-sans text-xs text-muted mb-4">
         Pick up to {MAX_HOODS}
       </p>
-      <div className="flex flex-wrap justify-center gap-2">
-        {options.map((option, i) => {
-          const isSelected = selected.has(option.value);
-          const isAtMax = !isSelected && selected.size >= MAX_HOODS;
-          return (
-            <motion.button
-              key={option.value}
-              onClick={() => handleToggle(option.value)}
-              disabled={isAtMax}
-              className={`rounded-full px-4 py-2 text-sm font-sans font-medium transition-all border ${
-                isSelected
-                  ? "bg-burgundy text-cream border-burgundy"
-                  : isAtMax
-                  ? "bg-cream border-border text-muted cursor-not-allowed"
-                  : "bg-cream border-border text-charcoal hover:border-charcoal/40"
-              }`}
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.2, delay: i * 0.03 }}
-              whileTap={isAtMax ? undefined : { scale: 0.95 }}
-            >
-              {option.label}
-            </motion.button>
-          );
-        })}
+
+      <div className="flex flex-col gap-5">
+        {sections.map((section) => (
+          <div key={section.borough}>
+            <h3 className="text-center font-sans text-xs font-medium tracking-widest uppercase text-muted mb-3">
+              {section.label}
+            </h3>
+            <div className="flex flex-wrap justify-center gap-2">
+              {section.options.map((option) => {
+                const isSelected = selected.has(option.value);
+                const isAtMax = !isSelected && selected.size >= MAX_HOODS;
+                const i = delayIndex++;
+                return (
+                  <motion.button
+                    key={option.value}
+                    onClick={() => handleToggle(option.value)}
+                    disabled={isAtMax}
+                    className={`rounded-full px-4 py-2 text-sm font-sans font-medium transition-all border ${
+                      isSelected
+                        ? "bg-burgundy text-cream border-burgundy"
+                        : isAtMax
+                        ? "bg-cream border-border text-muted cursor-not-allowed"
+                        : "bg-cream border-border text-charcoal hover:border-charcoal/40"
+                    }`}
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ duration: 0.2, delay: i * 0.03 }}
+                    whileTap={isAtMax ? undefined : { scale: 0.95 }}
+                  >
+                    {option.label}
+                  </motion.button>
+                );
+              })}
+            </div>
+          </div>
+        ))}
       </div>
+
+      <CitySwitcherButton onClick={() => setCityDrawerOpen(true)} />
+
       <div className="mt-8">
         <Button
           variant="primary"
@@ -82,6 +126,11 @@ export function NeighborhoodStep({
           Continue
         </Button>
       </div>
+
+      <CitySwitcher
+        open={cityDrawerOpen}
+        onClose={() => setCityDrawerOpen(false)}
+      />
     </div>
   );
 }

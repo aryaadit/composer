@@ -5,6 +5,7 @@ import { motion } from "motion/react";
 import { ItineraryStop } from "@/types";
 import { ROLE_LABELS } from "@/config/roles";
 import { neighborhoodLabel } from "@/config/neighborhoods";
+import { awardLabel } from "@/config/awards";
 import { detectBookingPlatform } from "@/lib/booking";
 
 // Venues with reservation_difficulty >= this get a "Book ahead" hint.
@@ -42,6 +43,18 @@ export function StopCard({
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, delay: index * 0.15 }}
     >
+      {/* Hero photo — falls back to a tint placeholder so layout is stable */}
+      <div className="aspect-[16/9] bg-burgundy-tint rounded-lg overflow-hidden mb-5">
+        {activeVenue.photo_url && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={activeVenue.photo_url}
+            alt={activeVenue.name}
+            className="w-full h-full object-cover"
+          />
+        )}
+      </div>
+
       {/* Role label */}
       <div className="font-sans text-xs tracking-widest uppercase text-muted mb-2">
         {ROLE_LABELS[stop.role]}
@@ -56,6 +69,27 @@ export function StopCard({
       <p className="font-sans text-sm text-muted mb-4">
         {activeVenue.category} &middot; {neighborhoodLabel(activeVenue.neighborhood)}
       </p>
+
+      {/* Awards row — pills match CompositionHeader styling */}
+      {activeVenue.awards && activeVenue.awards.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 mb-4">
+          {activeVenue.awards.map((slug) => (
+            <span
+              key={slug}
+              className="inline-block px-3 py-1 text-xs font-sans font-medium rounded-full bg-burgundy/10 text-burgundy"
+            >
+              {awardLabel(slug)}
+            </span>
+          ))}
+        </div>
+      )}
+
+      {/* Dress code */}
+      {activeVenue.dress_code && (
+        <p className="font-sans text-xs text-muted mb-4">
+          Dress: {activeVenue.dress_code}
+        </p>
+      )}
 
       {/* Curation note — the reason this venue is here */}
       <p className="font-sans text-[15px] text-[#444444] leading-relaxed mb-5">
@@ -91,6 +125,24 @@ export function StopCard({
         </div>
 
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted shrink-0 pt-0.5">
+          {activeVenue.amex_dining && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src="/brands/amex-dining.svg"
+              alt="Amex Global Dining Access"
+              title="Amex Global Dining Access"
+              className="h-4 w-auto"
+            />
+          )}
+          {activeVenue.chase_sapphire && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src="/brands/chase-sapphire.svg"
+              alt="Chase Sapphire Reserve Dining"
+              title="Chase Sapphire Reserve Dining"
+              className="h-4 w-auto"
+            />
+          )}
           {metaTags.map((tag) => (
             <span key={tag}>{tag}</span>
           ))}
