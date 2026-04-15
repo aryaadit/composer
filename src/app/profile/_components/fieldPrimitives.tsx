@@ -8,6 +8,7 @@
 // components focused on their own value shape.
 
 import { useState } from "react";
+import { AnimatePresence, motion } from "motion/react";
 import { getBrowserSupabase } from "@/lib/supabase/browser";
 
 export type PillTone = "burgundy" | "charcoal";
@@ -57,7 +58,6 @@ interface FieldShellProps {
   label: string;
   editing: boolean;
   onEdit: () => void;
-  justSaved: boolean;
   children: React.ReactNode;
 }
 
@@ -65,31 +65,59 @@ export function FieldShell({
   label,
   editing,
   onEdit,
-  justSaved,
   children,
 }: FieldShellProps) {
+  // Pencil is always rendered so the label row never shifts. While
+  // editing it stays in place but dims and disables — the edit action
+  // is the Save/Cancel pair below, clicking the pencil again would be
+  // confusing. Keeping the layout stable is the whole point.
   return (
     <div>
       <div className="flex items-center justify-between mb-3">
         <label className="font-sans text-xs tracking-widest uppercase text-muted">
           {label}
         </label>
-        {!editing && (
-          <button
-            type="button"
-            onClick={onEdit}
-            aria-label={`Edit ${label.toLowerCase()}`}
-            className="text-muted hover:text-charcoal transition-colors"
-          >
-            <PencilIcon />
-          </button>
-        )}
-        {justSaved && (
-          <span className="font-sans text-xs text-muted">Saved</span>
-        )}
+        <button
+          type="button"
+          onClick={onEdit}
+          disabled={editing}
+          aria-label={`Edit ${label.toLowerCase()}`}
+          className={`transition-opacity ${
+            editing
+              ? "opacity-30 cursor-default text-muted"
+              : "text-muted hover:text-charcoal"
+          }`}
+        >
+          <PencilIcon />
+        </button>
       </div>
       {children}
     </div>
+  );
+}
+
+/**
+ * 2-second "Saved" acknowledgement rendered in the same vertical slot
+ * that EditActions occupies during edit mode. Fade in/out via
+ * AnimatePresence so it doesn't pop. Mounted by each field's view
+ * branch — never in the label row.
+ */
+export function SavedIndicator({ show }: { show: boolean }) {
+  return (
+    <AnimatePresence>
+      {show && (
+        <motion.div
+          key="saved"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.3 }}
+          className="mt-3 font-sans text-xs text-muted"
+        >
+          Saved
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 }
 

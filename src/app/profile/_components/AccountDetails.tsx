@@ -12,6 +12,7 @@ import {
 import {
   FieldShell,
   EditActions,
+  SavedIndicator,
   useFieldEditor,
   pillClass,
   sameArray,
@@ -67,12 +68,7 @@ function DrinksField({ profile, userId, onSaved }: FieldProps) {
   const displayLabel =
     DRINK_OPTIONS.find((o) => o.id === profile.drinks)?.label ?? "Not set";
   return (
-    <FieldShell
-      label="Drinks"
-      editing={f.editing}
-      onEdit={f.beginEdit}
-      justSaved={f.justSaved}
-    >
+    <FieldShell label="Drinks" editing={f.editing} onEdit={f.beginEdit}>
       {f.editing ? (
         <>
           <div className="flex flex-wrap gap-2">
@@ -96,7 +92,10 @@ function DrinksField({ profile, userId, onSaved }: FieldProps) {
           />
         </>
       ) : (
-        <p className="font-sans text-base text-charcoal">{displayLabel}</p>
+        <>
+          <p className="font-sans text-base text-charcoal">{displayLabel}</p>
+          <SavedIndicator show={f.justSaved} />
+        </>
       )}
     </FieldShell>
   );
@@ -126,12 +125,7 @@ function DietaryField({ profile, userId, onSaved }: FieldProps) {
           .join(", ");
 
   return (
-    <FieldShell
-      label="Dietary"
-      editing={f.editing}
-      onEdit={f.beginEdit}
-      justSaved={f.justSaved}
-    >
+    <FieldShell label="Dietary" editing={f.editing} onEdit={f.beginEdit}>
       {f.editing ? (
         <>
           <div className="flex flex-wrap gap-2">
@@ -158,7 +152,10 @@ function DietaryField({ profile, userId, onSaved }: FieldProps) {
           />
         </>
       ) : (
-        <p className="font-sans text-base text-charcoal">{displayLabel}</p>
+        <>
+          <p className="font-sans text-base text-charcoal">{displayLabel}</p>
+          <SavedIndicator show={f.justSaved} />
+        </>
       )}
     </FieldShell>
   );
@@ -186,7 +183,6 @@ function HoodsField({ profile, userId, onSaved }: FieldProps) {
       label="Favorite Neighborhoods"
       editing={f.editing}
       onEdit={f.beginEdit}
-      justSaved={f.justSaved}
     >
       {f.editing ? (
         <>
@@ -211,7 +207,10 @@ function HoodsField({ profile, userId, onSaved }: FieldProps) {
           />
         </>
       ) : (
-        <p className="font-sans text-base text-charcoal">{displayLabel}</p>
+        <>
+          <p className="font-sans text-base text-charcoal">{displayLabel}</p>
+          <SavedIndicator show={f.justSaved} />
+        </>
       )}
     </FieldShell>
   );
