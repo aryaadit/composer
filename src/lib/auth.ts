@@ -2,10 +2,19 @@
 
 // Thin wrappers around the Supabase auth surface Composer uses.
 //
-// These helpers exist so the rest of the app talks to "auth", not to
-// Supabase directly — if the auth provider ever changes (unlikely) the
-// blast radius stays in one file. Everything here is browser-side; the
-// server reads auth via `@/lib/supabase/server`.
+// Everything here is browser-side; the server reads auth via
+// `@/lib/supabase/server`. The goal of this module is to keep every
+// auth-touching component talking to "auth" (not to Supabase directly)
+// so if the provider ever changes the blast radius stays in one file.
+//
+// ─── Supabase project settings required ────────────────────────────────
+// Authentication → Providers → Email: Enable "Email provider".
+// Authentication → Providers → Email: Disable "Confirm email" so signup
+//   returns a session immediately instead of requiring a click-through.
+// Authentication → URL Configuration → Site URL: https://composer.onpalate.com
+// Authentication → URL Configuration → Redirect URLs: https://composer.onpalate.com/**
+//   (plus http://localhost:3000/** and https://*.vercel.app/** for previews)
+// ────────────────────────────────────────────────────────────────────────
 
 import { getBrowserSupabase } from "@/lib/supabase/browser";
 import type {
@@ -15,6 +24,13 @@ import type {
   Subscription,
 } from "@supabase/supabase-js";
 import type { ComposerUser, UserPrefs } from "@/types";
+
+/**
+ * Minimum password length enforced by both the UI and this module.
+ * Matches Supabase's default lower bound; bump both sides together if
+ * the project raises this requirement.
+ */
+export const MIN_PASSWORD_LENGTH = 8;
 
 export async function getSession(): Promise<Session | null> {
   const { data } = await getBrowserSupabase().auth.getSession();
@@ -41,10 +57,11 @@ export async function getProfile(userId: string): Promise<ComposerUser | null> {
 }
 
 /**
- * Insert or update the current user's profile.
- *
- * Called both from the onboarding completion path (right after the
- * session lands) and from anywhere that edits preferences later.
+ * Insert or update the current user's profile. Called from the
+ * onboarding completion path — the session already exists at that
+ * point (signUp or signIn happened before onboarding), so RLS's
+ * `auth.uid() = id` check passes and the upsert succeeds with just
+ * the profile fields.
  */
 export async function upsertProfile(
   userId: string,
@@ -74,48 +91,99 @@ export async function signOut(): Promise<void> {
   await getBrowserSupabase().auth.signOut();
 }
 
+interface AuthActionResult {
+  ok: boolean;
+  user?: User;
+  error?: string;
+}
+
 /**
- * Send a magic-link email carrying the full onboarding profile inside
- * `options.data`. Supabase stores that blob on `auth.users.raw_user_meta_data`
- * so when the user clicks the link and the session lands (possibly in a
- * fresh tab, days later), the metadata survives. `AuthProvider` then reads
- * it back and upserts the Composer profile row.
+ * Attempt sign-in first, fall back to sign-up if the credentials look
+ * like a new user. Single entry point used by `AuthScreen` so the UI
+ * doesn't have to toggle between sign-in and sign-up modes — the only
+ * branching is whether the user has onboarded, which routing handles
+ * downstream.
  *
- * This is the single sign-in entry point — called only after the user
- * finishes step 3 of onboarding with a complete profile in hand. No
- * second email is sent after the session lands.
+ * Known limitation: Supabase returns "Invalid login credentials" for
+ * both wrong password and non-existent user, so a returning user with
+ * a mistyped password falls through to sign-up and gets back "User
+ * already registered". Acceptable for MVP; the UI shows a "Forgot
+ * password?" link that's the right path out of this state.
  */
-export async function sendMagicLinkWithProfile(
+export async function signInOrSignUp(
   email: string,
-  prefs: UserPrefs
+  password: string
+): Promise<AuthActionResult> {
+  if (password.length < MIN_PASSWORD_LENGTH) {
+    return {
+      ok: false,
+      error: `Password must be at least ${MIN_PASSWORD_LENGTH} characters.`,
+    };
+  }
+
+  const supabase = getBrowserSupabase();
+
+  const { data: signInData, error: signInError } =
+    await supabase.auth.signInWithPassword({ email, password });
+
+  if (!signInError && signInData.user) {
+    return { ok: true, user: signInData.user };
+  }
+
+  const msg = signInError?.message.toLowerCase() ?? "";
+  const looksNew = msg.includes("invalid") || msg.includes("not found");
+  if (!looksNew) {
+    return { ok: false, error: signInError?.message ?? "Sign in failed." };
+  }
+
+  const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+    email,
+    password,
+  });
+  if (signUpError) return { ok: false, error: signUpError.message };
+  if (!signUpData.user) {
+    return { ok: false, error: "Sign up returned no user." };
+  }
+  return { ok: true, user: signUpData.user };
+}
+
+/**
+ * Send a password-reset email. The redirect lands on `/auth/reset`,
+ * which exchanges the one-time code for a session and surfaces the
+ * new-password form.
+ */
+export async function sendPasswordResetEmail(
+  email: string
 ): Promise<{ ok: boolean; error?: string }> {
-  // Point the magic link at the server-side callback route, not `/` —
-  // Supabase sends the user to `{redirect}?code=…`, and `/auth/callback`
-  // is the server handler that swaps that code for a session cookie
-  // before redirecting home. Landing directly on `/` in production
-  // leaves the ?code param hanging without a session.
   const redirectTo =
     typeof window !== "undefined"
-      ? `${window.location.origin}/auth/callback`
+      ? `${window.location.origin}/auth/reset`
       : undefined;
 
-  const { error } = await getBrowserSupabase().auth.signInWithOtp({
+  const { error } = await getBrowserSupabase().auth.resetPasswordForEmail(
     email,
-    options: {
-      shouldCreateUser: true,
-      emailRedirectTo: redirectTo,
-      data: {
-        name: prefs.name,
-        context: prefs.context ?? null,
-        drinks: prefs.drinks ?? null,
-        dietary: prefs.dietary ?? [],
-        favorite_hoods: prefs.favoriteHoods ?? [],
-      },
-    },
-  });
-  if (error) {
-    return { ok: false, error: error.message };
+    { redirectTo }
+  );
+  if (error) return { ok: false, error: error.message };
+  return { ok: true };
+}
+
+/**
+ * Apply a new password to the currently-authenticated session. Valid
+ * only after `/auth/reset` has exchanged the recovery code into a
+ * session — callers should verify `getSession()` first.
+ */
+export async function updatePassword(
+  password: string
+): Promise<{ ok: boolean; error?: string }> {
+  if (password.length < MIN_PASSWORD_LENGTH) {
+    return {
+      ok: false,
+      error: `Password must be at least ${MIN_PASSWORD_LENGTH} characters.`,
+    };
   }
+  const { error } = await getBrowserSupabase().auth.updateUser({ password });
+  if (error) return { ok: false, error: error.message };
   return { ok: true };
 }
 

@@ -8,7 +8,7 @@ The product is built on a **hybrid curation model**: the venue database is human
 
 **Primary target: Mobile-responsive web.** Website first at onpalate.com/composer. iOS via Capacitor is Phase 2. Every UI decision should work on a phone screen first.
 
-**Auth: Supabase magic link (email OTP).** Users sign in with email only — no passwords, no OAuth. Profile and saved itineraries live in Supabase tables with RLS (`composer_users`, `composer_saved_itineraries`). The one exception to "no client persistence" is the page-to-page sessionStorage bridge between `/compose` and `/itinerary` — that's in-tab flight state, not user state.
+**Auth: Supabase email/password.** Users sign in or sign up on a single combined entry screen (`AuthScreen`) with email + password — the form tries `signInWithPassword` first and falls back to `signUp` on an "invalid / not found" error, so there's no explicit sign-in/sign-up toggle. Forgot-password flow uses `resetPasswordForEmail` with a redirect to `/auth/reset`. No OAuth providers. Profile and saved itineraries live in Supabase tables with RLS (`composer_users`, `composer_saved_itineraries`). The one exception to "no client persistence" is the page-to-page sessionStorage bridge between `/compose` and `/itinerary` — that's in-tab flight state, not user state.
 
 ---
 
@@ -56,7 +56,8 @@ components/
 ├── providers/                # AuthProvider (context for user/profile/session)
 ├── landing/                  # Hero, CTA
 ├── home/                     # HomeScreen (signed-in landing with saved plans)
-├── onboarding/               # OnboardingFlow (name + email + profile → magic link)
+├── auth/                     # AuthScreen + ForgotPasswordScreen (email/password)
+├── onboarding/               # OnboardingFlow (name + profile, session already active)
 ├── questionnaire/            # QuestionnaireShell, StepLoading, OptionCard
 └── itinerary/                # CompositionHeader, StopCard, WalkConnector, ActionBar
 
@@ -64,7 +65,7 @@ lib/
 ├── supabase.ts               # Anon Supabase client for non-auth reads (venues)
 ├── supabase/browser.ts       # Browser auth-aware client (@supabase/ssr, cookie session)
 ├── supabase/server.ts        # Server auth-aware client for Route Handlers
-├── auth.ts                   # Magic-link send, session + profile helpers
+├── auth.ts                   # Sign in / sign up / reset-password / profile helpers
 ├── scoring.ts                # Weighted venue scoring + itinerary composer
 ├── weather.ts                # OpenWeatherMap fetch + rain/snow classification
 ├── geo.ts                    # Haversine distance + Manhattan grid correction + Maps URL builder
@@ -372,7 +373,7 @@ chore(venues): add 12 new West Village venues to seed
 - Don't use `any` types or `ts-ignore`.
 - Don't add new neighborhood slugs without updating `config/options.ts`, the venue sheet Reference tab, and the DB validation simultaneously.
 - Don't re-introduce `localStorage` for user state. Profile and saved plans live in Supabase. `sessionStorage` is acceptable only for page-to-page in-tab flight state.
-- Don't add passwords or OAuth. The auth model is magic-link only.
+- Don't add OAuth providers. The auth model is email/password only. (The historical magic-link flow was replaced — do not re-introduce `signInWithOtp`.)
 - Don't add features that aren't in the PRD without flagging them first. Scope creep kills MVPs.
 - Don't assume desktop-first. Mobile is the primary surface.
 - Don't run `git commit`, `git push`, or `git add`. Provide the commit message and let the developer run it.

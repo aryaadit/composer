@@ -56,7 +56,7 @@ export function AdminSection({ email }: AdminSectionProps) {
 
       <div className="flex flex-col gap-3 items-start">
         <Link
-          href="/?onboarding=true"
+          href="/admin/onboarding"
           className="font-sans text-xs text-muted hover:text-charcoal transition-colors"
         >
           Reset onboarding &rarr;

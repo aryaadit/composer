@@ -1,16 +1,15 @@
 "use client";
 
 // AuthProvider — the single source of truth for `user`, `profile`, and
-// `session` everywhere in the client tree.
+// `session` everywhere in the client tree. Subscribes to Supabase auth
+// events, fetches the Composer profile row when the session lands, and
+// exposes a `refreshProfile` hook for the profile page to call after
+// inline edits.
 //
-// Two responsibilities:
-//   1. Keep React state in sync with Supabase's auth subscription so
-//      components re-render when the session changes (sign-in, sign-out,
-//      token refresh).
-//   2. When a brand-new session lands, read the onboarding profile off
-//      `user.user_metadata` (where `sendMagicLinkWithProfile` stashed it)
-//      and write it to the `composer_users` row. This is the "magic link
-//      click → account created" hop.
+// Under email/password auth the profile row is materialized by the
+// onboarding flow (which runs against an already-live session), so this
+// provider's only job is to keep React state in sync — no metadata
+// upsert, no fallback seeding.
 
 import {
   createContext,
@@ -18,7 +17,6 @@ import {
   useContext,
   useEffect,
   useMemo,
-  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -26,11 +24,10 @@ import type { Session, User } from "@supabase/supabase-js";
 import { getBrowserSupabase } from "@/lib/supabase/browser";
 import {
   getProfile,
-  upsertProfile,
   signOut as libSignOut,
   onAuthStateChange,
 } from "@/lib/auth";
-import type { ComposerUser, UserPrefs, DrinksPref } from "@/types";
+import type { ComposerUser } from "@/types";
 
 interface AuthContextValue {
   user: User | null;
@@ -43,38 +40,11 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-// Read the onboarding profile stashed on auth.users.raw_user_meta_data
-// by sendMagicLinkWithProfile(). Returns null if anything is missing.
-function profileFromMetadata(user: User): UserPrefs | null {
-  const meta = (user.user_metadata ?? {}) as Record<string, unknown>;
-  const name = typeof meta.name === "string" ? meta.name : null;
-  if (!name) return null;
-  return {
-    name,
-    context: typeof meta.context === "string" ? meta.context : undefined,
-    drinks:
-      meta.drinks === "yes" || meta.drinks === "sometimes" || meta.drinks === "no"
-        ? (meta.drinks as DrinksPref)
-        : undefined,
-    dietary: Array.isArray(meta.dietary)
-      ? (meta.dietary as string[])
-      : [],
-    favoriteHoods: Array.isArray(meta.favorite_hoods)
-      ? (meta.favorite_hoods as string[])
-      : [],
-  };
-}
-
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<ComposerUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-
-  // Guard against doing the metadata → profile upsert twice for the same
-  // session id (e.g. if the listener fires TOKEN_REFRESHED after
-  // SIGNED_IN). The ref survives StrictMode double-mount.
-  const seededFor = useRef<string | null>(null);
 
   const applySession = useCallback(async (s: Session | null) => {
     setSession(s);
@@ -86,19 +56,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    // Try to read an existing profile row. If present → we're good.
-    let existing = await getProfile(s.user.id);
-
-    // No row yet? This is a fresh sign-in from a magic link carrying
-    // onboarding metadata. Materialize the profile from user_metadata.
-    if (!existing && seededFor.current !== s.user.id) {
-      seededFor.current = s.user.id;
-      const prefs = profileFromMetadata(s.user);
-      if (prefs) {
-        existing = await upsertProfile(s.user.id, prefs);
-      }
-    }
-
+    // Profile may not yet exist (user just signed up, hasn't completed
+    // onboarding). That's fine — routing pushes them to /onboarding
+    // where the upsert happens. Null here is not an error state.
+    const existing = await getProfile(s.user.id);
     setProfile(existing);
     setIsLoading(false);
   }, []);
@@ -106,9 +67,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let cancelled = false;
 
-    // 1. Initial session read on mount — Supabase hydrates from the
-    //    cookie before our listener fires, so we need an explicit
-    //    getSession() to populate state on first paint.
+    // Initial session read on mount — Supabase hydrates from the cookie
+    // before our listener fires, so we need an explicit getSession() to
+    // populate state on first paint.
     getBrowserSupabase()
       .auth.getSession()
       .then(({ data }) => {
@@ -119,7 +80,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (!cancelled) setIsLoading(false);
       });
 
-    // 2. Subscribe to future auth events (SIGNED_IN, SIGNED_OUT, refresh).
+    // Subscribe to future auth events (SIGNED_IN, SIGNED_OUT, refresh).
     const sub = onAuthStateChange((_event, s) => {
       void applySession(s);
     });
@@ -138,7 +99,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = useCallback(async () => {
     await libSignOut();
-    seededFor.current = null;
     setProfile(null);
     setUser(null);
     setSession(null);

@@ -1,18 +1,31 @@
 "use client";
 
+// Four-step profile builder. Runs after auth (signUp or signIn) — the
+// session is already live when this component renders, so the
+// completion path just upserts to composer_users and routes home. No
+// email field: email lives on auth.users and is captured by
+// AuthScreen before onboarding begins.
+
 import { useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
-import { sendMagicLinkWithProfile } from "@/lib/auth";
+import { upsertProfile } from "@/lib/auth";
+import { useAuth } from "@/components/providers/AuthProvider";
 import { UserPrefs, DrinksPref } from "@/types";
-import { CONTEXT_OPTIONS, DRINK_OPTIONS, DIETARY_OPTIONS, FAVORITE_HOODS } from "@/config/onboarding";
+import {
+  CONTEXT_OPTIONS,
+  DRINK_OPTIONS,
+  DIETARY_OPTIONS,
+  FAVORITE_HOODS,
+} from "@/config/onboarding";
 
 type PillTone = "burgundy" | "charcoal";
 
 const pillClass = (selected: boolean, tone: PillTone = "burgundy") => {
-  // Selected pills are pure fill — no visible border. Unselected keeps a
-  // 1px border for shape; selected uses border-transparent so the outline
-  // doesn't double-up against the fill and read as a focus ring.
+  // Selected pills are pure fill — no visible border. Unselected keeps
+  // a 1px border for shape; selected uses border-transparent so the
+  // outline doesn't double-up against the fill and read as a focus ring.
   const fill =
     tone === "charcoal"
       ? "bg-charcoal text-cream border-transparent"
@@ -24,30 +37,36 @@ const pillClass = (selected: boolean, tone: PillTone = "burgundy") => {
   }`;
 };
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
 export function OnboardingFlow() {
-  const [step, setStep] = useState(0); // 0=name+email, 1=context, 2=preferences, 3=neighborhoods, 4=check-email
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [context, setContext] = useState("");
-  const [drinks, setDrinks] = useState<DrinksPref | "">("");
-  const [dietary, setDietary] = useState<string[]>([]);
-  const [favoriteHoods, setFavoriteHoods] = useState<string[]>([]);
-  const [sending, setSending] = useState(false);
-  const [sendError, setSendError] = useState<string | null>(null);
+  const router = useRouter();
+  const { user, profile, refreshProfile } = useAuth();
+
+  // Pre-fill from any existing profile — this happens when an admin
+  // hits the reset-onboarding backdoor to redo their own profile, or
+  // when a partially-onboarded user returns.
+  const [step, setStep] = useState(0); // 0=name, 1=context, 2=preferences, 3=neighborhoods
+  const [name, setName] = useState(profile?.name ?? "");
+  const [context, setContext] = useState(profile?.context ?? "");
+  const [drinks, setDrinks] = useState<DrinksPref | "">(
+    (profile?.drinks as DrinksPref | null) ?? ""
+  );
+  const [dietary, setDietary] = useState<string[]>(profile?.dietary ?? []);
+  const [favoriteHoods, setFavoriteHoods] = useState<string[]>(
+    profile?.favorite_hoods ?? []
+  );
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const totalSteps = 4;
-  const emailValid = EMAIL_RE.test(email.trim());
 
   const handleNext = () => {
     if (step < totalSteps - 1) setStep(step + 1);
   };
 
   const handleFinish = async () => {
-    if (sending) return;
-    setSending(true);
-    setSendError(null);
+    if (saving || !user) return;
+    setSaving(true);
+    setSaveError(null);
 
     const prefs: UserPrefs = {
       name: name.trim() || "Friend",
@@ -57,19 +76,17 @@ export function OnboardingFlow() {
       favoriteHoods,
     };
 
-    const result = await sendMagicLinkWithProfile(email.trim(), prefs);
-    if (!result.ok) {
-      setSendError(result.error ?? "Couldn't send the link. Try again.");
-      setSending(false);
+    const result = await upsertProfile(user.id, prefs);
+    if (!result) {
+      setSaveError("Couldn't save your profile. Try again.");
+      setSaving(false);
       return;
     }
 
-    // Advance to the "check your email" waiting state. The user may
-    // click the link in this tab (AuthProvider picks it up via
-    // onAuthStateChange → app/page.tsx re-routes to HomeScreen) or in
-    // a new tab (same flow, just in a different window).
-    setStep(totalSteps);
-    setSending(false);
+    // AuthProvider's `profile` is stale until refetched — do that
+    // before we navigate so HomeScreen mounts with the fresh row.
+    await refreshProfile();
+    router.replace("/");
   };
 
   const toggleHood = (id: string) => {
@@ -84,33 +101,12 @@ export function OnboardingFlow() {
     } else {
       setDietary((prev) => {
         const without = prev.filter((d) => d !== "none");
-        return without.includes(id) ? without.filter((d) => d !== id) : [...without, id];
+        return without.includes(id)
+          ? without.filter((d) => d !== id)
+          : [...without, id];
       });
     }
   };
-
-  // ── Check-email waiting screen ──────────────────────────────────────
-  // Rendered after the OTP call succeeds. Deliberately static — no
-  // polling. AuthProvider's onAuthStateChange listener will flip the
-  // app over to HomeScreen the moment the session lands.
-  if (step === totalSteps) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-cream px-6">
-        <div className="max-w-md text-center">
-          <h1 className="font-serif text-3xl text-charcoal mb-3">
-            Check your email
-          </h1>
-          <p className="font-sans text-sm text-warm-gray mb-6">
-            We sent a magic link to <span className="text-charcoal">{email.trim()}</span>.
-            Click it to finish setting up — no password needed.
-          </p>
-          <p className="font-sans text-xs text-muted">
-            You can close this tab. The link works in any browser.
-          </p>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen flex flex-col bg-cream">
@@ -141,7 +137,7 @@ export function OnboardingFlow() {
             transition={{ duration: 0.25 }}
             className="flex-1 flex flex-col"
           >
-            {/* Step 0: Name + Email */}
+            {/* Step 0: Name */}
             {step === 0 && (
               <div className="flex-1 flex flex-col justify-center">
                 <h1 className="font-sans text-2xl font-medium text-charcoal mb-2">
@@ -155,28 +151,12 @@ export function OnboardingFlow() {
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="Your first name"
-                  className="w-full px-0 py-3 text-xl font-sans bg-transparent border-b border-border focus:border-charcoal focus:outline-none transition-colors text-charcoal placeholder:text-muted mb-8"
+                  className="w-full px-0 py-3 text-xl font-sans bg-transparent border-b border-border focus:border-charcoal focus:outline-none transition-colors text-charcoal placeholder:text-muted"
                   autoFocus
-                />
-
-                <label className="font-sans text-xs tracking-widest uppercase text-muted mb-3 block">
-                  And your email?
-                </label>
-                <input
-                  type="email"
-                  inputMode="email"
-                  autoComplete="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@example.com"
-                  className="w-full px-0 py-3 text-lg font-sans bg-transparent border-b border-border focus:border-charcoal focus:outline-none transition-colors text-charcoal placeholder:text-muted"
                   onKeyDown={(e) => {
-                    if (e.key === "Enter" && name.trim() && emailValid) handleNext();
+                    if (e.key === "Enter" && name.trim()) handleNext();
                   }}
                 />
-                <p className="font-sans text-xs text-muted mt-3">
-                  We&apos;ll send you a magic link — no password needed.
-                </p>
               </div>
             )}
 
@@ -200,8 +180,12 @@ export function OnboardingFlow() {
                           : "border-border bg-cream hover:border-charcoal/30"
                       }`}
                     >
-                      <div className="font-sans text-sm font-medium text-charcoal">{opt.label}</div>
-                      <div className="font-sans text-xs text-muted mt-0.5">{opt.description}</div>
+                      <div className="font-sans text-sm font-medium text-charcoal">
+                        {opt.label}
+                      </div>
+                      <div className="font-sans text-xs text-muted mt-0.5">
+                        {opt.description}
+                      </div>
                     </button>
                   ))}
                 </div>
@@ -246,7 +230,7 @@ export function OnboardingFlow() {
                         onClick={() => toggleDietary(opt.id)}
                         // "No restrictions" is a default-style choice (the
                         // absence of a filter), not an active preference —
-                        // render it in neutral charcoal so it doesn't read
+                        // render it neutral charcoal so it doesn't read
                         // as an urgent burgundy selection.
                         className={pillClass(
                           dietary.includes(opt.id),
@@ -290,9 +274,9 @@ export function OnboardingFlow() {
 
       {/* Bottom action area */}
       <div className="relative z-10 px-6 pb-10 pt-4 max-w-lg w-full mx-auto">
-        {sendError && (
+        {saveError && (
           <p className="font-sans text-xs text-charcoal mb-3 text-center">
-            {sendError}
+            {saveError}
           </p>
         )}
         {step < 3 ? (
@@ -300,8 +284,7 @@ export function OnboardingFlow() {
             variant="primary"
             onClick={handleNext}
             disabled={
-              (step === 0 && (!name.trim() || !emailValid)) ||
-              (step === 1 && !context)
+              (step === 0 && !name.trim()) || (step === 1 && !context)
             }
             className="w-full"
           >
@@ -311,19 +294,19 @@ export function OnboardingFlow() {
           <div className="flex gap-3">
             <Button
               variant="secondary"
-              onClick={handleFinish}
-              disabled={sending}
+              onClick={() => void handleFinish()}
+              disabled={saving}
               className="flex-1"
             >
               Skip
             </Button>
             <Button
               variant="primary"
-              onClick={handleFinish}
-              disabled={sending}
+              onClick={() => void handleFinish()}
+              disabled={saving}
               className="flex-1"
             >
-              {sending ? "Sending…" : "Let's go"}
+              {saving ? "Saving…" : "Let's go"}
             </Button>
           </div>
         )}
