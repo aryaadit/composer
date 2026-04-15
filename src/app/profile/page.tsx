@@ -43,7 +43,11 @@ export default function ProfilePage() {
           &larr; Home
         </Link>
 
-        <ProfileHeader email={user.email ?? ""} onSignOut={signOut} />
+        <ProfileHeader
+          name={profile.name}
+          email={user.email ?? ""}
+          onSignOut={signOut}
+        />
         <AccountDetails
           profile={profile}
           userId={user.id}

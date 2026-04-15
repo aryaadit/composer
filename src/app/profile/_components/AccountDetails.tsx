@@ -26,22 +26,13 @@ interface Props {
 }
 
 export function AccountDetails({ profile, userId, refreshProfile }: Props) {
+  // Name + email have moved up into ProfileHeader as read-only identity
+  // info. Everything remaining here is editable, so there's no visible
+  // "Account" heading — the fields speak for themselves.
   return (
     <section className="mb-12">
-      <h2 className="font-sans text-xs tracking-widest uppercase text-muted mb-5">
-        Account
-      </h2>
       <div className="flex flex-col gap-7 divide-y divide-border">
-        {/* Name is set once at onboarding and intentionally read-only —
-            no pencil. If this ever needs to change, add a NameField
-            component back. */}
         <div className="pb-2">
-          <label className="font-sans text-xs tracking-widest uppercase text-muted block mb-3">
-            Name
-          </label>
-          <p className="font-sans text-base text-charcoal">{profile.name}</p>
-        </div>
-        <div className="pt-5 pb-2">
           <DrinksField profile={profile} userId={userId} onSaved={refreshProfile} />
         </div>
         <div className="pt-5 pb-2">
