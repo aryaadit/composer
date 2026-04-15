@@ -1,9 +1,10 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "motion/react";
 import { Button } from "@/components/ui/Button";
 import { CitySwitcher, CitySwitcherButton } from "./CitySwitcher";
+import { useAuth } from "@/components/providers/AuthProvider";
 import {
   NEIGHBORHOOD_GROUPS,
   BOROUGH_LABELS,
@@ -31,6 +32,31 @@ export function NeighborhoodStep({
 }: NeighborhoodStepProps) {
   const [selected, setSelected] = useState<Set<string>>(new Set(initialSelected));
   const [cityDrawerOpen, setCityDrawerOpen] = useState(false);
+
+  // Pre-fill from the signed-in user's profile.favorite_hoods — but only
+  // on the first session-level visit to this step (initialSelected empty)
+  // and only once per mount. After the first toggle, prefilledRef keeps
+  // the profile default from stomping on manual changes, including the
+  // legitimate "deselect all" case. Uses a Promise.resolve microtask to
+  // keep the setState off the synchronous effect path (react-hooks/
+  // set-state-in-effect rule).
+  const { profile } = useAuth();
+  const prefilledRef = useRef(false);
+  useEffect(() => {
+    if (prefilledRef.current) return;
+    if (initialSelected.length > 0) {
+      prefilledRef.current = true;
+      return;
+    }
+    if (!profile?.favorite_hoods?.length) return;
+    const validIds = new Set(options.map((o) => o.value));
+    const prefill = profile.favorite_hoods
+      .filter((id) => validIds.has(id))
+      .slice(0, MAX_HOODS);
+    if (prefill.length === 0) return;
+    prefilledRef.current = true;
+    void Promise.resolve().then(() => setSelected(new Set(prefill)));
+  }, [profile, initialSelected, options]);
 
   // Group the incoming options by borough using the canonical group config.
   // Keeps the `options` prop flat for back-compat, while letting this step
