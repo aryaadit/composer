@@ -89,8 +89,15 @@ export async function sendMagicLinkWithProfile(
   email: string,
   prefs: UserPrefs
 ): Promise<{ ok: boolean; error?: string }> {
+  // Point the magic link at the server-side callback route, not `/` —
+  // Supabase sends the user to `{redirect}?code=…`, and `/auth/callback`
+  // is the server handler that swaps that code for a session cookie
+  // before redirecting home. Landing directly on `/` in production
+  // leaves the ?code param hanging without a session.
   const redirectTo =
-    typeof window !== "undefined" ? `${window.location.origin}/` : undefined;
+    typeof window !== "undefined"
+      ? `${window.location.origin}/auth/callback`
+      : undefined;
 
   const { error } = await getBrowserSupabase().auth.signInWithOtp({
     email,
