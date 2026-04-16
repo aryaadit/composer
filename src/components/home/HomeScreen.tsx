@@ -165,14 +165,17 @@ export function HomeScreen({ userName }: HomeScreenProps) {
               });
               return (
                 <div key={plan.id} className="py-4 flex items-center gap-4">
-                  <div className="flex-1 min-w-0">
-                    <div className="font-serif text-base text-charcoal truncate leading-snug">
+                  <Link
+                    href={`/itinerary/saved/${plan.id}`}
+                    className="flex-1 min-w-0 group"
+                  >
+                    <div className="font-serif text-base text-charcoal truncate leading-snug group-hover:text-burgundy transition-colors">
                       {title}
                     </div>
                     <div className="font-sans text-xs text-muted mt-1">
                       {firstStop?.venue?.name ?? "—"} · {stops.length} stops · saved {date}
                     </div>
-                  </div>
+                  </Link>
                   <button
                     onClick={() => void handleDelete(plan.id)}
                     className="font-sans text-xs text-muted hover:text-burgundy transition-colors"

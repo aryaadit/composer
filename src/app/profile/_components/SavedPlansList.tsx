@@ -8,6 +8,7 @@
 // library.
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { getBrowserSupabase } from "@/lib/supabase/browser";
 import type { SavedItinerary } from "@/types";
 import type { PostgrestError } from "@supabase/supabase-js";
@@ -139,8 +140,11 @@ function PlanRow({
 
   return (
     <div className="py-4 flex items-start justify-between gap-4">
-      <div className="flex-1 min-w-0">
-        <div className="font-serif text-lg text-charcoal leading-snug truncate">
+      <Link
+        href={`/itinerary/saved/${plan.id}`}
+        className="flex-1 min-w-0 group"
+      >
+        <div className="font-serif text-lg text-charcoal leading-snug truncate group-hover:text-burgundy transition-colors">
           {plan.title ?? "Saved night"}
         </div>
         {plan.subtitle && (
@@ -149,7 +153,7 @@ function PlanRow({
           </div>
         )}
         <div className="font-sans text-xs text-muted mt-1">Saved {date}</div>
-      </div>
+      </Link>
 
       {confirming ? (
         <div className="flex items-center gap-2 font-sans text-xs shrink-0 pt-1">

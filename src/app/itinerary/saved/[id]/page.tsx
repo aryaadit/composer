@@ -1,0 +1,173 @@
+"use client";
+
+// Read-only view of a saved itinerary. Saved rows don't store walk segments
+// or maps_url (they're derivable), so we rebuild those client-side from the
+// venue coordinates. Regenerate / add-stop / save are intentionally absent —
+// this is a review surface, not a live planner. To remake the plan, the user
+// hits "New date plan" from home.
+
+import { use, useEffect, useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { motion } from "motion/react";
+import { getBrowserSupabase } from "@/lib/supabase/browser";
+import { CompositionHeader } from "@/components/itinerary/CompositionHeader";
+import { ItineraryView } from "@/components/itinerary/ItineraryView";
+import { StepLoading } from "@/components/questionnaire/StepLoading";
+import { Button } from "@/components/ui/Button";
+import {
+  walkTimeMinutes,
+  walkDistanceKm,
+  buildGoogleMapsUrl,
+} from "@/lib/geo";
+import { calculateTotalSpend } from "@/config/budgets";
+import type {
+  ItineraryResponse,
+  ItineraryStop,
+  SavedItinerary,
+  WalkSegment,
+} from "@/types";
+
+function rebuildWalks(stops: ItineraryStop[]): WalkSegment[] {
+  const walks: WalkSegment[] = [];
+  for (let i = 0; i < stops.length - 1; i++) {
+    const a = stops[i].venue;
+    const b = stops[i + 1].venue;
+    walks.push({
+      from: a.name,
+      to: b.name,
+      distance_km: walkDistanceKm(a.latitude, a.longitude, b.latitude, b.longitude),
+      walk_minutes: walkTimeMinutes(a.latitude, a.longitude, b.latitude, b.longitude),
+    });
+  }
+  return walks;
+}
+
+function toItineraryResponse(saved: SavedItinerary): ItineraryResponse {
+  const stops = saved.stops ?? [];
+  const walks = rebuildWalks(stops);
+  return {
+    header: {
+      title: saved.title ?? "Saved night",
+      subtitle: saved.subtitle ?? "",
+      occasion_tag: saved.occasion ?? "",
+      vibe_tag: saved.vibe ?? "",
+      estimated_total: calculateTotalSpend(stops.map((s) => s.venue.price_tier)),
+      weather: saved.weather,
+    },
+    stops,
+    walks,
+    walking:
+      saved.walking ?? {
+        longest_walk_min: walks.reduce((m, w) => Math.max(m, w.walk_minutes), 0),
+        total_walk_min: walks.reduce((s, w) => s + w.walk_minutes, 0),
+        any_over_cap: false,
+        cap_min: 15,
+      },
+    truncated_for_end_time: false,
+    maps_url: buildGoogleMapsUrl(stops.map((s) => s.venue)),
+    // `inputs` isn't actually read by CompositionHeader / ItineraryView; we
+    // reconstruct a minimal stub for type-compatibility. startTime / endTime /
+    // duration aren't persisted on save today.
+    inputs: {
+      occasion: (saved.occasion ?? "") as ItineraryResponse["inputs"]["occasion"],
+      neighborhoods: (saved.neighborhoods ?? []) as ItineraryResponse["inputs"]["neighborhoods"],
+      budget: (saved.budget ?? "") as ItineraryResponse["inputs"]["budget"],
+      vibe: (saved.vibe ?? "") as ItineraryResponse["inputs"]["vibe"],
+      day: saved.day ?? "",
+      duration: "3.5h" as ItineraryResponse["inputs"]["duration"],
+      startTime: "",
+      endTime: "",
+    },
+  };
+}
+
+export default function SavedItineraryPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = use(params);
+  const router = useRouter();
+  const [itinerary, setItinerary] = useState<ItineraryResponse | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    getBrowserSupabase()
+      .from("composer_saved_itineraries")
+      .select("*")
+      .eq("id", id)
+      .maybeSingle()
+      .then(({ data, error }: { data: SavedItinerary | null; error: unknown }) => {
+        if (cancelled) return;
+        if (error || !data) {
+          setError("We couldn't find that saved plan.");
+          setLoaded(true);
+          return;
+        }
+        setItinerary(toItineraryResponse(data));
+        setLoaded(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [id]);
+
+  if (!loaded) return <StepLoading />;
+
+  if (error || !itinerary) {
+    return (
+      <main className="flex flex-1 flex-col items-center justify-center min-h-screen px-6">
+        <p className="font-sans text-lg text-warm-gray mb-6">
+          {error ?? "Something went wrong."}
+        </p>
+        <Button onClick={() => router.push("/")}>Back home</Button>
+      </main>
+    );
+  }
+
+  return (
+    <main className="flex flex-1 flex-col items-center min-h-screen px-6 pt-12 pb-8">
+      <div className="w-full max-w-lg mx-auto mb-4">
+        <Link
+          href="/"
+          className="inline-block font-sans text-xs tracking-wide uppercase text-muted hover:text-charcoal transition-colors"
+        >
+          &larr; Home
+        </Link>
+      </div>
+
+      <CompositionHeader header={itinerary.header} />
+      <ItineraryView stops={itinerary.stops} walks={itinerary.walks} />
+
+      <motion.div
+        className="w-full max-w-lg mx-auto mt-8 pt-4 border-t border-border"
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, delay: 0.3 }}
+      >
+        <div className="flex items-center justify-between font-sans text-sm">
+          <a
+            href={itinerary.maps_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-charcoal hover:text-burgundy transition-colors inline-flex items-center gap-1"
+          >
+            Open in Maps
+            <span aria-hidden className="text-muted">
+              →
+            </span>
+          </a>
+          <Link
+            href="/compose"
+            className="text-charcoal hover:text-burgundy transition-colors"
+          >
+            Plan a new night
+          </Link>
+        </div>
+      </motion.div>
+    </main>
+  );
+}
