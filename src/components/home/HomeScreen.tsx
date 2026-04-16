@@ -39,31 +39,13 @@ interface HomeScreenProps {
 
 function getGreeting(): string {
   const hour = new Date().getHours();
-  if (hour >= 5 && hour < 11) return "Good morning";
-  if (hour >= 11 && hour < 17) return "Good afternoon";
-  if (hour >= 17 && hour < 22) return "Good evening";
-  return "Good night"; // 10pm – 5am
-}
-
-// Compute the greeting on the client only. SSR runs in the server's
-// timezone (UTC on Vercel), which mismatches the user's local clock at
-// the AM/PM/evening boundaries — left to its own devices, hydration
-// would flash the server's wrong greeting before the client corrects.
-// Returning null on first render keeps the paint clean until the
-// effect fills in the right one.
-function useGreeting(): string | null {
-  const [greeting, setGreeting] = useState<string | null>(null);
-  useEffect(() => {
-    // Microtask hop keeps the setState off the synchronous effect body
-    // (react-hooks/set-state-in-effect rule).
-    void Promise.resolve().then(() => setGreeting(getGreeting()));
-  }, []);
-  return greeting;
+  if (hour < 12) return "Good morning";
+  if (hour < 17) return "Good afternoon";
+  return "Good evening";
 }
 
 export function HomeScreen({ userName }: HomeScreenProps) {
   const { user } = useAuth();
-  const greeting = useGreeting();
   // `loadedFor` tracks which user id the `plans` array belongs to. When
   // that doesn't match the current `user.id`, UI shows the loading
   // state. Packing both into one state keeps the effect's only setState
@@ -127,17 +109,9 @@ export function HomeScreen({ userName }: HomeScreenProps) {
       {/* Header */}
       <div className="px-6 pt-14 pb-8 max-w-lg w-full mx-auto flex items-start justify-between">
         <div>
-          <div className="flex items-center gap-2.5 mb-2">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/composer-mark.svg"
-              alt="Composer"
-              className="w-7 h-7"
-            />
-            <p className="font-sans text-sm tracking-widest uppercase text-muted">
-              {greeting ? `${greeting}, ${userName}` : `\u00A0`}
-            </p>
-          </div>
+          <p className="font-sans text-xs tracking-widest uppercase text-muted mb-2">
+            {getGreeting()}, {userName}
+          </p>
           <h1 className="font-serif text-3xl font-normal text-charcoal leading-tight">
             Compose your night.
           </h1>
@@ -191,13 +165,11 @@ export function HomeScreen({ userName }: HomeScreenProps) {
               });
               return (
                 <div key={plan.id} className="py-4 flex items-center gap-4">
-                  {/* Title + meta is the click target. Remove sits
-                      outside the Link so it doesn't trigger nav. */}
                   <Link
-                    href={`/itinerary/${plan.id}`}
-                    className="flex-1 min-w-0 hover:opacity-70 transition-opacity"
+                    href={`/itinerary/saved/${plan.id}`}
+                    className="flex-1 min-w-0 group"
                   >
-                    <div className="font-serif text-base text-charcoal truncate leading-snug">
+                    <div className="font-serif text-base text-charcoal truncate leading-snug group-hover:text-burgundy transition-colors">
                       {title}
                     </div>
                     <div className="font-sans text-xs text-muted mt-1">
