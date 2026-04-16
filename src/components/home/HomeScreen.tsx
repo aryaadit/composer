@@ -9,6 +9,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
+import { Header } from "@/components/Header";
 import { getBrowserSupabase } from "@/lib/supabase/browser";
 import { useAuth } from "@/components/providers/AuthProvider";
 import type { SavedItinerary } from "@/types";
@@ -39,13 +40,31 @@ interface HomeScreenProps {
 
 function getGreeting(): string {
   const hour = new Date().getHours();
-  if (hour < 12) return "Good morning";
-  if (hour < 17) return "Good afternoon";
-  return "Good evening";
+  if (hour >= 5 && hour < 11) return "Good morning";
+  if (hour >= 11 && hour < 17) return "Good afternoon";
+  if (hour >= 17 && hour < 22) return "Good evening";
+  return "Good night"; // 10pm – 5am
+}
+
+// Compute the greeting on the client only. SSR runs in the server's
+// timezone (UTC on Vercel), which mismatches the user's local clock at
+// the AM/PM boundaries — left to its own devices, hydration would
+// flash the server's wrong greeting before the client corrects.
+// Returning null on first render keeps the paint clean until the
+// effect fills in the right one.
+function useGreeting(): string | null {
+  const [greeting, setGreeting] = useState<string | null>(null);
+  useEffect(() => {
+    // Microtask hop keeps the setState off the synchronous effect body
+    // (react-hooks/set-state-in-effect rule).
+    void Promise.resolve().then(() => setGreeting(getGreeting()));
+  }, []);
+  return greeting;
 }
 
 export function HomeScreen({ userName }: HomeScreenProps) {
   const { user } = useAuth();
+  const greeting = useGreeting();
   // `loadedFor` tracks which user id the `plans` array belongs to. When
   // that doesn't match the current `user.id`, UI shows the loading
   // state. Packing both into one state keeps the effect's only setState
@@ -106,11 +125,15 @@ export function HomeScreen({ userName }: HomeScreenProps) {
 
   return (
     <div className="min-h-screen flex flex-col bg-cream">
-      {/* Header */}
-      <div className="px-6 pt-14 pb-8 max-w-lg w-full mx-auto flex items-start justify-between">
+      {/* Header — Composer lockup. Profile icon stays in the greeting
+          row below so it sits in the existing layout column. */}
+      <div className="px-6 pt-6 max-w-lg w-full mx-auto">
+        <Header />
+      </div>
+      <div className="px-6 pt-4 pb-8 max-w-lg w-full mx-auto flex items-start justify-between">
         <div>
-          <p className="font-sans text-xs tracking-widest uppercase text-muted mb-2">
-            {getGreeting()}, {userName}
+          <p className="font-sans text-sm tracking-widest uppercase text-muted mb-2">
+            {greeting ? `${greeting}, ${userName}` : `\u00A0`}
           </p>
           <h1 className="font-serif text-3xl font-normal text-charcoal leading-tight">
             Compose your night.

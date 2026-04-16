@@ -2,7 +2,6 @@
 
 import { useEffect, useReducer, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { AnimatePresence, motion } from "motion/react";
 import { questionSteps } from "@/config/options";
 import type {
@@ -24,6 +23,7 @@ import {
 } from "@/lib/questionnaireReducer";
 import { STORAGE_KEYS } from "@/config/storage";
 import { useAuth } from "@/components/providers/AuthProvider";
+import { Header } from "@/components/Header";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 import { Button } from "@/components/ui/Button";
 import { StepLoading } from "./StepLoading";
@@ -162,28 +162,23 @@ export function QuestionnaireShell() {
       {/* Top chrome — pulled out of the centering math via absolute positioning
           so the question content can be true-centered in the viewport, not in
           the leftover space below the header + progress. */}
-      <div className="absolute top-0 inset-x-0 px-6 pt-4 z-10">
-        <div className="w-full max-w-lg mx-auto flex items-center justify-between mb-3">
-          <Link href="/" aria-label="Composer — home" className="inline-block">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/composer-lockup.svg"
-              alt="Composer"
-              className="h-8 w-auto"
-            />
-          </Link>
-          {state.currentStep > 0 ? (
+      <div className="absolute top-0 inset-x-0 px-6 z-10">
+        <div className="w-full max-w-lg mx-auto relative">
+          <Header />
+          {/* Step-back is intrinsic to the questionnaire flow (advances
+              the reducer, doesn't exit to home), so it lives outside
+              Header. Absolute-positioned over the Header's empty right
+              slot to share the row visually. */}
+          {state.currentStep > 0 && (
             <button
               onClick={() => dispatch({ type: "BACK" })}
-              className="font-sans text-sm text-warm-gray hover:text-charcoal transition-colors"
+              className="absolute right-0 top-1/2 -translate-y-1/2 font-sans text-sm text-warm-gray hover:text-charcoal transition-colors"
             >
               &larr; Back
             </button>
-          ) : (
-            <span />
           )}
         </div>
-        <div className="w-full max-w-lg mx-auto">
+        <div className="w-full max-w-lg mx-auto mt-1">
           <ProgressBar
             currentStep={state.currentStep}
             totalSteps={questionSteps.length}

@@ -15,6 +15,7 @@ import { CompositionHeader } from "@/components/itinerary/CompositionHeader";
 import { ItineraryView } from "@/components/itinerary/ItineraryView";
 import { StepLoading } from "@/components/questionnaire/StepLoading";
 import { Button } from "@/components/ui/Button";
+import { Header } from "@/components/Header";
 import {
   walkTimeMinutes,
   walkDistanceKm,
@@ -136,16 +137,9 @@ export default function SavedItineraryPage({
   }
 
   return (
-    <main className="flex flex-1 flex-col items-center min-h-screen px-6 pt-12 pb-8">
+    <main className="flex flex-1 flex-col items-center min-h-screen px-6 pt-6 pb-8">
       <div className="w-full max-w-lg mx-auto mb-6">
-        <Link href="/" aria-label="Composer — home" className="inline-block">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/composer-lockup.svg"
-            alt="Composer"
-            className="h-8 w-auto"
-          />
-        </Link>
+        <Header showBack backHref="/" />
       </div>
 
       <CompositionHeader header={itinerary.header} />

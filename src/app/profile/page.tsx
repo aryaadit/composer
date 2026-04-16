@@ -7,9 +7,9 @@
 // is actually missing vs still loading.
 
 import { useEffect } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/providers/AuthProvider";
+import { Header } from "@/components/Header";
 import { ProfileHeader } from "./_components/ProfileHeader";
 import { AccountDetails } from "./_components/AccountDetails";
 import { SavedPlansList } from "./_components/SavedPlansList";
@@ -35,14 +35,9 @@ export default function ProfilePage() {
 
   return (
     <div className="min-h-screen bg-cream">
-      <div className="max-w-lg w-full mx-auto px-6 py-10">
-        {/* Small back link — cheap mobile affordance without a full nav bar */}
-        <Link
-          href="/"
-          className="inline-block font-sans text-xs tracking-wide uppercase text-muted hover:text-charcoal transition-colors mb-8"
-        >
-          &larr; Home
-        </Link>
+      <div className="max-w-lg w-full mx-auto px-6 pt-6 pb-10">
+        <Header showBack backHref="/" />
+        <div className="mt-6" />
 
         <ProfileHeader
           name={profile.name}
