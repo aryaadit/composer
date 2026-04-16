@@ -28,7 +28,16 @@ export function AuthScreen() {
   const [error, setError] = useState<string | null>(null);
 
   if (view === "forgot") {
-    return <ForgotPasswordScreen onBack={() => setView("signin")} />;
+    // Hand the typed-in email over — ForgotPasswordScreen will auto-fire
+    // the reset email on mount if it looks valid, skipping straight to
+    // the confirmation message. Saves the user from re-typing the same
+    // address they already entered here.
+    return (
+      <ForgotPasswordScreen
+        email={email}
+        onBack={() => setView("signin")}
+      />
+    );
   }
 
   const emailValid = EMAIL_RE.test(email.trim());
