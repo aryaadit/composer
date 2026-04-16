@@ -164,11 +164,13 @@ export function QuestionnaireShell() {
           the leftover space below the header + progress. */}
       <div className="absolute top-0 inset-x-0 px-6 pt-4 z-10">
         <div className="w-full max-w-lg mx-auto flex items-center justify-between mb-3">
-          <Link
-            href="/"
-            className="font-sans text-sm text-warm-gray hover:text-charcoal transition-colors"
-          >
-            Composer
+          <Link href="/" aria-label="Composer — home" className="inline-block">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/composer-lockup.svg"
+              alt="Composer"
+              className="h-8 w-auto"
+            />
           </Link>
           {state.currentStep > 0 ? (
             <button
