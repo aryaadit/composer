@@ -1,0 +1,27 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Composer App Icon - 1024x1024 -->
+  <!-- Burgundy background with white mark -->
+  
+  <!-- Background -->
+  <rect width="1024" height="1024" fill="#722F37"/>
+  
+  <!-- Mark centered and scaled -->
+  <g transform="translate(512, 512) scale(3.2)">
+    <!-- Connecting path -->
+    <path d="M-85 30 Q0 -35, 85 25" stroke="white" stroke-width="4" stroke-linecap="round" fill="none"/>
+    
+    <!-- Pin 1 (Opener) - left -->
+    <path d="M-85 -15 C-97 -15, -103 -5, -103 7 C-103 23, -85 40, -85 40 C-85 40, -67 23, -67 7 C-67 -5, -73 -15, -85 -15 Z" fill="white" fill-opacity="0.5"/>
+    <circle cx="-85" cy="5" r="6" fill="#722F37"/>
+    
+    <!-- Pin 2 (Main) - center with martini -->
+    <path d="M0 -55 C-18 -55, -26 -41, -26 -25 C-26 -3, 0 20, 0 20 C0 20, 26 -3, 26 -25 C26 -41, 18 -55, 0 -55 Z" fill="white"/>
+    <path d="M-12 -35 L0 -20 L12 -35" stroke="#722F37" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <line x1="0" y1="-20" x2="0" y2="-6" stroke="#722F37" stroke-width="3.5"/>
+    <line x1="-8" y1="-6" x2="8" y2="-6" stroke="#722F37" stroke-width="3.5" stroke-linecap="round"/>
+    
+    <!-- Pin 3 (Closer) - right -->
+    <path d="M85 -20 C73 -20, 67 -10, 67 2 C67 18, 85 35, 85 35 C85 35, 103 18, 103 2 C103 -10, 97 -20, 85 -20 Z" fill="white" fill-opacity="0.5"/>
+    <circle cx="85" cy="0" r="6" fill="#722F37"/>
+  </g>
+</svg>

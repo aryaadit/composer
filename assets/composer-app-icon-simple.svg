@@ -1,0 +1,18 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Composer App Icon - Simplified (Single Pin) -->
+  <!-- For contexts where full mark is too detailed -->
+  
+  <!-- Background -->
+  <rect width="1024" height="1024" fill="#722F37"/>
+  
+  <!-- Single pin with martini, centered -->
+  <g transform="translate(512, 480)">
+    <!-- Pin shape -->
+    <path d="M0 -220 C-70 -220, -105 -150, -105 -70 C-105 40, 0 160, 0 160 C0 160, 105 40, 105 -70 C105 -150, 70 -220, 0 -220 Z" fill="white"/>
+    
+    <!-- Martini glass -->
+    <path d="M-50 -120 L0 -50 L50 -120" stroke="#722F37" stroke-width="14" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <line x1="0" y1="-50" x2="0" y2="20" stroke="#722F37" stroke-width="14"/>
+    <line x1="-35" y1="20" x2="35" y2="20" stroke="#722F37" stroke-width="14" stroke-linecap="round"/>
+  </g>
+</svg>

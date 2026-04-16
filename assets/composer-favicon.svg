@@ -1,0 +1,23 @@
+<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Composer Favicon - 32x32 optimized -->
+  
+  <!-- Mark scaled for favicon -->
+  <g transform="translate(16, 17) scale(0.145)">
+    <!-- Connecting path -->
+    <path d="M-85 30 Q0 -35, 85 25" stroke="#722F37" stroke-width="8" stroke-linecap="round" fill="none"/>
+    
+    <!-- Pin 1 - simplified -->
+    <path d="M-85 -15 C-97 -15, -103 -5, -103 7 C-103 23, -85 40, -85 40 C-85 40, -67 23, -67 7 C-67 -5, -73 -15, -85 -15 Z" fill="#722F37" fill-opacity="0.5"/>
+    <circle cx="-85" cy="5" r="10" fill="white"/>
+    
+    <!-- Pin 2 (Main) - simplified glass -->
+    <path d="M0 -55 C-18 -55, -26 -41, -26 -25 C-26 -3, 0 20, 0 20 C0 20, 26 -3, 26 -25 C26 -41, 18 -55, 0 -55 Z" fill="#722F37"/>
+    <path d="M-14 -38 L0 -18 L14 -38" stroke="white" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <line x1="0" y1="-18" x2="0" y2="-2" stroke="white" stroke-width="6"/>
+    <line x1="-10" y1="-2" x2="10" y2="-2" stroke="white" stroke-width="6" stroke-linecap="round"/>
+    
+    <!-- Pin 3 - simplified -->
+    <path d="M85 -20 C73 -20, 67 -10, 67 2 C67 18, 85 35, 85 35 C85 35, 103 18, 103 2 C103 -10, 97 -20, 85 -20 Z" fill="#722F37" fill-opacity="0.5"/>
+    <circle cx="85" cy="0" r="10" fill="white"/>
+  </g>
+</svg>

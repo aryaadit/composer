@@ -1,0 +1,21 @@
+<svg width="200" height="100" viewBox="0 0 200 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Composer Logo Mark - Primary (Burgundy) -->
+  <!-- Three pins connected by path, center pin has martini glass -->
+  
+  <!-- Connecting path -->
+  <path d="M30 65 Q100 15, 170 60" stroke="#722F37" stroke-width="3" stroke-linecap="round" fill="none"/>
+  
+  <!-- Pin 1 (Opener) - left, faded -->
+  <path d="M30 25 C18 25, 12 35, 12 47 C12 63, 30 80, 30 80 C30 80, 48 63, 48 47 C48 35, 42 25, 30 25 Z" fill="#722F37" fill-opacity="0.45"/>
+  <circle cx="30" cy="45" r="6" fill="white"/>
+  
+  <!-- Pin 2 (Main) - center, prominent with martini glass -->
+  <path d="M100 5 C82 5, 74 19, 74 35 C74 57, 100 80, 100 80 C100 80, 126 57, 126 35 C126 19, 118 5, 100 5 Z" fill="#722F37"/>
+  <path d="M88 25 L100 40 L112 25" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <line x1="100" y1="40" x2="100" y2="55" stroke="white" stroke-width="3"/>
+  <line x1="92" y1="55" x2="108" y2="55" stroke="white" stroke-width="3" stroke-linecap="round"/>
+  
+  <!-- Pin 3 (Closer) - right, faded -->
+  <path d="M170 20 C158 20, 152 30, 152 42 C152 58, 170 75, 170 75 C170 75, 188 58, 188 42 C188 30, 182 20, 170 20 Z" fill="#722F37" fill-opacity="0.45"/>
+  <circle cx="170" cy="40" r="6" fill="white"/>
+</svg>
