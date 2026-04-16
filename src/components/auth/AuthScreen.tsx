@@ -50,7 +50,18 @@ export function AuthScreen() {
 
     const result = await signInOrSignUp(email.trim(), password);
     if (!result.ok || !result.user) {
-      setError(result.error ?? "Something went wrong.");
+      // The try-in-then-up fallback returns "User already registered"
+      // when the email exists but the password was wrong (Supabase
+      // gives the same "Invalid login credentials" response for both
+      // wrong password and new user, so the sign-up attempt is the
+      // thing that differentiates them). Rewrite that to a friendlier
+      // message that points at the right recovery path.
+      const message = result.error ?? "Something went wrong.";
+      if (message.toLowerCase().includes("already registered")) {
+        setError('Incorrect password. Use "Forgot password?" to reset it.');
+      } else {
+        setError(message);
+      }
       setSubmitting(false);
       return;
     }
