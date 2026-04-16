@@ -91,34 +91,35 @@ export function QuestionnaireShell() {
     [router]
   );
 
+  // Card selection only updates state — no auto-advance. Every step
+  // (occasion, budget, vibe) has a manual "Next →" CTA rendered in the
+  // shell below. Toggling an already-selected card deselects it.
   const handleCardSelect = useCallback(
     (key: keyof QuestionnaireAnswers, value: string) => {
-      // Deselect if tapping the already-selected option
       const currentValue = state.answers[key];
       if (currentValue === value) {
         dispatch({ type: "DESELECT", field: key });
         return;
       }
-      // Occasion is the one cards step that doesn't auto-advance — it
-      // can come in pre-filled from profile.context, so the user needs
-      // a manual Next button to confirm the default. Every other cards
-      // step auto-advances after a brief delay to keep the flow tight.
-      if (key === "occasion") {
-        dispatch({ type: "SET_FIELD", field: key, value });
-        return;
-      }
-      setTimeout(() => {
-        dispatch({ type: "SET_FIELD", field: key, value, advance: true });
-      }, 150);
+      dispatch({ type: "SET_FIELD", field: key, value });
     },
     [state.answers]
   );
 
-  const handleOccasionContinue = useCallback(() => {
-    const value = state.answers.occasion;
+  // Generic "Next →" for any cards-kind step. Advances by re-
+  // dispatching the already-stored value with `advance: true`.
+  const handleCardContinue = useCallback(() => {
+    const currentStep = questionSteps[state.currentStep];
+    if (!currentStep) return;
+    const value = state.answers[currentStep.id];
     if (!value) return;
-    dispatch({ type: "SET_FIELD", field: "occasion", value, advance: true });
-  }, [state.answers.occasion]);
+    dispatch({
+      type: "SET_FIELD",
+      field: currentStep.id,
+      value,
+      advance: true,
+    });
+  }, [state.currentStep, state.answers]);
 
   const handleNeighborhoodContinue = useCallback((groupIds: string[]) => {
     // The picker hands us NEIGHBORHOOD_GROUPS ids; expand to storage slugs
@@ -211,7 +212,6 @@ export function QuestionnaireShell() {
               {step.kind === "pills" && (
                 <NeighborhoodStep
                   key={`hoods-${state.currentStep}`}
-                  options={step.options}
                   // State stores expanded storage slugs; reverse-derive which
                   // picker groups to pre-select on back-nav.
                   initialSelected={deriveGroupIds(state.answers.neighborhoods ?? [])}
@@ -229,14 +229,13 @@ export function QuestionnaireShell() {
                 />
               )}
 
-              {/* Manual Next CTA — occasion only. Other cards steps
-                  auto-advance on selection. See handleCardSelect. */}
-              {step.id === "occasion" && step.kind === "cards" && (
+              {/* Every cards step gets a manual Next CTA. */}
+              {step.kind === "cards" && (
                 <div className="mt-8">
                   <Button
                     variant="primary"
-                    onClick={handleOccasionContinue}
-                    disabled={!state.answers.occasion}
+                    onClick={handleCardContinue}
+                    disabled={!state.answers[step.id]}
                     className="w-full"
                   >
                     Next →

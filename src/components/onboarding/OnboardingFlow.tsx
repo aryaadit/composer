@@ -17,8 +17,8 @@ import {
   CONTEXT_OPTIONS,
   DRINK_OPTIONS,
   DIETARY_OPTIONS,
-  FAVORITE_HOODS,
 } from "@/config/onboarding";
+import { NeighborhoodPicker } from "@/components/shared/NeighborhoodPicker";
 
 type PillTone = "burgundy" | "charcoal";
 
@@ -87,12 +87,6 @@ export function OnboardingFlow() {
     // before we navigate so HomeScreen mounts with the fresh row.
     await refreshProfile();
     router.replace("/");
-  };
-
-  const toggleHood = (id: string) => {
-    setFavoriteHoods((prev) =>
-      prev.includes(id) ? prev.filter((h) => h !== id) : [...prev, id]
-    );
   };
 
   const toggleDietary = (id: string) => {
@@ -255,17 +249,12 @@ export function OnboardingFlow() {
                   Optional — pick a few you love or skip this.
                 </p>
 
-                <div className="flex flex-wrap gap-2">
-                  {FAVORITE_HOODS.map((hood) => (
-                    <button
-                      key={hood.id}
-                      onClick={() => toggleHood(hood.id)}
-                      className={pillClass(favoriteHoods.includes(hood.id))}
-                    >
-                      {hood.name}
-                    </button>
-                  ))}
-                </div>
+                <NeighborhoodPicker
+                  selected={favoriteHoods}
+                  onChange={setFavoriteHoods}
+                  groupByBorough={false}
+                  animated={false}
+                />
               </div>
             )}
           </motion.div>
