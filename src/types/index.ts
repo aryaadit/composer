@@ -218,10 +218,13 @@ export interface ItineraryResponse {
   inputs: QuestionnaireAnswers;
 }
 
-// Row shape of the `composer_saved_itineraries` table. The full itinerary
-// payload is split across `stops`, `walking`, `weather` (jsonb) plus
-// structured columns for the questionnaire inputs + header copy so the
-// home-screen list can render without unpacking jsonb.
+// Row shape of the `composer_saved_itineraries` table. The full
+// itinerary payload is split across `stops`, `walking`, `weather`
+// (jsonb) plus structured columns for the questionnaire inputs +
+// header copy so the home-screen list can render without unpacking
+// jsonb. `walks` and `maps_url` are NOT stored — they're recomputed
+// from stop coordinates when a saved row is rehydrated for the
+// detail view (see app/itinerary/[id]/page.tsx).
 export interface SavedItinerary {
   id: string;
   user_id: string;
@@ -232,6 +235,7 @@ export interface SavedItinerary {
   budget: string | null;
   vibe: string | null;
   day: string | null;
+  duration: string;
   stops: ItineraryStop[];
   walking: WalkingMeta | null;
   weather: WeatherInfo | null;

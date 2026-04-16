@@ -11,16 +11,25 @@ interface ActionBarProps {
   itinerary: ItineraryResponse;
   onRegenerate: () => void;
   isRegenerating: boolean;
+  /**
+   * When the bar is rendered for an already-persisted itinerary
+   * (e.g. /itinerary/[id]), seed the save button as "saved" so the
+   * user can't accidentally insert a duplicate row.
+   */
+  initialSaved?: boolean;
 }
 
 export function ActionBar({
   itinerary,
   onRegenerate,
   isRegenerating,
+  initialSaved = false,
 }: ActionBarProps) {
   const { user } = useAuth();
   const [shareOpen, setShareOpen] = useState(false);
-  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">(
+    initialSaved ? "saved" : "idle"
+  );
 
   const handleSave = async () => {
     if (saveState === "saving" || saveState === "saved") return;
@@ -45,6 +54,7 @@ export function ActionBar({
         budget: inputs.budget,
         vibe: inputs.vibe,
         day: inputs.day,
+        duration: inputs.duration,
         stops,
         walking,
         weather: header.weather,
