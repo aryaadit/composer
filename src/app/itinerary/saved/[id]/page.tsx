@@ -21,7 +21,9 @@ import {
   buildGoogleMapsUrl,
 } from "@/lib/geo";
 import { calculateTotalSpend } from "@/config/budgets";
+import { resolveTimeWindow } from "@/config/durations";
 import type {
+  Duration,
   ItineraryResponse,
   ItineraryStop,
   SavedItinerary,
@@ -66,19 +68,24 @@ function toItineraryResponse(saved: SavedItinerary): ItineraryResponse {
       },
     truncated_for_end_time: false,
     maps_url: buildGoogleMapsUrl(stops.map((s) => s.venue)),
-    // `inputs` isn't actually read by CompositionHeader / ItineraryView; we
-    // reconstruct a minimal stub for type-compatibility. startTime / endTime /
-    // duration aren't persisted on save today.
-    inputs: {
-      occasion: (saved.occasion ?? "") as ItineraryResponse["inputs"]["occasion"],
-      neighborhoods: (saved.neighborhoods ?? []) as ItineraryResponse["inputs"]["neighborhoods"],
-      budget: (saved.budget ?? "") as ItineraryResponse["inputs"]["budget"],
-      vibe: (saved.vibe ?? "") as ItineraryResponse["inputs"]["vibe"],
-      day: saved.day ?? "",
-      duration: "3.5h" as ItineraryResponse["inputs"]["duration"],
-      startTime: "",
-      endTime: "",
-    },
+    // `inputs` isn't read by CompositionHeader / ItineraryView, but
+    // TextMessageShare does pull `inputs.startTime` for the iMessage
+    // preview. Resolve duration → real start/end so any downstream
+    // share affordance works without falling back to empty strings.
+    inputs: (() => {
+      const duration = (saved.duration as Duration) ?? "3.5h";
+      const { startTime, endTime } = resolveTimeWindow(duration);
+      return {
+        occasion: (saved.occasion ?? "") as ItineraryResponse["inputs"]["occasion"],
+        neighborhoods: (saved.neighborhoods ?? []) as ItineraryResponse["inputs"]["neighborhoods"],
+        budget: (saved.budget ?? "") as ItineraryResponse["inputs"]["budget"],
+        vibe: (saved.vibe ?? "") as ItineraryResponse["inputs"]["vibe"],
+        day: saved.day ?? "",
+        duration,
+        startTime,
+        endTime,
+      };
+    })(),
   };
 }
 
@@ -130,12 +137,14 @@ export default function SavedItineraryPage({
 
   return (
     <main className="flex flex-1 flex-col items-center min-h-screen px-6 pt-12 pb-8">
-      <div className="w-full max-w-lg mx-auto mb-4">
-        <Link
-          href="/"
-          className="inline-block font-sans text-xs tracking-wide uppercase text-muted hover:text-charcoal transition-colors"
-        >
-          &larr; Home
+      <div className="w-full max-w-lg mx-auto mb-6">
+        <Link href="/" aria-label="Composer — home" className="inline-block">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/composer-lockup.svg"
+            alt="Composer"
+            className="h-8 w-auto"
+          />
         </Link>
       </div>
 
