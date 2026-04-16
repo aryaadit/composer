@@ -5,6 +5,7 @@
 // feel independent and a mistake on one doesn't block the others.
 
 import {
+  CONTEXT_OPTIONS,
   DRINK_OPTIONS,
   DIETARY_OPTIONS,
   FAVORITE_HOODS,
@@ -17,7 +18,8 @@ import {
   pillClass,
   sameArray,
 } from "./fieldPrimitives";
-import type { ComposerUser, DrinksPref } from "@/types";
+import { SinglePillSelectField } from "./SinglePillSelectField";
+import type { ComposerUser } from "@/types";
 
 interface Props {
   profile: ComposerUser;
@@ -33,6 +35,9 @@ export function AccountDetails({ profile, userId, refreshProfile }: Props) {
     <section className="mb-12">
       <div className="flex flex-col gap-7 divide-y divide-border">
         <div className="pb-2">
+          <ContextField profile={profile} userId={userId} onSaved={refreshProfile} />
+        </div>
+        <div className="pt-5 pb-2">
           <DrinksField profile={profile} userId={userId} onSaved={refreshProfile} />
         </div>
         <div className="pt-5 pb-2">
@@ -52,43 +57,29 @@ interface FieldProps {
   onSaved: () => Promise<void>;
 }
 
-function DrinksField({ profile, userId, onSaved }: FieldProps) {
-  const initial = (profile.drinks as DrinksPref | null) ?? null;
-  const f = useFieldEditor<DrinksPref | null>(initial, userId, onSaved);
-  const canSave = f.draft !== initial;
-  const displayLabel =
-    DRINK_OPTIONS.find((o) => o.id === profile.drinks)?.label ?? "Not set";
+function ContextField({ profile, userId, onSaved }: FieldProps) {
   return (
-    <FieldShell label="Drinks" editing={f.editing} onEdit={f.beginEdit}>
-      {f.editing ? (
-        <>
-          <div className="flex flex-wrap gap-2">
-            {DRINK_OPTIONS.map((opt) => (
-              <button
-                key={opt.id}
-                type="button"
-                onClick={() => f.setDraft(opt.id)}
-                className={pillClass(f.draft === opt.id)}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
-          <EditActions
-            onSave={() => void f.save("drinks", f.draft)}
-            onCancel={f.cancel}
-            saving={f.saving}
-            canSave={canSave}
-            error={f.error}
-          />
-        </>
-      ) : (
-        <>
-          <p className="font-sans text-base text-charcoal">{displayLabel}</p>
-          <SavedIndicator show={f.justSaved} />
-        </>
-      )}
-    </FieldShell>
+    <SinglePillSelectField
+      label="Usually here for"
+      column="context"
+      options={CONTEXT_OPTIONS}
+      initial={profile.context ?? null}
+      userId={userId}
+      onSaved={onSaved}
+    />
+  );
+}
+
+function DrinksField({ profile, userId, onSaved }: FieldProps) {
+  return (
+    <SinglePillSelectField
+      label="Drinks"
+      column="drinks"
+      options={DRINK_OPTIONS}
+      initial={profile.drinks ?? null}
+      userId={userId}
+      onSaved={onSaved}
+    />
   );
 }
 

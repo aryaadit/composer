@@ -19,12 +19,30 @@ export interface ContextOption {
   description: string;
 }
 
+// Canonical context values. These are the slugs stored in
+// `composer_users.context` and mirror the questionnaire occasion
+// taxonomy via `CONTEXT_TO_OCCASION` below (both locations update
+// together when a value is added/removed).
+//
+// Emojis intentionally kept out — the text carries the meaning and
+// emojis on the context cards read as AI-app-ish.
 export const CONTEXT_OPTIONS: ContextOption[] = [
-  { id: "new", label: "Someone new", emoji: "👋", description: "Planning a first impression" },
-  { id: "partner", label: "My partner", emoji: "❤️", description: "An ongoing thing" },
-  { id: "special", label: "Something special", emoji: "🎁", description: "An occasion worth planning" },
-  { id: "exploring", label: "Just exploring", emoji: "🗺️", description: "See what's out there" },
+  { id: "dating", label: "Dating", emoji: "", description: "Meeting someone new" },
+  { id: "relationship", label: "Relationship", emoji: "", description: "Nights with my partner" },
+  { id: "friends", label: "Friends", emoji: "", description: "Group nights out" },
+  { id: "solo", label: "Solo", emoji: "", description: "Just me exploring" },
 ];
+
+// Context → default occasion for questionnaire pre-fill. The
+// questionnaire's occasion step uses the slugs from `config/occasions`
+// (`first-date`, `established`, `friends`, `solo`), so we map
+// onboarding context to the most natural default here.
+export const CONTEXT_TO_OCCASION: Record<string, string> = {
+  dating: "first-date",
+  relationship: "established",
+  friends: "friends",
+  solo: "solo",
+};
 
 export interface DrinkOption {
   id: DrinksPref;

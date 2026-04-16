@@ -1,6 +1,6 @@
 "use client";
 
-import { useReducer, useCallback } from "react";
+import { useEffect, useReducer, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { AnimatePresence, motion } from "motion/react";
@@ -10,17 +10,20 @@ import type {
   GenerateRequestBody,
   Duration,
   Neighborhood,
+  Occasion,
 } from "@/types";
 import {
   expandNeighborhoodGroup,
   deriveGroupIds,
 } from "@/config/neighborhoods";
+import { CONTEXT_TO_OCCASION } from "@/config/onboarding";
 import {
   questionnaireReducer,
   initialState,
   slideVariants,
 } from "@/lib/questionnaireReducer";
 import { STORAGE_KEYS } from "@/config/storage";
+import { useAuth } from "@/components/providers/AuthProvider";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 import { StepLoading } from "./StepLoading";
 import { NeighborhoodStep } from "./NeighborhoodStep";
@@ -30,6 +33,33 @@ import { WhenStep } from "./WhenStep";
 export function QuestionnaireShell() {
   const router = useRouter();
   const [state, dispatch] = useReducer(questionnaireReducer, initialState);
+
+  // Pre-fill the occasion step from the signed-in user's saved
+  // context. Runs once on mount (guarded by a ref) and only when the
+  // user hasn't already picked an occasion manually — the `!occasion`
+  // check respects back-nav and prior in-flight choices.
+  const { profile } = useAuth();
+  const prefilledOccasionRef = useRef(false);
+  useEffect(() => {
+    if (prefilledOccasionRef.current) return;
+    if (!profile?.context) return;
+    if (state.answers.occasion) {
+      prefilledOccasionRef.current = true;
+      return;
+    }
+    const occasion = CONTEXT_TO_OCCASION[profile.context];
+    if (!occasion) return;
+    prefilledOccasionRef.current = true;
+    // Microtask hop keeps the dispatch off the synchronous effect body
+    // (react-hooks/set-state-in-effect rule).
+    void Promise.resolve().then(() => {
+      dispatch({
+        type: "SET_FIELD",
+        field: "occasion",
+        value: occasion as Occasion,
+      });
+    });
+  }, [profile, state.answers.occasion]);
 
   const submitAnswers = useCallback(
     (body: GenerateRequestBody) => {
