@@ -29,7 +29,7 @@ const GEMINI_TIMEOUT_MS = 8000;
 // top venue every time.
 const SCORING_TEST_INPUT: QuestionnaireAnswers = {
   occasion: "first-date",
-  neighborhoods: ["west-village"],
+  neighborhoods: ["west_village"],
   budget: "nice-out", // price_tier 2, the slug for the "$$ Nice Out" option
   vibe: "food-forward",
   day: new Date().toISOString().split("T")[0],

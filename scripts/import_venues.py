@@ -53,24 +53,24 @@ XLSX_PATH = ROOT / "reids_claude" / "Composer-main 2" / "curated" / "composer_ve
 # ═══════════════════════════════════════════════════════════════════════
 
 CANONICAL_NEIGHBORHOODS = {
-    "west-village", "greenwich-village", "east-village", "lower-east-side",
-    "east-village-les", "bowery", "soho-nolita", "nolita", "noho", "tribeca",
-    "little-italy", "hudson-square",
-    "chelsea", "flatiron", "nomad", "gramercy-kips-bay", "kips-bay",
-    "murray-hill", "midtown", "midtown-west", "midtown-east",
-    "midtown-hells-kitchen", "koreatown",
-    "chinatown", "fidi", "battery-park-city",
-    "upper-west-side", "upper-east-side", "harlem", "west-harlem",
-    "washington-heights",
-    "williamsburg", "greenpoint", "east-williamsburg",
-    "dumbo", "brooklyn-heights", "fort-greene", "clinton-hill", "cobble-hill",
-    "carroll-gardens", "gowanus", "red-hook", "park-slope", "prospect-heights",
-    "prospect-lefferts", "crown-heights", "bed-stuy", "flatbush-plg",
-    "sunset-park", "gravesend", "sheepshead-bay", "columbia-waterfront",
-    "astoria", "long-island-city", "sunnyside", "jackson-heights", "flushing",
-    "ridgewood", "howard-beach", "south-ozone-park",
-    "arthur-avenue", "bronx", "bronx-fordham", "bronx-concourse",
-    "mott-haven", "staten-island", "stapleton-heights", "city-island",
+    "west_village", "greenwich_village", "east_village", "lower_east_side",
+    "east_village_les", "bowery", "soho_nolita", "nolita", "noho", "tribeca",
+    "little_italy", "hudson_square",
+    "chelsea", "flatiron", "nomad", "gramercy_kips_bay", "kips_bay",
+    "murray_hill", "midtown", "midtown_west", "midtown_east",
+    "midtown_hells_kitchen", "koreatown",
+    "chinatown", "fidi", "battery_park_city",
+    "upper_west_side", "upper_east_side", "harlem", "west_harlem",
+    "washington_heights",
+    "williamsburg", "greenpoint", "east_williamsburg",
+    "dumbo", "brooklyn_heights", "fort_greene", "clinton_hill", "cobble_hill",
+    "carroll_gardens", "gowanus", "red_hook", "park_slope", "prospect_heights",
+    "prospect_lefferts", "crown_heights", "bed_stuy", "flatbush_plg",
+    "sunset_park", "gravesend", "sheepshead_bay", "columbia_waterfront",
+    "astoria", "long_island_city", "sunnyside", "jackson_heights", "flushing",
+    "ridgewood", "howard_beach", "south_ozone_park",
+    "arthur_avenue", "bronx", "bronx_fordham", "bronx_concourse",
+    "mott_haven", "staten_island", "stapleton_heights", "city_island",
 }
 
 CANONICAL_OCCASIONS = {
@@ -102,12 +102,12 @@ ALL_CANONICAL_VIBE_TAGS = CANONICAL_SCORED_VIBE_TAGS | CANONICAL_CROSS_CUTTING_V
 # (lowercased venue name, original slug) -> new slug. Uses lowercase +
 # curly-quote normalization for matching to handle copy/paste drift.
 NEIGHBORHOOD_ERROR_FIX = {
-    ("elis wine bar & restaurant", "nyc"): "upper-west-side",
-    ("tartina", "nyc"): "upper-west-side",
-    ("bar b", "nyc"): "park-slope",
+    ("elis wine bar & restaurant", "nyc"): "upper_west_side",
+    ("tartina", "nyc"): "upper_west_side",
+    ("bar b", "nyc"): "park_slope",
     ("governors island", "nyc"): "fidi",
     ("coqodaq", "queens"): "flushing",
-    ("port sa'id", "lower-manhattan"): "hudson-square",
+    ("port sa'id", "lower-manhattan"): "hudson_square",
     ("nobody told me", "lower-manhattan"): "dumbo",
     ("alamo drafthouse lower manhattan", "lower-manhattan"): "fidi",
 }

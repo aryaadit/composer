@@ -202,9 +202,9 @@ Scoring matches on exact equality. Adding a new tag requires updating `lib/scori
 
 ### Neighborhood slugs
 
-Always hyphenated. Must match exactly across the DB, [src/config/options.ts](src/config/options.ts), and the venue sheet:
+Always snake_case. Must match exactly across the DB, [src/config/neighborhoods.ts](src/config/neighborhoods.ts), and the venue sheet:
 
-`west-village` · `east-village-les` · `soho-nolita` · `williamsburg` · `midtown-hells-kitchen` · `upper-west-side`
+`west_village` · `east_village_les` · `soho_nolita` · `williamsburg` · `midtown_hells_kitchen` · `upper_west_side`
 
 ---
 
@@ -323,13 +323,13 @@ Response shape:
     "supabase": { "ok": true, "active_venue_count": 495 },
     "scoring":  {
       "ok": true,
-      "input": { "occasion": "first-date", "neighborhoods": ["west-village"], "budget": "nice-out", "vibe": "food-forward", "day": "2026-04-13", "startTime": "18:00", "endTime": "22:00" },
+      "input": { "occasion": "first-date", "neighborhoods": ["west_village"], "budget": "nice-out", "vibe": "food-forward", "day": "2026-04-13", "startTime": "18:00", "endTime": "22:00" },
       "hard_filtered": 37,
       "scored": 37,
       "top3": [
-        { "name": "Via Carota", "neighborhood": "west-village", "price_tier": 2, "score": 87.2 },
-        { "name": "I Sodi",     "neighborhood": "west-village", "price_tier": 3, "score": 82.4 },
-        { "name": "Buvette",    "neighborhood": "west-village", "price_tier": 2, "score": 79.1 }
+        { "name": "Via Carota", "neighborhood": "west_village", "price_tier": 2, "score": 87.2 },
+        { "name": "I Sodi",     "neighborhood": "west_village", "price_tier": 3, "score": 82.4 },
+        { "name": "Buvette",    "neighborhood": "west_village", "price_tier": 2, "score": 79.1 }
       ]
     },
     "gemini":   { "ok": true, "latency_ms": 412, "response": "OK" }
