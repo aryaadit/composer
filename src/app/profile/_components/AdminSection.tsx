@@ -1,21 +1,14 @@
 "use client";
 
-// Internal admin controls, visible only to the two founder accounts.
-// This is gated by email equality — no role column, no server-side
-// check. RLS still protects data; this section only surfaces extra
-// UI affordances (reset onboarding, run health probe). Adding a third
-// admin = add the email to ADMIN_EMAILS below.
+// Internal admin controls, visible only to users whose composer_users
+// row has `is_admin = true`. That flag is flipped manually in Supabase
+// — see CLAUDE.md. RLS guarantees each session can only read its own
+// profile row, so this boolean can't be spoofed or inspected across
+// users from the client.
 
 import { useState } from "react";
 import Link from "next/link";
-
-// TODO: replace Reid's placeholder email with his actual one before
-// shipping. Using the RFC 2606 `.invalid` TLD so it can't match a real
-// inbox if forgotten.
-const ADMIN_EMAILS: readonly string[] = [
-  "aryaadit@hotmail.com",
-  "reid@TODO-REPLACE.invalid",
-];
+import { useAuth } from "@/components/providers/AuthProvider";
 
 type HealthState =
   | { status: "idle" }
@@ -23,16 +16,13 @@ type HealthState =
   | { status: "data"; body: string }
   | { status: "error"; message: string };
 
-interface AdminSectionProps {
-  email: string;
-}
-
-export function AdminSection({ email }: AdminSectionProps) {
+export function AdminSection() {
+  const { isAdmin } = useAuth();
   const [health, setHealth] = useState<HealthState>({ status: "idle" });
 
   // Hooks-before-return rule: useState is declared unconditionally
   // above; the admin check only gates rendering.
-  if (!ADMIN_EMAILS.includes(email)) return null;
+  if (!isAdmin) return null;
 
   const runHealthCheck = async () => {
     setHealth({ status: "loading" });

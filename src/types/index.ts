@@ -33,6 +33,8 @@ export interface UserPrefs {
 }
 
 // Row shape of the `composer_users` table. `id` matches `auth.users.id`.
+// `is_admin` is flipped manually in Supabase — see CLAUDE.md. The
+// select * in AuthProvider's getProfile picks it up automatically.
 export interface ComposerUser {
   id: string;
   name: string;
@@ -40,6 +42,7 @@ export interface ComposerUser {
   drinks: DrinksPref | string | null;
   dietary: string[];
   favorite_hoods: string[];
+  is_admin: boolean;
   created_at: string;
 }
 

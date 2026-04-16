@@ -55,7 +55,7 @@ export default function ProfilePage() {
           refreshProfile={refreshProfile}
         />
         <SavedPlansList userId={user.id} />
-        <AdminSection email={user.email ?? ""} />
+        <AdminSection />
       </div>
     </div>
   );

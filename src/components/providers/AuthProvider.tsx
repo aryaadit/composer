@@ -34,6 +34,10 @@ interface AuthContextValue {
   profile: ComposerUser | null;
   session: Session | null;
   isLoading: boolean;
+  // Derived from profile.is_admin. Exposed as a top-level boolean so
+  // callers don't have to null-check the profile themselves. Defaults
+  // to false until the profile row loads.
+  isAdmin: boolean;
   refreshProfile: () => Promise<void>;
   signOut: () => Promise<void>;
 }
@@ -104,9 +108,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setSession(null);
   }, []);
 
+  const isAdmin = profile?.is_admin ?? false;
+
   const value = useMemo(
-    () => ({ user, profile, session, isLoading, refreshProfile, signOut }),
-    [user, profile, session, isLoading, refreshProfile, signOut]
+    () => ({
+      user,
+      profile,
+      session,
+      isLoading,
+      isAdmin,
+      refreshProfile,
+      signOut,
+    }),
+    [user, profile, session, isLoading, isAdmin, refreshProfile, signOut]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

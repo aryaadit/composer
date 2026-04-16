@@ -139,6 +139,7 @@ composer_users (
   drinks text,
   dietary text[] default '{}',
   favorite_hoods text[] default '{}',
+  is_admin boolean not null default false,
   created_at timestamptz
 )
 
@@ -151,6 +152,16 @@ composer_saved_itineraries (
   created_at timestamptz
 )
 ```
+
+Admin access is granted by setting `is_admin = true` on the `composer_users` row directly in Supabase — never via the app. One-liner:
+
+```sql
+update composer_users set is_admin = true where id = (
+  select id from auth.users where email = 'someone@example.com'
+);
+```
+
+The existing RLS policy (`auth.uid() = id`) means each session can only read its own profile row, so admin status isn't leaked between users. `AuthProvider` exposes it as `useAuth().isAdmin`.
 
 ---
 
