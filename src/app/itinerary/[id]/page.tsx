@@ -197,13 +197,20 @@ export default function SavedItineraryPage() {
   const { itinerary } = state;
 
   return (
-    <main className="flex flex-1 flex-col items-center min-h-screen px-6 pt-12 pb-8">
-      <Link
-        href="/"
-        className="self-start font-sans text-xs tracking-wide uppercase text-muted hover:text-charcoal transition-colors mb-6"
-      >
-        &larr; Back
-      </Link>
+    <main className="flex flex-1 flex-col items-center min-h-screen px-6 pt-6 pb-8">
+      {/* Logo lockup sits inside the same max-w-lg column as the
+          itinerary content below so its left edge aligns with the
+          rest of the page rather than the screen edge. */}
+      <div className="w-full max-w-lg mx-auto mb-6">
+        <Link href="/" aria-label="Composer — home" className="inline-block">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/composer-lockup.svg"
+            alt="Composer"
+            className="h-8 w-auto"
+          />
+        </Link>
+      </div>
       <CompositionHeader header={itinerary.header} />
       <ItineraryView stops={itinerary.stops} walks={itinerary.walks} />
       <ActionBar
