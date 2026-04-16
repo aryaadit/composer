@@ -25,6 +25,7 @@ import {
 import { STORAGE_KEYS } from "@/config/storage";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { ProgressBar } from "@/components/ui/ProgressBar";
+import { Button } from "@/components/ui/Button";
 import { StepLoading } from "./StepLoading";
 import { NeighborhoodStep } from "./NeighborhoodStep";
 import { StandardStep } from "./StandardStep";
@@ -98,13 +99,26 @@ export function QuestionnaireShell() {
         dispatch({ type: "DESELECT", field: key });
         return;
       }
-      // Card selections always advance after a brief delay
+      // Occasion is the one cards step that doesn't auto-advance — it
+      // can come in pre-filled from profile.context, so the user needs
+      // a manual Next button to confirm the default. Every other cards
+      // step auto-advances after a brief delay to keep the flow tight.
+      if (key === "occasion") {
+        dispatch({ type: "SET_FIELD", field: key, value });
+        return;
+      }
       setTimeout(() => {
         dispatch({ type: "SET_FIELD", field: key, value, advance: true });
       }, 150);
     },
     [state.answers]
   );
+
+  const handleOccasionContinue = useCallback(() => {
+    const value = state.answers.occasion;
+    if (!value) return;
+    dispatch({ type: "SET_FIELD", field: "occasion", value, advance: true });
+  }, [state.answers.occasion]);
 
   const handleNeighborhoodContinue = useCallback((groupIds: string[]) => {
     // The picker hands us NEIGHBORHOOD_GROUPS ids; expand to storage slugs
@@ -213,6 +227,21 @@ export function QuestionnaireShell() {
                   }
                   onSelect={(value) => handleCardSelect(step.id, value)}
                 />
+              )}
+
+              {/* Manual Next CTA — occasion only. Other cards steps
+                  auto-advance on selection. See handleCardSelect. */}
+              {step.id === "occasion" && step.kind === "cards" && (
+                <div className="mt-8">
+                  <Button
+                    variant="primary"
+                    onClick={handleOccasionContinue}
+                    disabled={!state.answers.occasion}
+                    className="w-full"
+                  >
+                    Next →
+                  </Button>
+                </div>
               )}
 
               {step.kind === "when" && (
