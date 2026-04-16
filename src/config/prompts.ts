@@ -72,16 +72,7 @@ interface WeatherForPrompt {
   description: string;
 }
 
-function describeDay(dayISO: string): string {
-  if (!dayISO) return "tonight";
-  const target = new Date(`${dayISO}T12:00:00`);
-  const today = new Date();
-  const tomorrow = new Date();
-  tomorrow.setDate(today.getDate() + 1);
-  if (target.toDateString() === today.toDateString()) return "tonight";
-  if (target.toDateString() === tomorrow.toDateString()) return "tomorrow";
-  return target.toLocaleDateString("en-US", { weekday: "long" });
-}
+import { describeDay } from "@/lib/dateUtils";
 
 function durationMinutes(start: string, end: string): number {
   const [sh, sm] = start.split(":").map(Number);

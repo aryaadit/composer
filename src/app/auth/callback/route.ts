@@ -1,12 +1,9 @@
-// Generic auth-code exchange endpoint.
-//
-// Under email/password auth this is rarely hit — the password reset
-// flow redirects straight to `/auth/reset` (which handles its own code
-// exchange), and there's no magic-link flow anymore. Kept in place as
-// a safety net for any PKCE redirect that might still carry a `?code`
-// here (e.g. if Supabase project settings change, or if we add email
-// confirmation later). No profile upsert, no special handling — just
-// exchange the code (if present) and redirect home.
+// Generic auth-code exchange endpoint. A safety net for any PKCE
+// redirect carrying a `?code` — e.g. if Supabase project settings
+// change, or if email confirmation is enabled later. The password
+// reset flow redirects to `/auth/reset` (which handles its own code
+// exchange), so this endpoint is rarely hit in practice. Exchanges
+// the code if present and redirects home.
 
 import { NextResponse } from "next/server";
 import { getServerSupabase } from "@/lib/supabase/server";

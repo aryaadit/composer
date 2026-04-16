@@ -1,8 +1,7 @@
 "use client";
 
 // Browser-side Supabase client. Uses @supabase/ssr so the auth session
-// lives in cookies (readable by both the client and the Next.js server),
-// not in localStorage.
+// lives in cookies (readable by both the client and the Next.js server).
 //
 // Singleton — the same client is returned on every call so React re-
 // renders don't churn subscriptions or duplicate auth listeners.

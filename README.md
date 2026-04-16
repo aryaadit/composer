@@ -38,7 +38,7 @@ Each itinerary includes walk times between stops, reservation links where availa
 | Database | Supabase (Postgres + Row Level Security) |
 | AI | Google Gemini 2.5 Flash via `@google/generative-ai` |
 | Weather | OpenWeatherMap (free tier, called per request, not cached) |
-| Auth | Anonymous — no login. (User accounts are Phase 2.) |
+| Auth | Supabase email/password (profiles + saved itineraries with RLS) |
 | Deployment | Vercel — auto-deploy from `main` |
 | Domain | composer.onpalate.com |
 
@@ -52,36 +52,48 @@ The codebase is under `src/`. Everything else at the repo root is config, docs, 
 composer/
 ├── src/
 │   ├── app/
-│   │   ├── page.tsx                   # Landing / home gate (onboarding → home → landing routing)
+│   │   ├── page.tsx                   # Root gate: AuthScreen → /onboarding → HomeScreen
 │   │   ├── compose/page.tsx           # Questionnaire flow
 │   │   ├── itinerary/page.tsx         # Composition output
-│   │   ├── layout.tsx
+│   │   ├── onboarding/page.tsx        # Post-auth profile builder (auth-gated)
+│   │   ├── profile/page.tsx           # Profile + saved itineraries + admin section
+│   │   ├── admin/onboarding/page.tsx  # Admin: replay onboarding flow (is_admin gated)
+│   │   ├── auth/callback/route.ts     # PKCE code exchange (safety net)
+│   │   ├── auth/reset/page.tsx        # Password reset form
+│   │   ├── layout.tsx                 # Fonts + AuthProvider
 │   │   ├── globals.css
 │   │   └── api/
 │   │       ├── generate/route.ts      # POST: weather + scoring + Gemini → itinerary
+│   │       ├── add-stop/route.ts      # POST: extend itinerary with one more closer
 │   │       └── health/route.ts        # GET: diagnostic report (Supabase + scoring + Gemini)
 │   ├── components/
 │   │   ├── ui/                        # Button, OptionCard, ProgressBar, StopCard, WalkConnector
+│   │   ├── auth/                      # AuthScreen, ForgotPasswordScreen
+│   │   ├── providers/                 # AuthProvider (user + profile + session context)
+│   │   ├── shared/                    # NeighborhoodPicker (used by onboarding + questionnaire)
 │   │   ├── landing/                   # Hero
-│   │   ├── home/                      # HomeScreen with saved plans + first-run coachmark
-│   │   ├── onboarding/                # OnboardingFlow + OnboardingMapBg splash
-│   │   ├── questionnaire/             # Shell + step components (Standard, Neighborhood, Day, Time)
+│   │   ├── home/                      # HomeScreen (signed-in landing + saved plans)
+│   │   ├── onboarding/               # OnboardingFlow (name + context + prefs + neighborhoods)
+│   │   ├── questionnaire/             # Shell + step components (Standard, Neighborhood, When)
 │   │   └── itinerary/                 # CompositionHeader, ItineraryView, ActionBar, TextMessageShare
 │   ├── lib/
-│   │   ├── supabase.ts                # Lazy-initialized Supabase client
+│   │   ├── supabase.ts                # Anon Supabase client (venue reads, no auth)
+│   │   ├── supabase/browser.ts        # Browser auth-aware client (@supabase/ssr)
+│   │   ├── supabase/server.ts         # Server auth-aware client for Route Handlers
+│   │   ├── auth.ts                    # Sign in / sign up / reset-password / profile helpers
 │   │   ├── scoring.ts                 # Per-venue scoring + filters + per-role pick (with proximity)
 │   │   ├── composer.ts                # planStopMix + composeItinerary (multi-stop assembly)
 │   │   ├── weather.ts                 # OpenWeatherMap fetch + rain/snow classification
 │   │   ├── geo.ts                     # Haversine + Manhattan grid correction + Maps URL builder
-│   │   ├── claude.ts                  # Gemini API call + graceful fallback (filename predates the Gemini swap)
-│   │   ├── sharing.ts                 # URL param encode/decode + localStorage save
-│   │   ├── createCachedStore.ts       # Generic useSyncExternalStore factory
-│   │   ├── questionnaireReducer.ts    # Questionnaire state machine
-│   │   └── userPrefs.ts               # Onboarding prefs in localStorage
+│   │   ├── claude.ts                  # Gemini API call + graceful fallback
+│   │   ├── sharing.ts                 # URL param encode/decode for share links
+│   │   └── questionnaireReducer.ts    # Questionnaire state machine
 │   ├── config/
 │   │   ├── options.ts                 # Questionnaire step definitions
 │   │   ├── prompts.ts                 # Gemini system prompt + generation prompt builder
-│   │   └── onboarding.ts              # Onboarding option definitions
+│   │   ├── durations.ts              # Duration presets + resolveTimeWindow
+│   │   ├── onboarding.ts              # Onboarding option definitions + CONTEXT_TO_OCCASION
+│   │   └── storage.ts                 # sessionStorage keys (page-to-page flight state only)
 │   └── types/
 │       └── index.ts                   # Shared TypeScript types
 ├── supabase/
@@ -100,7 +112,7 @@ composer/
 
 `/api/generate` (POST) is the only generation endpoint. It runs server-side. The client never calls Supabase, OpenWeatherMap, or Gemini directly.
 
-1. **Onboarding preferences** (name, drinks preference, dietary, favorite neighborhoods) are read from `localStorage` and sent with the request body.
+1. **User preferences** (name, drinks, dietary) are read server-side from the authenticated user's `composer_users` profile via `getServerSupabase()`. The client sends only the questionnaire answers.
 2. **Parallel fetch:** weather is pulled from OpenWeatherMap and active venues are queried from Supabase.
 3. **Drinks filter:** if the user said "no" to drinks, alcohol-forward venues are dropped entirely.
 4. **planStopMix** ([src/lib/composer.ts](src/lib/composer.ts)) decides how many stops fit the time window and which role pattern to use:
@@ -350,15 +362,17 @@ The endpoint always returns HTTP 200 — inspect the top-level `ok` plus per-che
 
 ### MVP (current)
 
-- Anonymous use, no accounts
-- Six-step questionnaire
+- Email/password auth with user profiles
+- Five-step questionnaire (occasion → neighborhoods → budget → vibe → when)
 - 2-to-4 stop itineraries with walk routing
 - Plan B alternatives, weather gate, share-as-text
+- Saved itineraries (server-side, per user)
+- Profile page with inline-editable preferences
+- Admin section (health check, onboarding reset, DB-driven `is_admin` flag)
 - Manhattan + Brooklyn (selected neighborhoods)
 
 ### Phase 2 (not yet building)
 
-- User accounts and saved compositions (server-side)
 - Community venue submissions
 - Live integrations: Google Places / Resy / OpenTable
 - Native reservation booking

@@ -1,13 +1,9 @@
-// Share-link URL encoding/decoding. The saved-itinerary persistence
-// that used to live here moved to Supabase when auth landed; see
-// `composer_saved_itineraries` + ActionBar.Save / HomeScreen.
-//
-// Share URLs remain stateless — the itinerary page reads the inputs
-// from the query string and re-generates, so a shared link is a
-// recipe, not a snapshot. The URL carries `duration` (a preset), not
-// startTime/endTime; the server resolves it on each generation so a
-// shared link regenerated at a different hour still produces a
-// coherent window.
+// Share-link URL encoding/decoding. Share URLs are stateless — the
+// itinerary page reads the inputs from the query string and
+// re-generates, so a shared link is a recipe, not a snapshot. The URL
+// carries `duration` (a preset), not startTime/endTime; the server
+// resolves it on each generation so a shared link regenerated at a
+// different hour still produces a coherent window.
 
 import {
   GenerateRequestBody,

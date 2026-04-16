@@ -37,24 +37,7 @@ const TONES: Tone[] = [
   },
 ];
 
-function describeDay(dayISO: string | undefined): string {
-  if (!dayISO) return "tonight";
-  const target = new Date(`${dayISO}T12:00:00`);
-  const today = new Date();
-  const tomorrow = new Date();
-  tomorrow.setDate(today.getDate() + 1);
-  if (target.toDateString() === today.toDateString()) return "tonight";
-  if (target.toDateString() === tomorrow.toDateString()) return "tomorrow";
-  return target.toLocaleDateString("en-US", { weekday: "long" });
-}
-
-function format12h(time24: string | undefined): string {
-  if (!time24) return "";
-  const [h, m] = time24.split(":").map(Number);
-  const period = h >= 12 ? "pm" : "am";
-  const display = h % 12 || 12;
-  return `${display}${m > 0 ? `:${String(m).padStart(2, "0")}` : ""}${period}`;
-}
+import { describeDay, format12h } from "@/lib/dateUtils";
 
 interface TextMessageShareProps {
   itinerary: ItineraryResponse;

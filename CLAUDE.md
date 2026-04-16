@@ -172,7 +172,7 @@ All itinerary generation happens server-side in `app/api/generate/route.ts`. The
 
 ### Supabase Access Splits by Trust Boundary
 - **Anon reads of public data (venues):** `lib/supabase.ts` via `getSupabase()` — no cookie session, fine for Route Handlers that don't need `auth.uid()`.
-- **Client-side user-scoped reads/writes (profile, saved itineraries):** `lib/supabase/browser.ts` via `getBrowserSupabase()`. Session lives in cookies (not localStorage) so the server can see it.
+- **Client-side user-scoped reads/writes (profile, saved itineraries):** `lib/supabase/browser.ts` via `getBrowserSupabase()`. Session lives in cookies so the server can see it.
 - **Server-side user-scoped reads:** `lib/supabase/server.ts` via `getServerSupabase()` inside Route Handlers. This is how `/api/generate` resolves the signed-in user's profile for personalization and hard filters.
 - RLS enforces row visibility. Components calling `getBrowserSupabase()` is allowed — RLS gates the data, not the import boundary.
 
@@ -383,8 +383,8 @@ chore(venues): add 12 new West Village venues to seed
 - Don't add loading states that feel like the app is doing more work than it is.
 - Don't use `any` types or `ts-ignore`.
 - Don't add new neighborhood slugs without updating `config/options.ts`, the venue sheet Reference tab, and the DB validation simultaneously.
-- Don't re-introduce `localStorage` for user state. Profile and saved plans live in Supabase. `sessionStorage` is acceptable only for page-to-page in-tab flight state.
-- Don't add OAuth providers. The auth model is email/password only. (The historical magic-link flow was replaced — do not re-introduce `signInWithOtp`.)
+- Don't use `localStorage` for user state. Profile and saved plans live in Supabase. `sessionStorage` is acceptable only for page-to-page in-tab flight state.
+- Don't add OAuth providers. The auth model is email/password only.
 - Don't add features that aren't in the PRD without flagging them first. Scope creep kills MVPs.
 - Don't assume desktop-first. Mobile is the primary surface.
 - Don't run `git commit`, `git push`, or `git add`. Provide the commit message and let the developer run it.

@@ -11,22 +11,10 @@ import { useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { getBrowserSupabase } from "@/lib/supabase/browser";
 
-export type PillTone = "burgundy" | "charcoal";
-
-export function pillClass(
-  selected: boolean,
-  tone: PillTone = "burgundy"
-): string {
-  const fill =
-    tone === "charcoal"
-      ? "bg-charcoal text-cream border-transparent"
-      : "bg-burgundy text-cream border-transparent";
-  return `px-4 py-2 rounded-full text-sm font-sans font-medium transition-all border ${
-    selected
-      ? fill
-      : "bg-cream border-border text-charcoal hover:border-charcoal/40"
-  }`;
-}
+// Re-export from the canonical shared location so existing
+// AccountDetails / SinglePillSelectField imports keep working.
+export { pillClass } from "@/lib/styles";
+export type { PillTone } from "@/lib/styles";
 
 export function sameArray(a: string[], b: string[]): boolean {
   if (a.length !== b.length) return false;

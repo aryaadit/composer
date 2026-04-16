@@ -1,9 +1,8 @@
-// In-flight browser storage keys.
+// In-flight browser storage keys (sessionStorage only).
 //
-// All persistent user state (profile, saved itineraries) lives in
-// Supabase since auth landed — localStorage is no longer used anywhere.
-// The two keys below are session-scoped and only exist to bridge the
-// questionnaire page to the itinerary page within a single tab.
+// These are session-scoped and only exist to bridge the questionnaire
+// page to the itinerary page within a single tab. All persistent user
+// state (profile, saved itineraries) lives in Supabase.
 
 export const STORAGE_KEYS = {
   session: {

@@ -1,13 +1,9 @@
-// Budget taxonomy + the single source of truth for the price-tier → dollars
-// mapping. Previously, these numbers lived in two different files (the
-// per-stop `spendEstimate()` in `lib/composer.ts` and the total calculator
-// `calculateTotalSpend()` in `app/api/generate/route.ts`), with identical
-// values that could silently drift apart. This file holds both.
+// Budget taxonomy + the single source of truth for the price-tier →
+// dollars mapping. Both `spendEstimate()` (per-stop) and
+// `calculateTotalSpend()` (itinerary-wide) draw from this file so the
+// dollar ranges stay in sync.
 //
-// Tier 4 ("All Out") was added by the 2026-04-13 migration alongside
-// extending `composer_venues.price_tier CHECK (BETWEEN 1 AND 4)`. It
-// captures the fine-dining tier ($150+/person) — Eleven Madison Park,
-// Per Se, Atomix, etc. Reid's spreadsheet has 41 tier-4 venues.
+// Four tiers: $ (casual) through $$$$ (fine dining, $150+/person).
 
 export const BUDGETS = [
   {
