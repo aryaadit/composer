@@ -258,6 +258,10 @@ Visit `http://localhost:3000`.
 | `npm run start` | Run the production build locally |
 | `npm run lint` | ESLint over the project |
 | `npx tsc --noEmit` | TypeScript check (no emit) |
+| `npm run generate-configs` | Regenerate `src/config/generated/*.ts` from the Google Sheet reference tabs |
+| `python3 scripts/import_venues.py --out FILE` | Generate venue import SQL from the Google Sheet's Venues tab |
+
+For the full venue update workflow (sheet → configs → import → verify), see **CLAUDE.md → Venue Database Rules**.
 
 `npx tsc --noEmit` and `npm run lint` must both pass before opening a PR.
 

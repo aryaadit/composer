@@ -366,11 +366,47 @@ chore(venues): add 12 new West Village venues to seed
 
 ## Venue Database Rules
 
-- **Never edit venues directly in the DB.** All venue additions go through the Google Sheet → CSV → import pipeline to maintain a single source of truth.
-- Tag changes require updating both the venue record AND verifying `scoring.ts` still handles the tag correctly.
-- Neighborhood slugs are always snake_case. All taxonomy slugs (neighborhoods, vibes, occasions, budgets) use snake_case to match the Google Sheet.
+- **Never edit venues directly in the DB.** The Google Sheet is the single source of truth. All changes go through the sheet → import pipeline below.
+- All taxonomy slugs (neighborhoods, vibes, occasions, budgets, stop roles) use snake_case to match the sheet's dropdown validation.
 - `active = false` hides a venue from scoring. Use this instead of deleting records.
-- The `notes` column in the Google Sheet is internal only — it is never imported to Supabase.
+- The `notes` column in the Google Sheet is internal only — stored in the DB but not surfaced in the app.
+
+### Updating Venue Data
+
+When you add, edit, or remove venues in the Google Sheet:
+
+```bash
+# 1. Export the sheet as xlsx to the repo
+#    File → Download → .xlsx → save to docs/composer_venue_sheet_curated.xlsx
+
+# 2. Regenerate scoring configs (if you changed any reference tab —
+#    Vibe Tags, Neighborhood Groups, Stop Roles, Budget Tiers, etc.)
+npm run generate-configs
+
+# 3. Generate the import SQL from the Venues tab
+python3 scripts/import_venues.py --out /tmp/import.sql
+
+# 4. Apply to Supabase (replace the connection string with yours)
+#    Or pipe the SQL through the Supabase SQL editor.
+psql "$DATABASE_URL" < /tmp/import.sql
+
+# 5. Verify
+#    Hit /api/health or generate an itinerary to confirm.
+```
+
+The import is idempotent — re-running upserts via the `(LOWER(name), neighborhood)` unique index. Existing rows update; new rows insert; nothing deletes (set `active = false` in the sheet to hide a venue).
+
+### Updating Scoring Configs Only
+
+If you changed a reference tab (e.g. added a vibe tag, tweaked neighborhood groups) but didn't touch venue data:
+
+```bash
+npm run generate-configs   # regenerates src/config/generated/*.ts
+npx tsc --noEmit           # verify types still pass
+# Commit the generated files + deploy
+```
+
+No import needed — the generated configs are committed to git and take effect on the next deploy.
 
 ---
 
