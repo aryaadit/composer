@@ -11,7 +11,7 @@ import {
   SavedIndicator,
   useFieldEditor,
   pillClass,
-} from "./fieldPrimitives";
+} from "./FieldPrimitives";
 
 interface PillOption {
   id: string;

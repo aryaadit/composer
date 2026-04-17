@@ -11,6 +11,24 @@
 import { NextResponse } from "next/server";
 import { getSheetData, getSheetHeaders } from "@/lib/google-sheets";
 import { getServiceSupabase } from "@/lib/supabase";
+import { getServerSupabase } from "@/lib/supabase/server";
+
+async function requireAdmin(): Promise<true | Response> {
+  const supabase = await getServerSupabase();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  }
+  const { data } = await supabase
+    .from("composer_users")
+    .select("is_admin")
+    .eq("id", user.id)
+    .maybeSingle();
+  if (!data?.is_admin) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+  return true;
+}
 
 function splitCsv(s: string | undefined): string[] {
   if (!s) return [];
@@ -105,12 +123,17 @@ function rowToVenue(
   };
 }
 
+interface SyncRequestBody {
+  venue_id?: string;
+}
+
 export async function POST(request: Request) {
+  const auth = await requireAdmin();
+  if (auth !== true) return auth;
+
   try {
-    const body = await request.json().catch(() => ({}));
-    const singleVenueId = (body as Record<string, unknown>).venue_id as
-      | string
-      | undefined;
+    const body = (await request.json().catch(() => ({}))) as SyncRequestBody;
+    const singleVenueId = body.venue_id;
 
     // Build column index map from sheet headers
     const headers = await getSheetHeaders();
@@ -157,7 +180,8 @@ export async function POST(request: Request) {
         .upsert(venue, { onConflict: "venue_id" });
 
       if (error) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        console.error("[sync-venues] upsert error:", error.message);
+        return NextResponse.json({ error: "Failed to upsert venue" }, { status: 500 });
       }
 
       return NextResponse.json({
@@ -187,8 +211,9 @@ export async function POST(request: Request) {
           .from("composer_venues")
           .upsert(batch, { onConflict: "venue_id" });
         if (error) {
+          console.error("[sync-venues] batch upsert error:", error.message);
           return NextResponse.json(
-            { error: error.message, synced },
+            { error: "Failed to upsert batch", synced },
             { status: 500 }
           );
         }
@@ -199,8 +224,9 @@ export async function POST(request: Request) {
     }
   } catch (err) {
     console.error("[sync-venues]", err);
+    console.error("[sync-venues] unexpected error:", err);
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Unknown error" },
+      { error: "Sync failed" },
       { status: 500 }
     );
   }

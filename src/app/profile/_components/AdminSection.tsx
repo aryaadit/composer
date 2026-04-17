@@ -105,7 +105,7 @@ export function AdminSection() {
 
   return (
     <section className="mt-12 pt-8 border-t border-border">
-      <h2 className="font-sans text-xs tracking-widest uppercase text-[#D1D5DB] mb-5">
+      <h2 className="font-sans text-xs tracking-widest uppercase text-muted mb-5">
         Internal
       </h2>
 
@@ -152,7 +152,7 @@ export function AdminSection() {
             {sync.status === "syncing" ? "Syncing…" : "Sync all venues →"}
           </button>
           {sync.status === "done" && (
-            <span className="font-sans text-xs text-[#059669]">{sync.message}</span>
+            <span className="font-sans text-xs text-emerald-600">{sync.message}</span>
           )}
           {sync.status === "error" && (
             <span className="font-sans text-xs text-burgundy">{sync.message}</span>
@@ -168,7 +168,7 @@ export function AdminSection() {
 function HealthStatusBanner({ summary }: { summary: HealthSummary }) {
   if (summary.ok) {
     return (
-      <div className="inline-flex items-center gap-2 font-sans text-xs font-medium text-[#059669]">
+      <div className="inline-flex items-center gap-2 font-sans text-xs font-medium text-emerald-600">
         <CheckIcon />
         <span>All checks passed</span>
       </div>

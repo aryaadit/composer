@@ -17,7 +17,7 @@ import {
   useFieldEditor,
   pillClass,
   sameArray,
-} from "./fieldPrimitives";
+} from "./FieldPrimitives";
 import { SinglePillSelectField } from "./SinglePillSelectField";
 import type { ComposerUser } from "@/types";
 

@@ -79,7 +79,10 @@ export function QuestionnaireShell() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       })
-        .then((res) => res.json())
+        .then((res) => {
+          if (!res.ok) throw new Error("Generation failed");
+          return res.json();
+        })
         .then((data) => {
           sessionStorage.setItem(STORAGE_KEYS.session.currentItinerary, JSON.stringify(data));
           router.push("/itinerary");
