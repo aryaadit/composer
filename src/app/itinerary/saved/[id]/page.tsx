@@ -7,12 +7,11 @@
 // hits "New date plan" from home.
 
 import { use, useEffect, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { motion } from "motion/react";
 import { getBrowserSupabase } from "@/lib/supabase/browser";
 import { CompositionHeader } from "@/components/itinerary/CompositionHeader";
 import { ItineraryView } from "@/components/itinerary/ItineraryView";
+import { ActionBar } from "@/components/itinerary/ActionBar";
 import { StepLoading } from "@/components/questionnaire/StepLoading";
 import { Button } from "@/components/ui/Button";
 import { Header } from "@/components/Header";
@@ -136,6 +135,8 @@ export default function SavedItineraryPage({
     );
   }
 
+  const noopRegenerate = () => {};
+
   return (
     <main className="flex flex-1 flex-col items-center min-h-screen px-6 pt-6 pb-8">
       <div className="w-full max-w-lg mx-auto mb-6">
@@ -144,33 +145,12 @@ export default function SavedItineraryPage({
 
       <CompositionHeader header={itinerary.header} />
       <ItineraryView stops={itinerary.stops} walks={itinerary.walks} />
-
-      <motion.div
-        className="w-full max-w-lg mx-auto mt-8 pt-4 border-t border-border"
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4, delay: 0.3 }}
-      >
-        <div className="flex items-center justify-between font-sans text-sm">
-          <a
-            href={itinerary.maps_url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-charcoal hover:text-burgundy transition-colors inline-flex items-center gap-1"
-          >
-            Open in Maps
-            <span aria-hidden className="text-muted">
-              →
-            </span>
-          </a>
-          <Link
-            href="/compose"
-            className="text-charcoal hover:text-burgundy transition-colors"
-          >
-            Plan a new night
-          </Link>
-        </div>
-      </motion.div>
+      <ActionBar
+        itinerary={itinerary}
+        onRegenerate={noopRegenerate}
+        isRegenerating={false}
+        initialSaved
+      />
     </main>
   );
 }
