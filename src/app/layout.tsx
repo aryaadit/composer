@@ -5,6 +5,7 @@ import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { AuthProvider } from "@/components/providers/AuthProvider";
 import { ToastProvider } from "@/components/ui/Toast";
+import { FeedbackButton } from "@/components/ui/FeedbackButton";
 
 const playfair = Playfair_Display({
   variable: "--font-playfair",
@@ -43,6 +44,7 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col">
         <AuthProvider>
           <ToastProvider>{children}</ToastProvider>
+          <FeedbackButton />
         </AuthProvider>
         <Analytics />
         <SpeedInsights />
