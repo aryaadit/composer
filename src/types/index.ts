@@ -95,6 +95,7 @@ export type GenerateRequestBody = Omit<
 // See `supabase/migrations/20260419_venue_schema_v2.sql`.
 export interface Venue {
   id: string;
+  venue_id: string;
   name: string;
   neighborhood: Neighborhood;
   category: string;
