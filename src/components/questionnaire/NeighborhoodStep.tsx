@@ -47,8 +47,13 @@ export function NeighborhoodStep({
 
   return (
     <div>
-      <p className="text-center font-sans text-xs text-muted mb-4">
-        Pick up to {MAX_HOODS}
+      <p
+        aria-live="polite"
+        className={`text-center font-sans text-xs mb-4 tabular-nums ${
+          selected.length >= MAX_HOODS ? "text-burgundy" : "text-muted"
+        }`}
+      >
+        {selected.length}/{MAX_HOODS} selected
       </p>
 
       <NeighborhoodPicker

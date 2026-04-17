@@ -1,8 +1,8 @@
 "use client";
 
-import { Suspense, useEffect, useState, useCallback } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import {
+import type {
   ItineraryResponse,
   ItineraryStop,
   GenerateRequestBody,
@@ -10,6 +10,7 @@ import {
 } from "@/types";
 import { decodeParamsToInputs } from "@/lib/sharing";
 import { STORAGE_KEYS } from "@/config/storage";
+import { useToast } from "@/components/ui/Toast";
 import { CompositionHeader } from "@/components/itinerary/CompositionHeader";
 import { ItineraryView } from "@/components/itinerary/ItineraryView";
 import { ActionBar } from "@/components/itinerary/ActionBar";
@@ -17,8 +18,16 @@ import { StepLoading } from "@/components/questionnaire/StepLoading";
 import { Button } from "@/components/ui/Button";
 import { Header } from "@/components/Header";
 
+function persist(it: ItineraryResponse) {
+  sessionStorage.setItem(
+    STORAGE_KEYS.session.currentItinerary,
+    JSON.stringify(it)
+  );
+}
+
 function ItineraryContent() {
   const searchParams = useSearchParams();
+  const toast = useToast();
   const [itinerary, setItinerary] = useState<ItineraryResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -31,7 +40,6 @@ function ItineraryContent() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(inputs),
     });
-
     if (!res.ok) throw new Error("Generation failed");
     return (await res.json()) as ItineraryResponse;
   }, []);
@@ -39,7 +47,6 @@ function ItineraryContent() {
   useEffect(() => {
     async function load() {
       try {
-        // Check for share link params first
         const paramsInputs = decodeParamsToInputs(searchParams);
         if (paramsInputs) {
           const data = await fetchItinerary(paramsInputs);
@@ -47,15 +54,12 @@ function ItineraryContent() {
           setLoading(false);
           return;
         }
-
-        // Check sessionStorage
         const stored = sessionStorage.getItem(STORAGE_KEYS.session.currentItinerary);
         if (stored) {
           setItinerary(JSON.parse(stored));
           setLoading(false);
           return;
         }
-
         setError("We don't have a plan loaded. Start from the top.");
         setLoading(false);
       } catch {
@@ -66,6 +70,7 @@ function ItineraryContent() {
     load();
   }, [searchParams, fetchItinerary]);
 
+  // ── Regenerate ──────────────────────────────────────────────
   const handleRegenerate = async () => {
     if (!itinerary) return;
     setRegenerating(true);
@@ -73,7 +78,7 @@ function ItineraryContent() {
     try {
       const data = await fetchItinerary(itinerary.inputs);
       setItinerary(data);
-      sessionStorage.setItem(STORAGE_KEYS.session.currentItinerary, JSON.stringify(data));
+      persist(data);
     } catch {
       setRegenError(true);
       setTimeout(() => setRegenError(false), 3000);
@@ -81,6 +86,7 @@ function ItineraryContent() {
     setRegenerating(false);
   };
 
+  // ── Add stop ────────────────────────────────────────────────
   const [addingStop, setAddingStop] = useState(false);
   const [addStopError, setAddStopError] = useState<string | null>(null);
 
@@ -92,8 +98,6 @@ function ItineraryContent() {
       const res = await fetch("/api/add-stop", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        // Auth-derived prefs (drinks) are read server-side from the
-        // session cookie — the client just sends the current itinerary.
         body: JSON.stringify({ itinerary }),
       });
       if (!res.ok) {
@@ -114,16 +118,129 @@ function ItineraryContent() {
         header: { ...itinerary.header, estimated_total: payload.estimated_total },
       };
       setItinerary(next);
-      sessionStorage.setItem(
-        STORAGE_KEYS.session.currentItinerary,
-        JSON.stringify(next)
-      );
+      persist(next);
     } catch (err) {
       setAddStopError(err instanceof Error ? err.message : "Couldn't add a stop");
       setTimeout(() => setAddStopError(null), 3000);
     }
     setAddingStop(false);
   };
+
+  // ── Swap stop ───────────────────────────────────────────────
+  // Tracks which venues have been rejected per slot so the user
+  // cycles through new options instead of seeing the same one.
+  const excludedRef = useRef<Map<number, string[]>>(new Map());
+  const undoRef = useRef<{ timer: number; prev: ItineraryResponse } | null>(null);
+  const [swappingIndex, setSwappingIndex] = useState<number | null>(null);
+  const [swapError, setSwapError] = useState<{
+    index: number;
+    message: string;
+  } | null>(null);
+
+  const handleSwap = useCallback(
+    async (index: number) => {
+      if (!itinerary || swappingIndex !== null) return;
+      setSwappingIndex(index);
+      setSwapError(null);
+
+      const excluded = excludedRef.current.get(index) ?? [];
+
+      try {
+        const res = await fetch("/api/swap-stop", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            itinerary,
+            stopIndex: index,
+            excludeVenueIds: excluded,
+          }),
+        });
+
+        if (!res.ok) {
+          const msg = await res.json().catch(() => ({}));
+          setSwapError({
+            index,
+            message: msg.error ?? "No other good matches right now",
+          });
+          setTimeout(() => setSwapError(null), 5000);
+          setSwappingIndex(null);
+          return;
+        }
+
+        const payload = (await res.json()) as {
+          stop: ItineraryStop;
+          walks: { before: WalkSegment | null; after: WalkSegment | null };
+          maps_url: string;
+          estimated_total: string;
+        };
+
+        const prevItinerary = itinerary;
+        const prevVenueId = itinerary.stops[index].venue.id;
+
+        // Track the rejected venue so tapping Swap again gives a new one.
+        const nextExcluded = [...excluded, prevVenueId];
+        excludedRef.current.set(index, nextExcluded);
+
+        // Patch the itinerary in-place.
+        const nextStops = [...itinerary.stops];
+        nextStops[index] = payload.stop;
+
+        const nextWalks = [...itinerary.walks];
+        if (index > 0 && payload.walks.before) {
+          nextWalks[index - 1] = payload.walks.before;
+        }
+        if (index < nextStops.length - 1 && payload.walks.after) {
+          nextWalks[index] = payload.walks.after;
+        }
+
+        const next: ItineraryResponse = {
+          ...itinerary,
+          stops: nextStops,
+          walks: nextWalks,
+          maps_url: payload.maps_url,
+          header: {
+            ...itinerary.header,
+            estimated_total: payload.estimated_total,
+          },
+        };
+
+        setItinerary(next);
+        persist(next);
+
+        // Undo window — 8 seconds to revert.
+        if (undoRef.current) window.clearTimeout(undoRef.current.timer);
+        const timer = window.setTimeout(() => {
+          undoRef.current = null;
+        }, 8000);
+        undoRef.current = { timer, prev: prevItinerary };
+
+        toast.show({
+          message: "Swapped",
+          durationMs: 8000,
+          action: {
+            label: "Undo",
+            onClick: () => {
+              if (!undoRef.current) return;
+              window.clearTimeout(undoRef.current.timer);
+              const restored = undoRef.current.prev;
+              undoRef.current = null;
+              excludedRef.current.set(
+                index,
+                nextExcluded.filter((id) => id !== prevVenueId)
+              );
+              setItinerary(restored);
+              persist(restored);
+            },
+          },
+        });
+      } catch {
+        setSwapError({ index, message: "Something went wrong." });
+        setTimeout(() => setSwapError(null), 3000);
+      }
+      setSwappingIndex(null);
+    },
+    [itinerary, swappingIndex, toast]
+  );
 
   if (loading) return <StepLoading />;
 
@@ -154,6 +271,9 @@ function ItineraryContent() {
           walks={itinerary.walks}
           onAddStop={handleAddStop}
           isAddingStop={addingStop}
+          onSwapStop={handleSwap}
+          swappingIndex={swappingIndex}
+          swapError={swapError}
         />
       )}
       {regenError && (
