@@ -1,15 +1,15 @@
 "use client";
 
-// Single-slot toast with optional action (e.g. Undo). Auto-dismisses.
-// Wrap the app in <ToastProvider>, consume via useToast().show({...}).
+// Single-slot toast. Shows one message at a time with an optional action
+// button (supports Undo). Auto-dismisses after `durationMs`.
 
 import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useRef,
   useState,
-  type ReactNode,
 } from "react";
 import { AnimatePresence, motion } from "motion/react";
 
@@ -36,60 +36,71 @@ interface ActiveToast extends ToastInput {
   id: number;
 }
 
-export function ToastProvider({ children }: { children: ReactNode }) {
+export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [toast, setToast] = useState<ActiveToast | null>(null);
   const timerRef = useRef<number | null>(null);
-  const idRef = useRef(0);
+  const nextId = useRef(1);
+
+  const clearTimer = () => {
+    if (timerRef.current !== null) {
+      window.clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+  };
 
   const dismiss = useCallback(() => {
-    if (timerRef.current) window.clearTimeout(timerRef.current);
-    timerRef.current = null;
+    clearTimer();
     setToast(null);
   }, []);
 
-  const show = useCallback(
-    (input: ToastInput) => {
-      if (timerRef.current) window.clearTimeout(timerRef.current);
-      const id = ++idRef.current;
-      setToast({ ...input, id });
-      const ms = input.durationMs ?? 3000;
-      timerRef.current = window.setTimeout(() => {
-        setToast((cur) => (cur?.id === id ? null : cur));
-        timerRef.current = null;
-      }, ms);
-    },
-    []
-  );
+  const show = useCallback((input: ToastInput) => {
+    clearTimer();
+    const id = nextId.current++;
+    setToast({ ...input, id });
+    const ms = input.durationMs ?? 5000;
+    timerRef.current = window.setTimeout(() => {
+      setToast((cur) => (cur?.id === id ? null : cur));
+      timerRef.current = null;
+    }, ms);
+  }, []);
+
+  useEffect(() => () => clearTimer(), []);
 
   return (
     <ToastContext.Provider value={{ show, dismiss }}>
       {children}
-      <AnimatePresence>
-        {toast && (
-          <motion.div
-            key={toast.id}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 20 }}
-            transition={{ duration: 0.2 }}
-            className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 bg-charcoal text-cream px-4 py-2.5 rounded-full shadow-lg font-sans text-sm"
-          >
-            <span>{toast.message}</span>
-            {toast.action && (
-              <button
-                type="button"
-                onClick={() => {
-                  toast.action?.onClick();
-                  dismiss();
-                }}
-                className="font-medium text-cream/80 hover:text-cream transition-colors"
-              >
-                {toast.action.label}
-              </button>
-            )}
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <div
+        aria-live="polite"
+        aria-atomic="true"
+        className="pointer-events-none fixed inset-x-0 bottom-0 z-[100] flex justify-center px-4 pb-[max(1rem,env(safe-area-inset-bottom))]"
+      >
+        <AnimatePresence>
+          {toast && (
+            <motion.div
+              key={toast.id}
+              className="pointer-events-auto w-full max-w-sm rounded-full bg-charcoal text-cream px-5 py-3 shadow-lg flex items-center justify-between gap-4"
+              initial={{ y: 30, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 20, opacity: 0 }}
+              transition={{ type: "spring", damping: 28, stiffness: 320 }}
+            >
+              <span className="font-sans text-sm">{toast.message}</span>
+              {toast.action && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    toast.action!.onClick();
+                    dismiss();
+                  }}
+                  className="font-sans text-sm font-medium text-cream underline underline-offset-2 hover:text-cream/80 transition-colors"
+                >
+                  {toast.action.label}
+                </button>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
     </ToastContext.Provider>
   );
 }
