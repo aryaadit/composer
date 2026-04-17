@@ -10,7 +10,7 @@
 
 import { NextResponse } from "next/server";
 import { getSheetData, getSheetHeaders } from "@/lib/google-sheets";
-import { getSupabase } from "@/lib/supabase";
+import { getServiceSupabase } from "@/lib/supabase";
 
 function splitCsv(s: string | undefined): string[] {
   if (!s) return [];
@@ -130,7 +130,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const supabase = getSupabase();
+    const supabase = getServiceSupabase();
 
     if (singleVenueId) {
       // Single venue sync
