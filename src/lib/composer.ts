@@ -13,7 +13,7 @@ export type StopPattern = StopRole[];
 // ─── Duration model ───────────────────────────────────────────────────
 // Rough per-role duration used by `planStopMix` to pick a stop count. The
 // planner runs BEFORE venue selection, so we can't use per-venue
-// duration_minutes here — that fidelity kicks in post-composition when
+// duration_hours here — that fidelity kicks in post-composition when
 // the API route computes actual arrival times.
 export const ROLE_AVG_DURATION_MIN: Record<StopRole, number> = {
   opener: 60,   // bar or cafe

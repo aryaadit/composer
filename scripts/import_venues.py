@@ -74,10 +74,13 @@ CANONICAL_NEIGHBORHOODS = {
 }
 
 CANONICAL_OCCASIONS = {
-    "first-date", "second-date", "dating", "established", "friends", "solo",
+    "first_date", "dating", "couple", "friends", "solo",
 }
 
-CANONICAL_STOP_ROLES = {"opener", "main", "closer"}
+# All 6 raw venue roles the sheet can use. The app's scoring layer
+# maps these to the 3 composition roles (opener/main/closer) via
+# ROLE_EXPANSION in lib/scoring.ts. No lossy mapping here — store raw.
+CANONICAL_STOP_ROLES = {"opener", "main", "closer", "drinks", "activity", "coffee"}
 
 # Scored vibe tags (14) — participate in exact-match scoring in lib/scoring.ts
 CANONICAL_SCORED_VIBE_TAGS = {
@@ -352,11 +355,11 @@ def normalize_venue(
         stats["dropped_unknown_neighborhood"] += 1
         return None
 
-    # 2. lat/lng required
-    lat = parse_float(raw.get("lat"))
-    lng = parse_float(raw.get("lng"))
+    # 2. latitude/longitude required
+    lat = parse_float(raw.get("latitude"))
+    lng = parse_float(raw.get("longitude"))
     if lat is None or lng is None:
-        errors.append(f"{name}: missing/invalid coords ({raw.get('lat')}, {raw.get('lng')}) — dropped")
+        errors.append(f"{name}: missing/invalid coords ({raw.get('latitude')}, {raw.get('longitude')}) — dropped")
         stats["dropped_bad_coords"] += 1
         return None
 
@@ -367,46 +370,31 @@ def normalize_venue(
         stats["dropped_bad_tier"] += 1
         return None
 
-    # 4. Stop roles — lossy map + preserve raw
-    raw_role_str = (raw.get("stop_role") or "").strip()
+    # 4. Stop roles — store raw values (no mapping, scoring handles expansion)
+    raw_role_str = (raw.get("stop_roles") or "").strip()
     role_tokens = split_roles(raw_role_str)
     stop_roles: list[str] = []
     for token in role_tokens:
-        mapped = STOP_ROLE_MAP.get(token)
-        if mapped is None:
-            errors.append(f"{name}: unknown stop_role '{token}' — skipped that token")
+        if token in CANONICAL_STOP_ROLES and token not in stop_roles:
+            stop_roles.append(token)
+        elif token:
+            errors.append(f"{name}: unknown stop_role '{token}' — skipped")
             stats["unknown_stop_role_token"] += 1
-            continue
-        for r in mapped:
-            if r in CANONICAL_STOP_ROLES and r not in stop_roles:
-                stop_roles.append(r)
 
     if not stop_roles:
-        errors.append(f"{name}: no valid stop_roles after mapping — dropped")
+        errors.append(f"{name}: no valid stop_roles — dropped")
         stats["dropped_no_roles"] += 1
         return None
 
-    if raw_role_str.lower() not in ("opener", "main", "closer", ""):
-        stats["stop_role_lossy_map"] += 1
-
-    # 5. Occasion tags — map or drop
-    raw_occ = split_tags(raw.get("occasion_fit", ""))
+    # 5. Occasion tags — sheet values are already canonical, just validate
+    raw_occ = split_tags(raw.get("occasion_tags", ""))
     occasion_tags: list[str] = []
-    dropped_occ = 0
     for tag in raw_occ:
         t = tag.strip().lower()
-        if t in OCCASION_MAP:
-            mapped = OCCASION_MAP[t]
-            if mapped is None:
-                dropped_occ += 1
-                continue
-            if mapped in CANONICAL_OCCASIONS and mapped not in occasion_tags:
-                occasion_tags.append(mapped)
-        else:
-            dropped_occ += 1
+        if t in CANONICAL_OCCASIONS and t not in occasion_tags:
+            occasion_tags.append(t)
+        elif t:
             stats["unknown_occasion"] += 1
-    if dropped_occ:
-        stats["occasion_dropped"] += dropped_occ
 
     # 6. Vibe tags — Bucket 1/2/3 + Bucket 4 (logistics) + category augmentation
     raw_vibe_list = split_tags(raw.get("vibe_tags", ""))
@@ -450,38 +438,47 @@ def normalize_venue(
     if aug_tags:
         stats["category_augmented"] += 1
 
+    # outdoor_seating — normalize to 'yes'/'no'/'unknown' text enum
+    os_raw = (raw.get("outdoor_seating") or "").strip().lower()
+    outdoor_seating: Optional[str] = None
+    if os_raw in ("yes", "true", "1"):
+        outdoor_seating = "yes"
+    elif os_raw in ("no", "false", "0"):
+        outdoor_seating = "no"
+    elif os_raw == "unknown" or os_raw:
+        outdoor_seating = "unknown"
+
     return {
         "name": name,
-        "category": category or None,
-        "category_group": (raw.get("Category 2") or "").strip() or None,
         "neighborhood": neighborhood,
-        "address": None,  # Reid's sheet doesn't have a dedicated address column
-        "latitude": lat,
-        "longitude": lng,
-        "stop_roles": stop_roles,
-        "raw_stop_role": raw_role_str or None,
+        "category": category or None,
         "price_tier": price_tier,
         "vibe_tags": vibe_tags,
-        "raw_vibe_tags": raw_vibe_list,
         "occasion_tags": occasion_tags,
-        "outdoor_seating": parse_bool(raw.get("outdoor_seating", "")),
+        "stop_roles": stop_roles,
+        "duration_hours": parse_int(raw.get("duration_hours")),
+        "outdoor_seating": outdoor_seating,
+        "reservation_difficulty": parse_int(raw.get("reservation_difficulty")),
         "reservation_url": (raw.get("reservation_url") or "").strip() or None,
+        "maps_url": (raw.get("maps_url") or "").strip() or None,
         "curation_note": (raw.get("curation_note") or "").strip(),
-        "active": parse_bool(raw.get("active", "")) or True,  # Reid marks all as yes
-        "duration_minutes": (
-            parse_int(raw.get("time_estimate")) * 60
-            if parse_int(raw.get("time_estimate")) is not None
-            else None
-        ),
+        "awards": (raw.get("awards") or "").strip() or None,
         "curated_by": (raw.get("curated_by") or "").strip().lower() or None,
+        "signature_order": (raw.get("signature_order") or "").strip() or None,
+        "address": (raw.get("address") or "").strip() or None,
+        "latitude": lat,
+        "longitude": lng,
+        "active": parse_bool(raw.get("active", "")) or True,
+        "notes": (raw.get("notes") or "").strip() or None,
         "hours": (raw.get("hours") or "").strip() or None,
         "last_verified": (raw.get("last_verified") or "").strip() or None,
-        "reservation_difficulty": parse_int(raw.get("reservation_difficulty")),
+        "happy_hour": (raw.get("happy_hour") or "").strip() or None,
         "dog_friendly": parse_bool(raw.get("dog_friendly", "")),
         "kid_friendly": parse_bool(raw.get("kid_friendly", "")),
-        "wheelchair_accessible": (raw.get("wheelchair_accessible") or "").strip().lower() or None,
-        "signature_order": (raw.get("signature_order") or "").strip() or None,
-        "cash_only": cash_only,
+        "wheelchair_accessible": parse_bool(raw.get("wheelchair_accessible", "")),
+        "cash_only": cash_only if cash_only else parse_bool(raw.get("cash_only", "")),
+        "quality_score": parse_int(raw.get("quality_score")) or 7,
+        "curation_boost": parse_int(raw.get("curation_boost")) or 0,
     }
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -518,66 +515,66 @@ def sql_date(v: Optional[str]) -> str:
     return sql_str(v) + "::date"
 
 # Columns we INSERT, in order. These must match the VALUES tuple below.
+# Matches the v2 schema (20260419_venue_schema_v2.sql).
 INSERT_COLS = [
-    "name", "category", "category_group", "neighborhood", "address",
-    "latitude", "longitude",
-    "stop_roles", "raw_stop_role",
-    "price_tier",
-    "vibe_tags", "raw_vibe_tags", "occasion_tags",
-    "outdoor_seating", "reservation_url", "curation_note", "active",
-    "duration_minutes", "curated_by", "hours", "last_verified",
-    "reservation_difficulty", "dog_friendly", "kid_friendly",
-    "wheelchair_accessible", "signature_order", "cash_only",
+    "name", "neighborhood", "category", "price_tier",
+    "vibe_tags", "occasion_tags", "stop_roles",
+    "duration_hours", "outdoor_seating", "reservation_difficulty",
+    "reservation_url", "maps_url",
+    "curation_note", "awards", "curated_by", "signature_order",
+    "address", "latitude", "longitude",
+    "active", "notes", "hours", "last_verified",
+    "happy_hour", "dog_friendly", "kid_friendly", "wheelchair_accessible",
+    "cash_only", "quality_score", "curation_boost",
 ]
 
-# Columns that the ON CONFLICT UPDATE should overwrite from EXCLUDED.
-# Intentionally omits `quality_score`, `curation_boost`, `best_before`,
-# `best_after`, `created_at`, `id` — those keep their current DB values
-# (important for the 5 seed rows that have hand-set quality scores).
+# All columns update on re-import (upsert). quality_score and
+# curation_boost now come from the sheet, not admin-only.
 UPDATE_COLS = [c for c in INSERT_COLS if c != "name" and c != "neighborhood"]
 
 def venue_to_values_tuple(v: dict) -> str:
     return (
         "("
         f"{sql_str(v['name'])},"
-        f"{sql_str(v['category'])},"
-        f"{sql_str(v['category_group'])},"
         f"{sql_str(v['neighborhood'])},"
-        f"{sql_str(v['address'])},"
-        f"{sql_float(v['latitude'])},{sql_float(v['longitude'])},"
-        f"{sql_text_array(v['stop_roles'])},"
-        f"{sql_str(v['raw_stop_role'])},"
+        f"{sql_str(v['category'])},"
         f"{sql_int(v['price_tier'])},"
         f"{sql_text_array(v['vibe_tags'])},"
-        f"{sql_text_array(v['raw_vibe_tags'])},"
         f"{sql_text_array(v['occasion_tags'])},"
-        f"{sql_bool(v['outdoor_seating'])},"
+        f"{sql_text_array(v['stop_roles'])},"
+        f"{sql_int(v['duration_hours'])},"
+        f"{sql_str(v['outdoor_seating'])},"
+        f"{sql_int(v['reservation_difficulty'])},"
         f"{sql_str(v['reservation_url'])},"
+        f"{sql_str(v['maps_url'])},"
         f"{sql_str(v['curation_note'])},"
-        f"{sql_bool(v['active'])},"
-        f"{sql_int(v['duration_minutes'])},"
+        f"{sql_str(v['awards'])},"
         f"{sql_str(v['curated_by'])},"
+        f"{sql_str(v['signature_order'])},"
+        f"{sql_str(v['address'])},"
+        f"{sql_float(v['latitude'])},{sql_float(v['longitude'])},"
+        f"{sql_bool(v['active'])},"
+        f"{sql_str(v['notes'])},"
         f"{sql_str(v['hours'])},"
         f"{sql_date(v['last_verified'])},"
-        f"{sql_int(v['reservation_difficulty'])},"
+        f"{sql_str(v['happy_hour'])},"
         f"{sql_bool(v['dog_friendly'])},"
         f"{sql_bool(v['kid_friendly'])},"
-        f"{sql_str(v['wheelchair_accessible'])},"
-        f"{sql_str(v['signature_order'])},"
-        f"{sql_bool(v['cash_only'])}"
+        f"{sql_bool(v['wheelchair_accessible'])},"
+        f"{sql_bool(v['cash_only'])},"
+        f"{sql_int(v['quality_score'])},"
+        f"{sql_int(v['curation_boost'])}"
         ")"
     )
 
 def emit_sql(venues: list[dict]) -> str:
     header = """\
--- Composer venue import — Reid's curated spreadsheet v1.1
+-- Composer venue import — v2 schema
 -- Generated by scripts/import_venues.py
 -- Idempotent: re-running upserts via the (LOWER(name), neighborhood)
--- unique index created in migration 20260413_venue_import_prep.sql.
---
--- Columns like quality_score, curation_boost, best_before, best_after are
--- intentionally NOT in the ON CONFLICT UPDATE set — existing rows keep
--- any hand-tuned values there.
+-- unique index on composer_venues.
+-- All columns (including quality_score and curation_boost) update on
+-- re-import — the sheet is the single source of truth.
 
 BEGIN;
 

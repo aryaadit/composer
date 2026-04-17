@@ -40,7 +40,7 @@ function parseHHMM(hhmm: string): number {
 
 /**
  * Walk the composed stops computing actual arrival times from per-venue
- * duration_minutes (or the role average as fallback). Drops any trailing
+ * duration_hours (converted to minutes, or role-average fallback). Drops any trailing
  * stop whose arrival lands within LAST_START_BUFFER_MIN of endTime — so a
  * 7-10pm plan can't push a bar to 9:55.
  */
@@ -72,7 +72,11 @@ function applyEndTimeBuffer(
     }
     kept.push(stops[i]);
     const stop = stops[i];
-    const dur = stop.venue.duration_minutes ?? ROLE_AVG_DURATION_MIN[stop.role];
+    // duration_hours stores 1/2/3; convert to minutes for the buffer
+    // check. Falls back to the role average when the venue has no value.
+    const dur = stop.venue.duration_hours
+      ? stop.venue.duration_hours * 60
+      : ROLE_AVG_DURATION_MIN[stop.role];
     currentMin += dur;
   }
 

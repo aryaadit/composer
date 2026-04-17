@@ -22,9 +22,9 @@ export const questionSteps: QuestionStep[] = [
     kind: "cards",
     question: "What kind of night is this?",
     options: [
-      { value: "first-date", label: "Early Dating", description: "Make the first couple of dates count" },
+      { value: "first_date", label: "Early Dating", description: "Make the first couple of dates count" },
       { value: "dating", label: "Dating", description: "You know each other" },
-      { value: "established", label: "Established Couple", description: "Surprise them" },
+      { value: "couple", label: "Couple", description: "Surprise them" },
       { value: "friends", label: "Friends Night Out", description: "No rules" },
       { value: "solo", label: "Solo", description: "Just me" },
     ],

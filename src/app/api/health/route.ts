@@ -28,7 +28,7 @@ const GEMINI_TIMEOUT_MS = 8000;
 // should exercise the full stack of hard filters and produce a reliable
 // top venue every time.
 const SCORING_TEST_INPUT: QuestionnaireAnswers = {
-  occasion: "first-date",
+  occasion: "first_date",
   neighborhoods: ["west_village"],
   budget: "nice-out", // price_tier 2, the slug for the "$$ Nice Out" option
   vibe: "food-forward",

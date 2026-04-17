@@ -2,6 +2,7 @@ import {
   Venue,
   ScoredVenue,
   StopRole,
+  VenueRole,
   QuestionnaireAnswers,
   WeatherInfo,
 } from "@/types";
@@ -13,6 +14,30 @@ import { VIBE_VENUE_TAGS } from "@/config/vibes";
 // from getting drenched between stops.
 const MAX_WALK_KM_NORMAL = 1.5; // ~20 min walk
 const MAX_WALK_KM_BAD_WEATHER = 0.4; // ~5 min walk
+
+// ─── Role expansion ────────────────────────────────────────────────────
+// The DB stores the raw 6 venue roles from the sheet (opener, main,
+// closer, drinks, activity, coffee). The composition engine plans with
+// 3 canonical roles (opener → main → closer). This map translates:
+// a venue tagged "drinks" can serve as opener OR closer, etc.
+//
+// This is the ONE place where the mapping lives. The import script
+// stores whatever the curators wrote; scoring interprets it.
+const ROLE_EXPANSION: Record<VenueRole, readonly StopRole[]> = {
+  opener: ["opener"],
+  main: ["main"],
+  closer: ["closer"],
+  drinks: ["opener", "closer"],
+  activity: ["opener"],
+  coffee: ["opener"],
+};
+
+/** Check whether a venue can serve a given canonical composition role. */
+function venueMatchesRole(venue: Venue, role: StopRole): boolean {
+  return venue.stop_roles.some(
+    (vr) => (ROLE_EXPANSION[vr] ?? []).includes(role)
+  );
+}
 
 function getMaxWalkKm(weather: WeatherInfo | null): number {
   return weather?.is_bad_weather ? MAX_WALK_KM_BAD_WEATHER : MAX_WALK_KM_NORMAL;
@@ -84,14 +109,14 @@ function hardFilter(
   return venues.filter((v) => {
     if (!v.active) return false;
     if (exclude.has(v.id)) return false;
-    if (!v.stop_roles.includes(role)) return false;
+    if (!venueMatchesRole(v, role)) return false;
     if (
       answers.neighborhoods.length > 0 &&
       !answers.neighborhoods.includes(v.neighborhood)
     ) {
       return false;
     }
-    if (weather?.is_bad_weather && v.outdoor_seating) return false;
+    if (weather?.is_bad_weather && v.outdoor_seating === "yes") return false;
     return true;
   });
 }
@@ -105,8 +130,8 @@ function relaxedFilter(
   return venues.filter((v) => {
     if (!v.active) return false;
     if (exclude.has(v.id)) return false;
-    if (!v.stop_roles.includes(role)) return false;
-    if (weather?.is_bad_weather && v.outdoor_seating) return false;
+    if (!venueMatchesRole(v, role)) return false;
+    if (weather?.is_bad_weather && v.outdoor_seating === "yes") return false;
     return true;
   });
 }
@@ -153,11 +178,6 @@ export function pickBestForRole(
   }
 
   // 3. Progressive relaxation: drop neighborhood, KEEP proximity (hard).
-  // The walking cap applies even in the relaxed path — if nothing's within
-  // range of the anchor, we drop this stop rather than pair a cross-borough
-  // venue into the itinerary. Main is picked with anchor=null so it's never
-  // affected by this check; it can still find a venue anywhere when the
-  // user's neighborhoods are thin.
   if (candidates.length === 0) {
     candidates = relaxedFilter(venues, role, usedIds, weather);
     if (anchor && candidates.length > 0) {

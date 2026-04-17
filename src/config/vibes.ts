@@ -82,7 +82,7 @@ export const ALCOHOL_VIBE_TAGS: ReadonlySet<string> = new Set(
 // Any tag not in this set AND not in any vibe's `venueTags` array is a
 // non-canonical tag. The import script normalizes Reid's rich 81-tag
 // taxonomy down to the scored + cross-cutting canonical set; raw tags
-// stay preserved in `venues.raw_vibe_tags` for Phase 2.
+// The import script now writes canonical tags directly to `vibe_tags`.
 // ═══════════════════════════════════════════════════════════════════════
 export const CROSS_CUTTING_VIBE_TAGS = [
   "romantic",
@@ -93,6 +93,10 @@ export const CROSS_CUTTING_VIBE_TAGS = [
   "upscale",
   "outdoor",
   "classic",
+  "iykyk",
+  "lunch",
+  "cash_only",
+  "reliable",
 ] as const;
 
 export type CrossCuttingVibeTag = (typeof CROSS_CUTTING_VIBE_TAGS)[number];

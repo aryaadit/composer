@@ -19,6 +19,18 @@ export type Vibe = VibeSlug;
 export type StopRole = StopRoleSlug;
 export type Duration = DurationSlug;
 
+// The 6 values a venue can carry in its stop_roles column. The
+// composition engine plans with 3 canonical roles (opener / main /
+// closer); scoring.ts maps VenueRole → StopRole via ROLE_EXPANSION
+// so venues tagged "drinks" can serve as opener OR closer.
+export type VenueRole =
+  | "opener"
+  | "main"
+  | "closer"
+  | "drinks"
+  | "activity"
+  | "coffee";
+
 export type DrinksPref = "yes" | "sometimes" | "no";
 
 // Client-shaped preferences as collected by the onboarding flow. This is
@@ -79,84 +91,62 @@ export type GenerateRequestBody = Omit<
   "startTime" | "endTime"
 >;
 
-// Venue shape — mirrors the `composer_venues` Supabase table exactly.
-// See `supabase/migrations/20260413_venue_import_prep.sql` for the schema.
+// Venue shape — mirrors the `composer_venues` Supabase table (v2 schema).
+// See `supabase/migrations/20260419_venue_schema_v2.sql`.
 export interface Venue {
   id: string;
   name: string;
-
-  // Primary category (granular; 56 distinct values across imported data).
-  category: string;
-  // Coarse grouping surfaced from Reid's "Category 2" column — good for
-  // display badges ("Restaurant" / "Bar" / "Museum"). Nullable because
-  // older seed rows don't have it.
-  category_group: string | null;
-
   neighborhood: Neighborhood;
+  category: string;
+  price_tier: 1 | 2 | 3 | 4;
 
-  // Address is nullable because Reid's spreadsheet doesn't have a
-  // dedicated address column (street addresses lived in the internal
-  // notes column, which we don't import). Nothing in the app currently
-  // surfaces address, so null is acceptable.
+  // Tags (arrays). vibe_tags stores canonical scored + cross-cutting tags.
+  // occasion_tags uses the 5-slug snake_case taxonomy.
+  // stop_roles stores the raw 6 venue roles from the sheet.
+  vibe_tags: string[];
+  occasion_tags: Occasion[];
+  stop_roles: VenueRole[];
+
+  // Timing — hours (1, 2, 3), not minutes. Scoring falls back to
+  // ROLE_AVG_DURATION_MIN when null.
+  duration_hours: number | null;
+
+  // Tri-state text enum — 'yes' | 'no' | 'unknown'. Weather gate
+  // filters out 'yes' when conditions are bad.
+  outdoor_seating: "yes" | "no" | "unknown" | null;
+  reservation_difficulty: number | null; // 1..4
+
+  // URLs
+  reservation_url: string | null;
+  maps_url: string | null;
+
+  // Curation
+  curation_note: string;
+  awards: string | null; // single text, e.g. "Michelin Star"
+  curated_by: string | null; // 'reid' | 'adit' | 'community'
+  signature_order: string | null; // "Get the cacio e pepe"
+
+  // Location
   address: string | null;
-
   latitude: number;
   longitude: number;
 
-  // Canonical stop roles used by the composer (opener / main / closer).
-  stop_roles: StopRole[];
-  // Path-A preservation: Reid's spreadsheet also uses `drinks`, `activity`,
-  // and `coffee`. The import script maps those into `stop_roles` (e.g.
-  // drinks -> [opener, closer]), but the original string is preserved here
-  // for Phase 2 features that want the richer categorization.
-  raw_stop_role: string | null;
-
-  // Extended to 1-4 by the 20260413 migration. Tier 4 = $150+ / person.
-  price_tier: 1 | 2 | 3 | 4;
-
-  // Canonical vibe tags used by scoring. Normalized at import time from
-  // the rich free-text taxonomy in Reid's spreadsheet (see Bucket 2 of
-  // the tag-mapping audit).
-  vibe_tags: string[];
-  // Path-A preservation: Reid's original 81-tag-strong raw tag list
-  // (including free-text flavor descriptors like `iykyk`, `grown-up`,
-  // `pasta-forward`). Not used by scoring; reserved for future semantic
-  // matching / embeddings work.
-  raw_vibe_tags: string[];
-
-  occasion_tags: Occasion[];
-
-  // Tri-state: true, false, or null (unknown). Reid's data uses "unknown"
-  // for 187 / 496 venues; we treat unknown as null and let the weather
-  // filter skip the venue rather than assume false.
-  outdoor_seating: boolean | null;
-
-  reservation_url: string | null;
-  curation_note: string;
+  // Status
   active: boolean;
-  quality_score: number;
-  curation_boost: number;
-  best_before: string | null; // time like "21:00"
-  best_after: string | null;
+  notes: string | null; // internal notes, not surfaced in UI
+  hours: string | null; // free-text, e.g. "Mon-Fri 11am-11pm"
+  last_verified: string | null; // ISO date, e.g. "2026-04-11"
 
-  // ── Enrichment columns (added by 20260413 migration) ─────────────
-  duration_minutes: number | null;        // 60 / 120 / 180 typical
-  curated_by: string | null;              // 'reid' | 'adit' | 'community'
-  hours: string | null;                   // free-text, e.g. "Mon-Fri 11am-11pm"
-  last_verified: string | null;           // ISO date, e.g. "2026-04-11"
-  reservation_difficulty: number | null;  // 1..4
+  // Additional attributes
+  happy_hour: string | null;
   dog_friendly: boolean | null;
   kid_friendly: boolean | null;
-  wheelchair_accessible: string | null;   // 'yes' | 'no' | 'partial'
-  signature_order: string | null;         // "Get the cacio e pepe"
+  wheelchair_accessible: boolean | null;
   cash_only: boolean | null;
 
-  // ── StopCard enrichment (added by 20260414 migration) ─────────────
-  photo_url: string | null;
-  awards: string[] | null;                // slugs; see src/config/awards.ts
-  amex_dining: boolean | null;            // Amex Platinum Global Dining Access
-  chase_sapphire: boolean | null;         // Chase Sapphire Reserve Dining
-  dress_code: string | null;              // free-text, e.g. "Smart casual"
+  // Scoring — now imported from the sheet, not admin-only.
+  quality_score: number; // 1-10, default 7
+  curation_boost: number; // 0-2, default 0
 }
 
 export interface ScoredVenue extends Venue {
@@ -207,24 +197,13 @@ export interface ItineraryResponse {
   };
   stops: ItineraryStop[];
   walks: WalkSegment[];
-  // Summary walk stats. UI can surface a warning when any_over_cap is true
-  // or when longest_walk_min is meaningfully high. Added 2026-04-13 alongside
-  // the end-time buffer so the response has every honest time signal.
   walking: WalkingMeta;
-  // True when trailing stops were dropped because their arrival would land
-  // too close to the user's endTime (see LAST_START_BUFFER_MIN in the route).
   truncated_for_end_time: boolean;
   maps_url: string;
   inputs: QuestionnaireAnswers;
 }
 
-// Row shape of the `composer_saved_itineraries` table. The full
-// itinerary payload is split across `stops`, `walking`, `weather`
-// (jsonb) plus structured columns for the questionnaire inputs +
-// header copy so the home-screen list can render without unpacking
-// jsonb. `walks` and `maps_url` are NOT stored — they're recomputed
-// from stop coordinates when a saved row is rehydrated for the
-// detail view (see app/itinerary/[id]/page.tsx).
+// Row shape of the `composer_saved_itineraries` table.
 export interface SavedItinerary {
   id: string;
   user_id: string;

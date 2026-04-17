@@ -1,16 +1,13 @@
 // Canonical list of occasion tags.
 //
-// The taxonomy has six values (including `second-date`), even though the
-// questionnaire groups `first-date` and `second-date` into a single "First /
-// Second Date" card. That grouping is a UX decision made in `options.ts`; the
-// full six-value taxonomy is preserved here so `second-date` remains a valid
-// venue tag in the Supabase `composer_venues.occasion_tags` column.
+// Five values, snake_case, matching the venue sheet taxonomy. These are
+// the slugs stored in `composer_venues.occasion_tags` and matched by
+// `scoreVenue()` in `lib/scoring.ts`.
 
 export const OCCASIONS = [
-  { slug: "first-date", label: "First Date" },
-  { slug: "second-date", label: "Second Date" },
+  { slug: "first_date", label: "First Date" },
   { slug: "dating", label: "Dating" },
-  { slug: "established", label: "Established" },
+  { slug: "couple", label: "Couple" },
   { slug: "friends", label: "Friends Night" },
   { slug: "solo", label: "Solo" },
 ] as const;
