@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { motion } from "motion/react";
-import { TextMessageShare } from "@/components/itinerary/TextMessageShare";
 import { getBrowserSupabase } from "@/lib/supabase/browser";
 import { useAuth } from "@/components/providers/AuthProvider";
 import type { ItineraryResponse } from "@/types";
@@ -11,11 +10,6 @@ interface ActionBarProps {
   itinerary: ItineraryResponse;
   onRegenerate: () => void;
   isRegenerating: boolean;
-  /**
-   * When the bar is rendered for an already-persisted itinerary
-   * (e.g. /itinerary/[id]), seed the save button as "saved" so the
-   * user can't accidentally insert a duplicate row.
-   */
   initialSaved?: boolean;
 }
 
@@ -26,16 +20,14 @@ export function ActionBar({
   initialSaved = false,
 }: ActionBarProps) {
   const { user } = useAuth();
-  const [shareOpen, setShareOpen] = useState(false);
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">(
     initialSaved ? "saved" : "idle"
   );
+  const [shareState, setShareState] = useState<"idle" | "sharing" | "copied" | "error">("idle");
 
   const handleSave = async () => {
     if (saveState === "saving" || saveState === "saved") return;
     if (!user) {
-      // Shouldn't happen — routing gates the itinerary page behind a
-      // session — but degrade gracefully if it does.
       setSaveState("error");
       setTimeout(() => setSaveState("idle"), 2000);
       return;
@@ -66,10 +58,29 @@ export function ActionBar({
       setTimeout(() => setSaveState("idle"), 2500);
       return;
     }
-
     setSaveState("saved");
-    // Saved confirmation is the end of the interaction — no reset. The
-    // user can re-save by regenerating and saving the new plan.
+  };
+
+  const handleShare = async () => {
+    if (shareState === "sharing" || shareState === "copied") return;
+    setShareState("sharing");
+
+    try {
+      const res = await fetch("/api/share", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(itinerary),
+      });
+      if (!res.ok) throw new Error("share failed");
+      const { url } = (await res.json()) as { id: string; url: string };
+
+      await navigator.clipboard.writeText(url);
+      setShareState("copied");
+      setTimeout(() => setShareState("idle"), 3000);
+    } catch {
+      setShareState("error");
+      setTimeout(() => setShareState("idle"), 2500);
+    }
   };
 
   const saveLabel =
@@ -81,67 +92,69 @@ export function ActionBar({
       ? "Try again"
       : "Save";
 
+  const shareLabel =
+    shareState === "sharing"
+      ? "…"
+      : shareState === "copied"
+      ? "Link copied"
+      : shareState === "error"
+      ? "Try again"
+      : null; // null = show icon
+
   return (
-    <>
-      <motion.div
-        className="w-full max-w-lg mx-auto mt-10 pt-4 border-t border-border"
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4, delay: 0.5 }}
-      >
-        <div className="flex items-center justify-between font-sans text-sm">
-          {/* Left: Maps link */}
-          <a
-            href={itinerary.maps_url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-charcoal hover:text-burgundy transition-colors inline-flex items-center gap-1"
+    <motion.div
+      className="w-full max-w-lg mx-auto mt-10 pt-4 border-t border-border"
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4, delay: 0.5 }}
+    >
+      <div className="flex items-center justify-between font-sans text-sm">
+        {/* Left: Maps link */}
+        <a
+          href={itinerary.maps_url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-charcoal hover:text-burgundy transition-colors inline-flex items-center gap-1"
+        >
+          Open in Maps
+          <span aria-hidden className="text-muted">→</span>
+        </a>
+
+        {/* Right: Save · Regenerate · New Night · Share */}
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => void handleSave()}
+            disabled={saveState === "saving" || saveState === "saved"}
+            className="text-charcoal hover:text-burgundy transition-colors disabled:text-muted"
           >
-            Open in Maps
-            <span aria-hidden className="text-muted">→</span>
+            {saveLabel}
+          </button>
+          <span aria-hidden className="text-muted">·</span>
+          <button
+            onClick={onRegenerate}
+            disabled={isRegenerating}
+            className="text-charcoal hover:text-burgundy transition-colors disabled:opacity-50"
+          >
+            {isRegenerating ? "Regenerating…" : "Regenerate"}
+          </button>
+          <span aria-hidden className="text-muted">·</span>
+          <a
+            href="/compose"
+            className="text-charcoal hover:text-burgundy transition-colors"
+          >
+            New Night
           </a>
-
-          {/* Right: Save · Regenerate · New Night · Share */}
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => void handleSave()}
-              disabled={saveState === "saving" || saveState === "saved"}
-              className="text-charcoal hover:text-burgundy transition-colors disabled:text-muted"
-            >
-              {saveLabel}
-            </button>
-            <span aria-hidden className="text-muted">·</span>
-            <button
-              onClick={onRegenerate}
-              disabled={isRegenerating}
-              className="text-charcoal hover:text-burgundy transition-colors disabled:opacity-50"
-            >
-              {isRegenerating ? "Regenerating…" : "Regenerate"}
-            </button>
-            <span aria-hidden className="text-muted">·</span>
-            <a
-              href="/compose"
-              className="text-charcoal hover:text-burgundy transition-colors"
-            >
-              New Night
-            </a>
-            <button
-              onClick={() => setShareOpen(true)}
-              aria-label="Share"
-              className="text-charcoal hover:text-burgundy transition-colors ml-1"
-            >
-              <ShareIcon />
-            </button>
-          </div>
+          <button
+            onClick={() => void handleShare()}
+            disabled={shareState === "sharing"}
+            aria-label="Share"
+            className="text-charcoal hover:text-burgundy transition-colors ml-1"
+          >
+            {shareLabel ?? <ShareIcon />}
+          </button>
         </div>
-      </motion.div>
-
-      <TextMessageShare
-        itinerary={itinerary}
-        open={shareOpen}
-        onClose={() => setShareOpen(false)}
-      />
-    </>
+      </div>
+    </motion.div>
   );
 }
 
