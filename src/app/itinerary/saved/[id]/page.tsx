@@ -70,7 +70,7 @@ function toItineraryResponse(saved: SavedItinerary): ItineraryResponse {
     truncated_for_end_time: false,
     maps_url: buildGoogleMapsUrl(stops.map((s) => s.venue)),
     // `inputs` isn't read by CompositionHeader / ItineraryView, but
-    // TextMessageShare does pull `inputs.startTime` for the iMessage
+    // The share view reads `inputs.startTime` for time display, so
     // preview. Resolve duration → real start/end so any downstream
     // share affordance works without falling back to empty strings.
     inputs: (() => {

@@ -1,4 +1,13 @@
--- Composer: Venue schema and seed data
+-- ⚠️  OBSOLETE — this file predates the v2 schema migration (20260419).
+-- The live table is created by the migration and populated by the import
+-- script (scripts/import_venues.py). Do NOT run this file against a
+-- production or development database — it will create a table with the
+-- wrong columns and stale data.
+--
+-- Kept in the repo only for historical reference. The canonical setup
+-- path is: run all migrations → run import script against the xlsx.
+--
+-- Original: Composer v1 venue schema and seed data
 
 CREATE TABLE IF NOT EXISTS composer_venues (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,

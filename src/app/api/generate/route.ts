@@ -146,7 +146,7 @@ export async function POST(request: Request) {
     // and composition reason in minutes, so we normalize at the edge
     // and pass a full QuestionnaireAnswers through the rest of the
     // pipeline. Response.inputs echoes the resolved shape so the UI
-    // (e.g. TextMessageShare) can render real times.
+    // so downstream UI can render real times.
     const { startTime, endTime } = resolveTimeWindow(body.duration);
     const inputs: QuestionnaireAnswers = { ...body, startTime, endTime };
 

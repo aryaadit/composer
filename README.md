@@ -10,22 +10,21 @@ Live at [composer.onpalate.com](https://composer.onpalate.com).
 
 ## What it does
 
-A user answers a six-step questionnaire:
+A user answers a five-step questionnaire:
 
-1. **Occasion** — first date, second date, dating, established, friends, solo
-2. **Neighborhoods** — pick up to three from a curated set
-3. **Budget** — casual, nice_out, splurge, no preference
-4. **Vibe** — food_forward, drinks_led, activity + food, walk & explore, mix it up
-5. **Day** — today through next week
-6. **Time window** — start and end times via a wheel picker
+1. **Occasion** — early dating, dating, couple, friends night out, solo
+2. **Neighborhoods** — pick up to three from borough-grouped options
+3. **Budget** — casual, nice out, splurge, all out, no preference
+4. **Vibe** — food-forward, drinks-led, activity + food, walk & explore, mix it up
+5. **When** — day (today through next week + custom date picker) + duration (keep it short / enjoy the moment / open-ended)
 
-Composer returns a 2-to-4 stop evening, with the count driven by the time window:
+Composer returns a 2-to-4 stop evening, with the count driven by the duration:
 
-- **Under 2.5 hours** → 2 stops (Opener + Main)
-- **2.5 to 4.5 hours** → 3 stops (Opener + Main + Closer)
-- **Over 4.5 hours** → 4 stops (Opener + Main + Closer + Closer)
+- **Keep it short (2h)** → 2 stops (Opener + Main)
+- **Enjoy the moment (3.5h)** → 3 stops (Opener + Main + Closer)
+- **Open-ended (5h)** → 3-4 stops (Opener + Main + Closer + optional Closer)
 
-Each itinerary includes walk times between stops, reservation links where available, weather-aware filtering, Plan B alternatives on flexible stops, a Google Maps export, and a shareable iMessage-ready text.
+Each itinerary includes walk times between stops, reservation links where available, weather-aware filtering, Plan B alternatives on flexible stops, a Google Maps export, and a shareable link.
 
 ---
 

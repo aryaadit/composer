@@ -1,6 +1,6 @@
 // Shared date/time formatting helpers. Extracted because both
 // `config/prompts.ts` (Gemini prompt builder) and
-// `components/itinerary/TextMessageShare.tsx` (iMessage preview) need
+// `config/prompts.ts` (Gemini prompt) and share views both need
 // the same day-description and 12-hour formatting logic. Keeping them
 // in one place eliminates the drift risk.
 

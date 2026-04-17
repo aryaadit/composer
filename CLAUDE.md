@@ -85,32 +85,30 @@ supabase/
 ## Database Schema
 
 ```sql
-create table venues (
-  id uuid primary key default gen_random_uuid(),
-  name text not null,
-  neighborhood text not null,       -- hyphenated slug: west-village, williamsburg, etc.
-  category text not null,
-  price_tier int not null,          -- 1=$ 2=$$ 3=$$$ 4=$$$$
-  vibe_tags text[],                 -- canonical tags only (see Canonical Tags below)
-  occasion_tags text[],             -- first_date | dating | couple | friends | solo
-  stop_roles text[],                -- opener | main | closer
-  outdoor_seating boolean default false,
-  reservation_url text,             -- deep link to venue page on Resy/OpenTable
-  maps_url text,
-  curation_note text,               -- 1-2 sentence human-written note
-  curated_by text,                  -- reid | adit | community
-  latitude float,
-  longitude float,
-  active boolean default true,
-  created_at timestamptz default now()
-);
+-- See supabase/migrations/20260419_venue_schema_v2.sql for the full DDL.
+composer_venues (
+  id uuid primary key,
+  name text not null, neighborhood text not null, category text not null,
+  price_tier int check (1-4),
+  vibe_tags text[], occasion_tags text[], stop_roles text[],
+  duration_hours int, outdoor_seating text ('yes'/'no'/'unknown'),
+  reservation_difficulty int, reservation_url text, maps_url text,
+  curation_note text, awards text, curated_by text, signature_order text,
+  address text, latitude float not null, longitude float not null,
+  active boolean, notes text, hours text, last_verified date,
+  happy_hour text, dog_friendly boolean, kid_friendly boolean,
+  wheelchair_accessible boolean, cash_only boolean,
+  quality_score int default 7, curation_boost int default 0,
+  created_at timestamptz
+)
 ```
 
 ### Canonical Vibe Tags
 
-This is the locked tag contract. Do not add new tags without updating `scoring.ts` simultaneously.
+Tag lists are generated from the Google Sheet via `npm run generate-configs`.
+To add a tag: edit the sheet's Vibe Tags or Vibe Scoring Matrix tab, re-run the script.
 
-**Scored tags** (mapped to questionnaire vibe selections in `scoring.ts`):
+**Scored tags** (mapped to questionnaire vibe selections, 35% weight):
 
 | Tag | Maps to vibe |
 |-----|-------------|
@@ -120,7 +118,7 @@ This is the locked tag contract. Do not add new tags without updating `scoring.t
 | `walk`, `gallery`, `bookstore`, `market`, `park` | walk_explore |
 
 **Cross-cutting tags** (valid, not scored by vibe):
-`romantic`, `conversation_friendly`, `group_friendly`, `late_night`, `casual`, `upscale`, `outdoor`
+`romantic`, `conversation_friendly`, `group_friendly`, `late_night`, `casual`, `upscale`, `outdoor`, `classic`, `iykyk`, `lunch`, `cash_only`, `reliable`
 
 ### Neighborhood Slugs
 
@@ -248,13 +246,14 @@ Surface a weather note in the composition header only when conditions affected t
 
 ## Questionnaire Flow
 
-Defined in `config/options.ts`. Four steps, one per full-screen:
+Defined in `config/options.ts`. Five steps, each with an explicit "Next →" button:
 1. **Occasion** — first_date | dating | couple | friends | solo
-2. **Neighborhood** — one of the 7 neighborhood slugs
-3. **Budget** — price tier 1-4
+2. **Neighborhoods** — pick up to 3 from borough-grouped pills
+3. **Budget** — casual | nice_out | splurge | all_out | no_preference
 4. **Vibe** — food_forward | drinks_led | activity_food | walk_explore | mix_it_up
+5. **When** — day (7-day pills + custom date picker) + duration (keep it short / enjoy the moment / open-ended)
 
-Slide transitions between steps. Option cards, not dropdowns. Auto-advance is acceptable after selection if transition is smooth. Never auto-advance before the user has seen their selection register visually.
+No auto-advance — every step requires an explicit button tap to proceed. Occasion pre-fills from `profile.context` via `CONTEXT_TO_OCCASION`. Neighborhoods pre-fill from `profile.favorite_hoods`.
 
 ---
 
