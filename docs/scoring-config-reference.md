@@ -10,11 +10,11 @@ When a user picks a vibe in the questionnaire, the scorer checks each venue's `v
 
 | User picks this vibe | Scorer looks for these tags in `vibe_tags` |
 |---|---|
-| **food-forward** | `food_forward`, `tasting`, `dinner`, `bistro` |
-| **drinks-led** | `cocktail_forward`, `wine_bar`, `speakeasy`, `drinks` |
-| **activity-food** | `activity`, `comedy`, `karaoke`, `games`, `bowling` |
-| **walk-explore** | `walk`, `gallery`, `bookstore`, `market`, `park` |
-| **mix-it-up** | *(empty — no vibe filter, all venues score 25 base)* |
+| **food_forward** | `food_forward`, `tasting`, `dinner`, `bistro` |
+| **drinks_led** | `cocktail_forward`, `wine_bar`, `speakeasy`, `drinks` |
+| **activity_food** | `activity`, `comedy`, `karaoke`, `games`, `bowling` |
+| **walk_explore** | `walk`, `gallery`, `bookstore`, `market`, `park` |
+| **mix_it_up** | *(empty — no vibe filter, all venues score 25 base)* |
 
 **18 scored tags total.**
 
@@ -112,10 +112,10 @@ The user picks a budget in the questionnaire. The scorer checks whether the venu
 | Budget (user picks) | Matches `price_tier` |
 |---|---|
 | casual ($) | 1 |
-| nice-out ($$) | 2 |
+| nice_out ($$) | 2 |
 | splurge ($$$) | 3 |
-| all-out ($$$$) | 4 |
-| no-preference | 1, 2, 3, 4 |
+| all_out ($$$$) | 4 |
+| no_preference | 1, 2, 3, 4 |
 
 Scoring: if the venue's tier matches → +15 pts (15% of score).
 

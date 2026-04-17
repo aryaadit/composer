@@ -112,6 +112,15 @@ SET occasion = CASE occasion
 END
 WHERE occasion IS NOT NULL AND occasion LIKE '%-%';
 
+-- Migrate vibe + budget slugs from hyphenated to snake_case.
+UPDATE composer_saved_itineraries
+SET vibe = REPLACE(vibe, '-', '_')
+WHERE vibe IS NOT NULL AND vibe LIKE '%-%';
+
+UPDATE composer_saved_itineraries
+SET budget = REPLACE(budget, '-', '_')
+WHERE budget IS NOT NULL AND budget LIKE '%-%';
+
 -- Also fix any occasion_tags stored inside the stops jsonb snapshots.
 -- Each stop's venue has occasion_tags[]. Walk and rewrite.
 UPDATE composer_saved_itineraries

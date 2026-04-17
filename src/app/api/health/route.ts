@@ -24,14 +24,14 @@ export const dynamic = "force-dynamic";
 const GEMINI_TIMEOUT_MS = 8000;
 
 // Fixed test input for the scoring check. Chosen to be both common and
-// discriminating: first-date + West Village + nice-out + food-forward
+// discriminating: first_date + West Village + nice_out + food_forward
 // should exercise the full stack of hard filters and produce a reliable
 // top venue every time.
 const SCORING_TEST_INPUT: QuestionnaireAnswers = {
   occasion: "first_date",
   neighborhoods: ["west_village"],
-  budget: "nice-out", // price_tier 2, the slug for the "$$ Nice Out" option
-  vibe: "food-forward",
+  budget: "nice_out",
+  vibe: "food_forward",
   day: new Date().toISOString().split("T")[0],
   duration: "3.5h",
   startTime: "19:00",

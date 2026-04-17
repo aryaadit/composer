@@ -114,18 +114,18 @@ This is the locked tag contract. Do not add new tags without updating `scoring.t
 
 | Tag | Maps to vibe |
 |-----|-------------|
-| `food_forward`, `tasting`, `dinner`, `bistro` | food-forward |
-| `cocktail_forward`, `wine_bar`, `speakeasy`, `drinks` | drinks-led |
-| `activity`, `comedy`, `karaoke`, `games`, `bowling` | activity-food |
-| `walk`, `gallery`, `bookstore`, `market`, `park` | walk-explore |
+| `food_forward`, `tasting`, `dinner`, `bistro` | food_forward |
+| `cocktail_forward`, `wine_bar`, `speakeasy`, `drinks` | drinks_led |
+| `activity`, `comedy`, `karaoke`, `games`, `bowling` | activity_food |
+| `walk`, `gallery`, `bookstore`, `market`, `park` | walk_explore |
 
 **Cross-cutting tags** (valid, not scored by vibe):
 `romantic`, `conversation_friendly`, `group_friendly`, `late_night`, `casual`, `upscale`, `outdoor`
 
 ### Neighborhood Slugs
 
-Always hyphenated. Must match exactly between the database, `config/options.ts`, and the venue sheet:
-`west-village`, `east-village-les`, `soho-nolita`, `williamsburg`, `midtown`, `hells-kitchen`, `upper-west-side`
+Always snake_case. Must match exactly across the DB, `config/neighborhoods.ts`, and the venue sheet:
+`west_village`, `east_village_les`, `soho_nolita`, `williamsburg`, `midtown_hells_kitchen`, `upper_west_side`
 
 ### Auth Tables (20260415 migration)
 
@@ -193,11 +193,11 @@ Vibe match scoring in `lib/scoring.ts` uses **exact canonical tag matching** via
 
 ```typescript
 const VIBE_TAGS: Record<string, string[]> = {
-  "food-forward":  ["food_forward", "tasting", "dinner", "bistro"],
-  "drinks-led":    ["cocktail_forward", "wine_bar", "speakeasy", "drinks"],
-  "activity-food": ["activity", "comedy", "karaoke", "games", "bowling"],
-  "walk-explore":  ["walk", "gallery", "bookstore", "market", "park"],
-  "mix-it-up":     [],  // empty = no vibe filter, all venues score equally on this dimension
+  "food_forward":  ["food_forward", "tasting", "dinner", "bistro"],
+  "drinks_led":    ["cocktail_forward", "wine_bar", "speakeasy", "drinks"],
+  "activity_food": ["activity", "comedy", "karaoke", "games", "bowling"],
+  "walk_explore":  ["walk", "gallery", "bookstore", "market", "park"],
+  "mix_it_up":     [],  // empty = no vibe filter, all venues score equally on this dimension
 };
 ```
 
@@ -252,7 +252,7 @@ Defined in `config/options.ts`. Four steps, one per full-screen:
 1. **Occasion** — first_date | dating | couple | friends | solo
 2. **Neighborhood** — one of the 7 neighborhood slugs
 3. **Budget** — price tier 1-4
-4. **Vibe** — food-forward | drinks-led | activity-food | walk-explore | mix-it-up
+4. **Vibe** — food_forward | drinks_led | activity_food | walk_explore | mix_it_up
 
 Slide transitions between steps. Option cards, not dropdowns. Auto-advance is acceptable after selection if transition is smooth. Never auto-advance before the user has seen their selection register visually.
 
@@ -368,7 +368,7 @@ chore(venues): add 12 new West Village venues to seed
 
 - **Never edit venues directly in the DB.** All venue additions go through the Google Sheet → CSV → import pipeline to maintain a single source of truth.
 - Tag changes require updating both the venue record AND verifying `scoring.ts` still handles the tag correctly.
-- Neighborhood slugs are always hyphenated. If you see underscores in the DB, that's a bug.
+- Neighborhood slugs are always snake_case. All taxonomy slugs (neighborhoods, vibes, occasions, budgets) use snake_case to match the Google Sheet.
 - `active = false` hides a venue from scoring. Use this instead of deleting records.
 - The `notes` column in the Google Sheet is internal only — it is never imported to Supabase.
 

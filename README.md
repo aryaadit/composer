@@ -14,8 +14,8 @@ A user answers a six-step questionnaire:
 
 1. **Occasion** — first date, second date, dating, established, friends, solo
 2. **Neighborhoods** — pick up to three from a curated set
-3. **Budget** — casual, nice-out, splurge, no preference
-4. **Vibe** — food-forward, drinks-led, activity + food, walk & explore, mix it up
+3. **Budget** — casual, nice_out, splurge, no preference
+4. **Vibe** — food_forward, drinks_led, activity + food, walk & explore, mix it up
 5. **Day** — today through next week
 6. **Time window** — start and end times via a wheel picker
 
@@ -323,7 +323,7 @@ Response shape:
     "supabase": { "ok": true, "active_venue_count": 495 },
     "scoring":  {
       "ok": true,
-      "input": { "occasion": "first-date", "neighborhoods": ["west_village"], "budget": "nice-out", "vibe": "food-forward", "day": "2026-04-13", "startTime": "18:00", "endTime": "22:00" },
+      "input": { "occasion": "first-date", "neighborhoods": ["west_village"], "budget": "nice_out", "vibe": "food_forward", "day": "2026-04-13", "startTime": "18:00", "endTime": "22:00" },
       "hard_filtered": 37,
       "scored": 37,
       "top3": [
@@ -340,7 +340,7 @@ Response shape:
 What each check does:
 
 1. **Supabase** — counts active rows in `composer_venues`. Fails loud if the DB is unreachable or empty.
-2. **Scoring** — runs the real scorer against a fixed test input (first-date · West Village · nice-out · food-forward · 6pm–10pm) with jitter disabled for determinism. Reports how many venues cleared the hard filter, how many scored, and the top three with their scores. Catches silent regressions in the scoring pipeline that unit tests wouldn't notice.
+2. **Scoring** — runs the real scorer against a fixed test input (first-date · West Village · nice_out · food_forward · 6pm–10pm) with jitter disabled for determinism. Reports how many venues cleared the hard filter, how many scored, and the top three with their scores. Catches silent regressions in the scoring pipeline that unit tests wouldn't notice.
 3. **Gemini** — sends a minimal "Reply with the word OK" prompt to `gemini-2.5-flash` with thinking disabled and an 8-second timeout. Reports round-trip latency and the first 40 chars of the response.
 
 The endpoint always returns HTTP 200 — inspect the top-level `ok` plus per-check flags. It never returns secrets, env vars, or full error stacks; only counts, names, scores, latency, and short error messages. Read-only: no writes, no weather call, no copy generation.

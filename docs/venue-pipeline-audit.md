@@ -80,7 +80,7 @@ For reference — how venue fields map to the weighted scoring algorithm in `lib
 
 | Factor | Weight | Field(s) Used | Logic |
 |---|---|---|---|
-| Vibe match | 35% | `vibe_tags` | Set intersection with selected vibe's canonical tags. 2+ hits = 35, 1 hit = 25, 0 hits = 10. "mix-it-up" gives 25 base. |
+| Vibe match | 35% | `vibe_tags` | Set intersection with selected vibe's canonical tags. 2+ hits = 35, 1 hit = 25, 0 hits = 10. "mix_it_up" gives 25 base. |
 | Occasion fit | 15% | `occasion_tags` | `venue.occasion_tags.includes(answers.occasion)` — exact match |
 | Budget fit | 15% | `price_tier` | `BUDGET_TIER_MAP[answers.budget].includes(venue.price_tier)` |
 | Location | 10% | `neighborhood` | Venue is in one of the user's selected neighborhoods (or neighborhoods is empty = all match) |
