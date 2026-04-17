@@ -1,0 +1,31 @@
+// AUTO-GENERATED — DO NOT EDIT
+// Source: docs/composer_venue_sheet_curated.xlsx
+// Generated: 2026-04-17T05:24:55.483414+00:00
+
+export interface BudgetTier {
+  label: string;
+  tiers: number[];
+}
+
+export const BUDGET_TIERS: Record<string, BudgetTier> = {
+  casual: {
+    label: "Casual ($)",
+    tiers: [1],
+  },
+  nice_out: {
+    label: "Nice Out ($$)",
+    tiers: [2],
+  },
+  splurge: {
+    label: "Splurge ($$$)",
+    tiers: [3],
+  },
+  all_out: {
+    label: "All Out ($$$$)",
+    tiers: [4],
+  },
+  no_preference: {
+    label: "No Preference",
+    tiers: [1, 2, 3, 4],
+  },
+};

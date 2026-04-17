@@ -1,18 +1,23 @@
-// Canonical list of occasion tags.
-//
-// Five values, snake_case, matching the venue sheet taxonomy. These are
-// the slugs stored in `composer_venues.occasion_tags` and matched by
-// `scoreVenue()` in `lib/scoring.ts`.
+// Canonical list of occasion tags — generated from the sheet's
+// "Occasion Tags" tab. Run `python3 scripts/generate-configs.py`
+// to regenerate after editing the sheet.
 
-export const OCCASIONS = [
-  { slug: "first_date", label: "First Date" },
-  { slug: "dating", label: "Dating" },
-  { slug: "couple", label: "Couple" },
-  { slug: "friends", label: "Friends Night" },
-  { slug: "solo", label: "Solo" },
-] as const;
+import { OCCASIONS as GEN_OCCASIONS } from "./generated/occasions";
 
-export type OccasionSlug = (typeof OCCASIONS)[number]["slug"];
+export type OccasionSlug = (typeof GEN_OCCASIONS)[number];
+
+// Build label by converting slug: first_date → "First Date"
+function slugToLabel(slug: string): string {
+  return slug
+    .split("_")
+    .map((w) => w[0].toUpperCase() + w.slice(1))
+    .join(" ");
+}
+
+export const OCCASIONS = GEN_OCCASIONS.map((slug) => ({
+  slug,
+  label: slugToLabel(slug),
+}));
 
 export const OCCASION_LABELS: Record<OccasionSlug, string> = Object.fromEntries(
   OCCASIONS.map((o) => [o.slug, o.label])

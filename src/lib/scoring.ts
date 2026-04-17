@@ -16,21 +16,12 @@ const MAX_WALK_KM_NORMAL = 1.5; // ~20 min walk
 const MAX_WALK_KM_BAD_WEATHER = 0.4; // ~5 min walk
 
 // ─── Role expansion ────────────────────────────────────────────────────
-// The DB stores the raw 6 venue roles from the sheet (opener, main,
-// closer, drinks, activity, coffee). The composition engine plans with
-// 3 canonical roles (opener → main → closer). This map translates:
-// a venue tagged "drinks" can serve as opener OR closer, etc.
-//
-// This is the ONE place where the mapping lives. The import script
-// stores whatever the curators wrote; scoring interprets it.
-const ROLE_EXPANSION: Record<VenueRole, readonly StopRole[]> = {
-  opener: ["opener"],
-  main: ["main"],
-  closer: ["closer"],
-  drinks: ["opener", "closer"],
-  activity: ["opener"],
-  coffee: ["opener"],
-};
+// Generated from the Stop Roles sheet. Maps the 6 raw venue roles to
+// the 3 canonical composition roles (opener/main/closer). The sheet's
+// "Serves As" column is the source of truth.
+import { ROLE_EXPANSION as GEN_ROLE_EXPANSION } from "@/config/generated/stop-roles";
+
+const ROLE_EXPANSION = GEN_ROLE_EXPANSION as Record<VenueRole, readonly StopRole[]>;
 
 /** Check whether a venue can serve a given canonical composition role. */
 function venueMatchesRole(venue: Venue, role: StopRole): boolean {

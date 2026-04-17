@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "generate-configs": "python3 scripts/generate-configs.py"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
