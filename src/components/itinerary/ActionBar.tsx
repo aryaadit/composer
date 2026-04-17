@@ -147,10 +147,10 @@ export function ActionBar({
           <button
             onClick={() => void handleShare()}
             disabled={shareState === "sharing"}
-            aria-label="Share"
-            className="text-charcoal hover:text-burgundy transition-colors ml-1"
+            className="text-charcoal hover:text-burgundy transition-colors ml-1 inline-flex items-center gap-1"
           >
-            {shareLabel ?? <ShareIcon />}
+            <ShareIcon />
+            <span>{shareLabel ?? "Share"}</span>
           </button>
         </div>
       </div>
