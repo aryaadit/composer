@@ -105,6 +105,24 @@ function VenueCard({
   expanded: boolean;
   onToggle: () => void;
 }) {
+  const [syncState, setSyncState] = useState<"idle" | "syncing" | "done" | "error">("idle");
+
+  const handleSync = async () => {
+    setSyncState("syncing");
+    try {
+      const res = await fetch("/api/admin/sync-venues", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ venue_id: venue.venue_id }),
+      });
+      if (!res.ok) throw new Error("sync failed");
+      setSyncState("done");
+      setTimeout(() => setSyncState("idle"), 3000);
+    } catch {
+      setSyncState("error");
+      setTimeout(() => setSyncState("idle"), 3000);
+    }
+  };
   const fields: [string, string][] = [
     ["Neighborhood", venue.neighborhood],
     ["Category", venue.category],
@@ -125,8 +143,24 @@ function VenueCard({
 
   return (
     <div className="border border-border rounded-md p-3">
-      <div className="font-sans text-sm font-medium text-charcoal mb-2">
-        {venue.name}
+      <div className="flex items-center justify-between mb-2">
+        <div className="font-sans text-sm font-medium text-charcoal">
+          {venue.name}
+        </div>
+        <button
+          type="button"
+          onClick={() => void handleSync()}
+          disabled={syncState === "syncing"}
+          className="font-mono text-xs text-muted hover:text-charcoal transition-colors disabled:cursor-wait"
+        >
+          {syncState === "syncing"
+            ? "syncing…"
+            : syncState === "done"
+            ? "synced ✓"
+            : syncState === "error"
+            ? "failed ✗"
+            : "sync →"}
+        </button>
       </div>
       <div className="font-mono text-xs text-muted space-y-0.5">
         {fields.map(([label, value]) => (

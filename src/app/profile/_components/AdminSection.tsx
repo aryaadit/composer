@@ -11,6 +11,12 @@ import Link from "next/link";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { VenueLookup } from "./VenueLookup";
 
+type SyncState =
+  | { status: "idle" }
+  | { status: "syncing" }
+  | { status: "done"; message: string }
+  | { status: "error"; message: string };
+
 // Shape the /api/health report is expected to match. Kept as a
 // structural type rather than imported from the route so we stay
 // tolerant to additive changes in the API — we just read the bits we
@@ -50,10 +56,34 @@ function summarize(report: HealthReport): HealthSummary {
 export function AdminSection() {
   const { isAdmin } = useAuth();
   const [health, setHealth] = useState<HealthState>({ status: "idle" });
+  const [sync, setSync] = useState<SyncState>({ status: "idle" });
 
   // Hooks-before-return rule: useState is declared unconditionally
   // above; the admin check only gates rendering.
   if (!isAdmin) return null;
+
+  const runSync = async () => {
+    setSync({ status: "syncing" });
+    try {
+      const res = await fetch("/api/admin/sync-venues", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: "{}",
+      });
+      const json = (await res.json()) as Record<string, unknown>;
+      if (!res.ok) {
+        setSync({ status: "error", message: (json.error as string) ?? "Sync failed" });
+        return;
+      }
+      setSync({ status: "done", message: `Synced ${json.synced} venues` });
+      setTimeout(() => setSync({ status: "idle" }), 5000);
+    } catch (err) {
+      setSync({
+        status: "error",
+        message: err instanceof Error ? err.message : "Request failed",
+      });
+    }
+  };
 
   const runHealthCheck = async () => {
     setHealth({ status: "loading" });
@@ -111,6 +141,23 @@ export function AdminSection() {
             {health.message}
           </pre>
         )}
+
+        <div className="mt-3 flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => void runSync()}
+            disabled={sync.status === "syncing"}
+            className="font-sans text-xs text-muted hover:text-charcoal transition-colors disabled:cursor-wait"
+          >
+            {sync.status === "syncing" ? "Syncing…" : "Sync all venues →"}
+          </button>
+          {sync.status === "done" && (
+            <span className="font-sans text-xs text-[#059669]">{sync.message}</span>
+          )}
+          {sync.status === "error" && (
+            <span className="font-sans text-xs text-burgundy">{sync.message}</span>
+          )}
+        </div>
 
         <VenueLookup />
       </div>
