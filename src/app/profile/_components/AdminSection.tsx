@@ -9,6 +9,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useAuth } from "@/components/providers/AuthProvider";
+import { VenueLookup } from "./VenueLookup";
 
 // Shape the /api/health report is expected to match. Kept as a
 // structural type rather than imported from the route so we stay
@@ -110,6 +111,8 @@ export function AdminSection() {
             {health.message}
           </pre>
         )}
+
+        <VenueLookup />
       </div>
     </section>
   );

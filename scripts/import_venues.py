@@ -140,6 +140,23 @@ def parse_float(raw: str) -> Optional[float]:
     except (ValueError, TypeError):
         return None
 
+def parse_date(raw: str) -> Optional[str]:
+    """Parse a date value — handles both ISO strings and Excel serial numbers."""
+    s = (raw or "").strip()
+    if not s:
+        return None
+    # Already an ISO date string (YYYY-MM-DD)?
+    if re.fullmatch(r"\d{4}-\d{2}-\d{2}", s):
+        return s
+    # Excel serial number (days since 1899-12-30)?
+    try:
+        from datetime import datetime, timedelta
+        serial = float(s)
+        dt = datetime(1899, 12, 30) + timedelta(days=serial)
+        return dt.strftime("%Y-%m-%d")
+    except (ValueError, TypeError):
+        return None
+
 def trim(raw: str) -> str:
     return (raw or "").strip()
 
@@ -199,7 +216,7 @@ def process_venue(
         "active": parse_bool(raw.get("active", "")) if raw.get("active", "").strip() else True,
         "notes": trim(raw.get("notes", "")) or None,
         "hours": trim(raw.get("hours", "")) or None,
-        "last_verified": trim(raw.get("last_verified", "")) or None,
+        "last_verified": parse_date(raw.get("last_verified", "")),
         "happy_hour": trim(raw.get("happy_hour", "")) or None,
         "dog_friendly": parse_bool(raw.get("dog_friendly", "")),
         "kid_friendly": parse_bool(raw.get("kid_friendly", "")),
