@@ -33,7 +33,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Failed to share" }, { status: 500 });
     }
 
-    const origin = request.headers.get("origin") ?? "https://composer.onpalate.com";
+    // Always use the production domain for share links — preview deploy
+    // URLs are behind Vercel auth and won't work for recipients.
+    const PROD_ORIGIN = "https://composer.onpalate.com";
+    const rawOrigin = request.headers.get("origin") ?? "";
+    const isPreview =
+      !rawOrigin ||
+      (rawOrigin.includes("aryaadits-projects") && rawOrigin.includes("vercel.app")) ||
+      rawOrigin.includes("composer-git-") ||
+      rawOrigin.includes("localhost");
+    const origin = isPreview ? PROD_ORIGIN : rawOrigin;
     return NextResponse.json({
       id: data.id,
       url: `${origin}/itinerary/share/${data.id}`,
