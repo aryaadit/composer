@@ -10,6 +10,8 @@ import type {
 } from "@/types";
 import { decodeParamsToInputs } from "@/lib/sharing";
 import { STORAGE_KEYS } from "@/config/storage";
+import { getRecentVenueIds } from "@/lib/exclusions";
+import { useAuth } from "@/components/providers/AuthProvider";
 import { useSwapStop } from "@/hooks/useSwapStop";
 import { CompositionHeader } from "@/components/itinerary/CompositionHeader";
 import { ItineraryView } from "@/components/itinerary/ItineraryView";
@@ -27,6 +29,7 @@ function persist(it: ItineraryResponse) {
 
 function ItineraryContent() {
   const searchParams = useSearchParams();
+  const { user } = useAuth();
   const [itinerary, setItinerary] = useState<ItineraryResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -43,15 +46,18 @@ function ItineraryContent() {
     updateItinerary
   );
 
-  const fetchItinerary = useCallback(async (inputs: GenerateRequestBody) => {
-    const res = await fetch("/api/generate", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(inputs),
-    });
-    if (!res.ok) throw new Error("Generation failed");
-    return (await res.json()) as ItineraryResponse;
-  }, []);
+  const fetchItinerary = useCallback(
+    async (inputs: GenerateRequestBody, excludeVenueIds: string[] = []) => {
+      const res = await fetch("/api/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...inputs, excludeVenueIds }),
+      });
+      if (!res.ok) throw new Error("Generation failed");
+      return (await res.json()) as ItineraryResponse;
+    },
+    []
+  );
 
   useEffect(() => {
     async function load() {
@@ -87,7 +93,16 @@ function ItineraryContent() {
     setRegenerating(true);
     setRegenError(false);
     try {
-      const data = await fetchItinerary(itinerary.inputs);
+      // Exclude venues from saved plans + the current plan's venues so
+      // Regenerate can't return the plan the user is looking at.
+      const recentIds = user?.id
+        ? await getRecentVenueIds(user.id)
+        : [];
+      const currentIds = itinerary.stops.map((s) => s.venue.id);
+      const excludeVenueIds = Array.from(
+        new Set([...recentIds, ...currentIds])
+      );
+      const data = await fetchItinerary(itinerary.inputs, excludeVenueIds);
       updateItinerary(data);
     } catch {
       setRegenError(true);

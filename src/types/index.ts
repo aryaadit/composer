@@ -89,7 +89,9 @@ export interface QuestionnaireAnswers {
 export type GenerateRequestBody = Omit<
   QuestionnaireAnswers,
   "startTime" | "endTime"
->;
+> & {
+  excludeVenueIds?: string[];
+};
 
 // Venue shape — mirrors the `composer_venues` Supabase table (v2 schema).
 // See `supabase/migrations/20260419_venue_schema_v2.sql`.

@@ -22,6 +22,7 @@ import {
   slideVariants,
 } from "@/lib/questionnaireReducer";
 import { STORAGE_KEYS } from "@/config/storage";
+import { getRecentVenueIds } from "@/lib/exclusions";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { Header } from "@/components/Header";
 import { ProgressBar } from "@/components/ui/ProgressBar";
@@ -39,7 +40,7 @@ export function QuestionnaireShell() {
   // context. Runs once on mount (guarded by a ref) and only when the
   // user hasn't already picked an occasion manually — the `!occasion`
   // check respects back-nav and prior in-flight choices.
-  const { profile } = useAuth();
+  const { user, profile } = useAuth();
   const prefilledOccasionRef = useRef(false);
   useEffect(() => {
     if (prefilledOccasionRef.current) return;
@@ -63,35 +64,35 @@ export function QuestionnaireShell() {
   }, [profile, state.answers.occasion]);
 
   const submitAnswers = useCallback(
-    (body: GenerateRequestBody) => {
+    async (body: GenerateRequestBody) => {
       dispatch({ type: "SET_LOADING" });
       sessionStorage.setItem(
         STORAGE_KEYS.session.questionnaireInputs,
         JSON.stringify(body)
       );
 
-      // Auth-derived prefs (name, drinks, etc.) are read server-side from
-      // the session cookie. Time window (startTime/endTime) is resolved
-      // server-side from `duration`. Client sends day + duration, not
-      // concrete times.
-      fetch("/api/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      })
-        .then((res) => {
-          if (!res.ok) throw new Error("Generation failed");
-          return res.json();
-        })
-        .then((data) => {
-          sessionStorage.setItem(STORAGE_KEYS.session.currentItinerary, JSON.stringify(data));
-          router.push("/itinerary");
-        })
-        .catch(() => {
-          router.push("/itinerary");
+      const excludeVenueIds = user?.id
+        ? await getRecentVenueIds(user.id)
+        : [];
+
+      try {
+        const res = await fetch("/api/generate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ...body, excludeVenueIds }),
         });
+        if (!res.ok) throw new Error("Generation failed");
+        const data = await res.json();
+        sessionStorage.setItem(
+          STORAGE_KEYS.session.currentItinerary,
+          JSON.stringify(data)
+        );
+        router.push("/itinerary");
+      } catch {
+        router.push("/itinerary");
+      }
     },
-    [router]
+    [router, user?.id]
   );
 
   // Card selection only updates state — no auto-advance. Every step
