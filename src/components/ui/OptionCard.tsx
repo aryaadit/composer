@@ -22,7 +22,7 @@ export function OptionCard({
       onClick={onClick}
       className={`w-full text-left rounded-md px-4 py-3 border transition-all ${
         selected
-          ? "border-border bg-burgundy-tint shadow-[inset_3px_0_0_var(--color-burgundy)]"
+          ? "border-burgundy bg-burgundy-tint shadow-[inset_3px_0_0_var(--color-burgundy)]"
           : "border-border bg-cream hover:border-charcoal/30"
       }`}
       initial={{ opacity: 0, y: 8 }}

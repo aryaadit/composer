@@ -7,9 +7,9 @@
 // Main is the geographic anchor and the rest fan out from it.
 
 export const STOP_ROLES = [
-  { slug: "opener", label: "Opener" },
-  { slug: "main", label: "Main" },
-  { slug: "closer", label: "Closer" },
+  { slug: "opener", label: "Start here" },
+  { slug: "main", label: "The main event" },
+  { slug: "closer", label: "Nightcap" },
 ] as const;
 
 export type StopRoleSlug = (typeof STOP_ROLES)[number]["slug"];

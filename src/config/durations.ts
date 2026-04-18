@@ -10,9 +10,9 @@
 // resolver both update automatically.
 
 export const DURATIONS = [
-  { id: "2h", label: "Keep it short", minutes: 120 },
-  { id: "3.5h", label: "Enjoy the moment", minutes: 210 },
-  { id: "5h", label: "Open-ended", minutes: 300 },
+  { id: "2h", label: "Keep it short (~2 hrs)", minutes: 120 },
+  { id: "3.5h", label: "Enjoy the moment (~3\u20134 hrs)", minutes: 210 },
+  { id: "5h", label: "Open-ended (no rush)", minutes: 300 },
 ] as const;
 
 export type DurationSlug = (typeof DURATIONS)[number]["id"];
