@@ -142,11 +142,15 @@ export async function POST(request: Request) {
   try {
     const body = (await request.json()) as GenerateRequestBody;
 
+    const excludeVenueIds = Array.isArray(body.excludeVenueIds)
+      ? body.excludeVenueIds.filter((id): id is string => typeof id === "string")
+      : [];
+
     // Resolve duration → concrete startTime/endTime. Downstream scoring
     // and composition reason in minutes, so we normalize at the edge
     // and pass a full QuestionnaireAnswers through the rest of the
     // pipeline. Response.inputs echoes the resolved shape so the UI
-    // so downstream UI can render real times.
+    // can render real times.
     const { startTime, endTime } = resolveTimeWindow(body.duration);
     const inputs: QuestionnaireAnswers = { ...body, startTime, endTime };
 
@@ -163,7 +167,20 @@ export async function POST(request: Request) {
       );
     }
 
+    const MIN_POOL_SIZE = 4;
     let venues = venueResult.data as Venue[];
+
+    if (excludeVenueIds.length > 0) {
+      const excludeSet = new Set(excludeVenueIds);
+      const filtered = venues.filter((v) => !excludeSet.has(v.id));
+      if (filtered.length >= MIN_POOL_SIZE) {
+        venues = filtered;
+      } else {
+        console.warn(
+          `[generate] exclusion would collapse pool to ${filtered.length} venues (min ${MIN_POOL_SIZE}), falling back to unfiltered pool`
+        );
+      }
+    }
 
     if (venues.length === 0) {
       return NextResponse.json(
