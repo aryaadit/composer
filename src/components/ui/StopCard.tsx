@@ -6,6 +6,7 @@ import { ROLE_LABELS } from "@/config/roles";
 import { neighborhoodLabel } from "@/config/neighborhoods";
 import { formatCategory } from "@/lib/format/category";
 import { StopStatusBadge } from "@/components/ui/StopStatusBadge";
+import { BookingSlots } from "@/components/ui/BookingSlots";
 import { detectBookingPlatform } from "@/lib/booking";
 
 const BOOK_AHEAD_THRESHOLD = 3;
@@ -117,6 +118,10 @@ export function StopCard({
 
           {swapError && (
             <p className="font-sans text-xs text-muted mt-3">{swapError}</p>
+          )}
+
+          {bookingPlatform && activeVenue.reservation_url && (
+            <BookingSlots venueId={activeVenue.id} />
           )}
         </>
       )}
