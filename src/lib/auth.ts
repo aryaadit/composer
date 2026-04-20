@@ -8,9 +8,9 @@
 // so if the provider ever changes the blast radius stays in one file.
 //
 // ─── Supabase project settings required ────────────────────────────────
-// Authentication → Providers → Email: Enable "Email provider".
-// Authentication → Providers → Email: Disable "Confirm email" so signup
-//   returns a session immediately instead of requiring a click-through.
+// Authentication → Providers → Phone: Enable with Twilio credentials.
+// Authentication → Providers → Email: Keep enabled for "add email later"
+//   and password reset flows.
 // Authentication → URL Configuration → Site URL: https://composer.onpalate.com
 // Authentication → URL Configuration → Redirect URLs: https://composer.onpalate.com/**
 //   (plus http://localhost:3000/** and https://*.vercel.app/** for previews)
@@ -91,11 +91,59 @@ export async function signOut(): Promise<void> {
   await getBrowserSupabase().auth.signOut();
 }
 
+// ─── Phone OTP ──────────────────────────────────────────────────────────
+
 interface AuthActionResult {
   ok: boolean;
   user?: User;
   error?: string;
 }
+
+/**
+ * Send an SMS OTP to the given phone number. Phone must be E.164
+ * format (e.g. "+12125551234"). Supabase + Twilio handle delivery.
+ */
+export async function sendPhoneOtp(
+  phone: string
+): Promise<{ ok: boolean; error?: string }> {
+  const { error } = await getBrowserSupabase().auth.signInWithOtp({ phone });
+  if (error) return { ok: false, error: error.message };
+  return { ok: true };
+}
+
+/**
+ * Verify the 6-digit SMS code. On success a session is created —
+ * new users get an `auth.users` row automatically, returning users
+ * get their existing session refreshed.
+ */
+export async function verifyPhoneOtp(
+  phone: string,
+  token: string
+): Promise<AuthActionResult> {
+  const { data, error } = await getBrowserSupabase().auth.verifyOtp({
+    phone,
+    token,
+    type: "sms",
+  });
+  if (error) return { ok: false, error: error.message };
+  if (!data.user) return { ok: false, error: "Verification returned no user." };
+  return { ok: true, user: data.user };
+}
+
+/**
+ * Attach an email address to the current session. Triggers a
+ * verification email from Supabase. Used on the profile page for
+ * users who signed up with phone and want to add email later.
+ */
+export async function addEmailToAccount(
+  email: string
+): Promise<{ ok: boolean; error?: string }> {
+  const { error } = await getBrowserSupabase().auth.updateUser({ email });
+  if (error) return { ok: false, error: error.message };
+  return { ok: true };
+}
+
+// ─── Email/password (legacy, kept for password reset) ───────────────────
 
 /**
  * Attempt sign-in first, fall back to sign-up if the credentials look

@@ -12,6 +12,7 @@ import { useAuth } from "@/components/providers/AuthProvider";
 import { Header } from "@/components/Header";
 import { ProfileHeader } from "./_components/ProfileHeader";
 import { AccountDetails } from "./_components/AccountDetails";
+import { AddEmailSection } from "./_components/AddEmailSection";
 import { SavedPlansList } from "./_components/SavedPlansList";
 import { AdminSection } from "./_components/AdminSection";
 
@@ -41,7 +42,8 @@ export default function ProfilePage() {
 
         <ProfileHeader
           name={profile.name}
-          email={user.email ?? ""}
+          email={user.email ?? null}
+          phone={user.phone ?? null}
           onSignOut={signOut}
         />
         <AccountDetails
@@ -49,6 +51,7 @@ export default function ProfilePage() {
           userId={user.id}
           refreshProfile={refreshProfile}
         />
+        <AddEmailSection currentEmail={user.email ?? null} />
         <SavedPlansList userId={user.id} />
         <AdminSection />
       </div>

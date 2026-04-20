@@ -8,7 +8,7 @@ The product is built on a **hybrid curation model**: the venue database is human
 
 **Primary target: Mobile-responsive web.** Website first at onpalate.com/composer. iOS via Capacitor is Phase 2. Every UI decision should work on a phone screen first.
 
-**Auth: Supabase email/password.** Users sign in or sign up on a single combined entry screen (`AuthScreen`) with email + password — the form tries `signInWithPassword` first and falls back to `signUp` on an "invalid / not found" error, so there's no explicit sign-in/sign-up toggle. Forgot-password flow uses `resetPasswordForEmail` with a redirect to `/auth/reset`. No OAuth providers. Profile and saved itineraries live in Supabase tables with RLS (`composer_users`, `composer_saved_itineraries`). The one exception to "no client persistence" is the page-to-page sessionStorage bridge between `/compose` and `/itinerary` — that's in-tab flight state, not user state.
+**Auth: Supabase phone OTP (SMS via Twilio).** Users enter their phone number, receive a 6-digit SMS code, and verify to sign in or sign up — no password needed. The `AuthScreen` has two views: phone entry and code verification (auto-submits on last digit). First-time users (no `composer_users` row) are routed to `/onboarding`; returning users land on home. Email/password functions are retained in `lib/auth.ts` for the forgot-password flow (users who add email later via the profile page). No OAuth providers. Profile and saved itineraries live in Supabase tables with RLS (`composer_users`, `composer_saved_itineraries`). The one exception to "no client persistence" is the page-to-page sessionStorage bridge between `/compose` and `/itinerary` — that's in-tab flight state, not user state.
 
 ---
 
@@ -419,7 +419,7 @@ No import needed — the generated configs are committed to git and take effect 
 - Don't use `any` types or `ts-ignore`.
 - Don't add new neighborhood slugs without updating `config/options.ts`, the venue sheet Reference tab, and the DB validation simultaneously.
 - Don't use `localStorage` for user state. Profile and saved plans live in Supabase. `sessionStorage` is acceptable only for page-to-page in-tab flight state.
-- Don't add OAuth providers. The auth model is email/password only.
+- Don't add OAuth providers. The auth model is phone OTP only (with optional email-add).
 - Don't add features that aren't in the PRD without flagging them first. Scope creep kills MVPs.
 - Don't assume desktop-first. Mobile is the primary surface.
 - Don't run `git commit`, `git push`, or `git add`. Provide the commit message and let the developer run it.
