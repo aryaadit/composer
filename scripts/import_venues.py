@@ -233,6 +233,7 @@ def process_venue(
         "cash_only": parse_bool(raw.get("cash_only", "")),
         "quality_score": parse_int(raw.get("quality_score", "")) or 7,
         "curation_boost": parse_int(raw.get("curation_boost", "")) or 0,
+        "google_place_id": raw.get("google_place_id", "").strip() or None,
     }
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -278,6 +279,7 @@ INSERT_COLS = [
     "active", "notes", "hours", "last_verified",
     "happy_hour", "dog_friendly", "kid_friendly", "wheelchair_accessible",
     "cash_only", "quality_score", "curation_boost",
+    "google_place_id",
 ]
 
 UPDATE_COLS = [c for c in INSERT_COLS if c not in ("venue_id", "name", "neighborhood")]
@@ -314,7 +316,8 @@ def venue_to_values_tuple(v: dict) -> str:
         f"{sql_bool(v['wheelchair_accessible'])},"
         f"{sql_bool(v['cash_only'])},"
         f"{sql_int(v['quality_score'])},"
-        f"{sql_int(v['curation_boost'])}"
+        f"{sql_int(v['curation_boost'])},"
+        f"{sql_str(v['google_place_id'])}"
         ")"
     )
 

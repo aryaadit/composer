@@ -118,6 +118,7 @@ function rowToVenue(
       get("wheelchair_accessible") ?? undefined
     ),
     cash_only: parseBool(get("cash_only") ?? undefined),
+    google_place_id: get("google_place_id"),
     quality_score: parseNum(get("quality_score") ?? undefined) ?? 7,
     curation_boost: parseNum(get("curation_boost") ?? undefined) ?? 0,
   };

@@ -12,6 +12,7 @@ interface ItineraryViewProps {
   onAddStop?: () => void;
   isAddingStop?: boolean;
   onSwapStop?: (index: number) => void;
+  onVenueTap?: (index: number) => void;
   swappingIndex?: number | null;
   swapError?: { index: number; message: string } | null;
 }
@@ -22,6 +23,7 @@ export function ItineraryView({
   onAddStop,
   isAddingStop = false,
   onSwapStop,
+  onVenueTap,
   swappingIndex,
   swapError,
 }: ItineraryViewProps) {
@@ -33,6 +35,7 @@ export function ItineraryView({
             stop={stop}
             index={i}
             onSwap={onSwapStop ? () => onSwapStop(i) : undefined}
+            onVenueTap={onVenueTap ? () => onVenueTap(i) : undefined}
             isSwapping={swappingIndex === i}
             swapError={swapError?.index === i ? swapError.message : null}
           />

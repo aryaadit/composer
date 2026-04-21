@@ -14,6 +14,7 @@ interface StopCardProps {
   stop: ItineraryStop;
   index: number;
   onSwap?: () => void;
+  onVenueTap?: () => void;
   isSwapping?: boolean;
   swapError?: string | null;
 }
@@ -33,6 +34,7 @@ export function StopCard({
   stop,
   index,
   onSwap,
+  onVenueTap,
   isSwapping = false,
   swapError,
 }: StopCardProps) {
@@ -61,7 +63,17 @@ export function StopCard({
       ) : (
         <>
           <h3 className="font-serif text-2xl font-normal text-charcoal mb-1 leading-snug">
-            {activeVenue.name}
+            {onVenueTap ? (
+              <button
+                type="button"
+                onClick={onVenueTap}
+                className="text-left hover:text-burgundy transition-colors"
+              >
+                {activeVenue.name}
+              </button>
+            ) : (
+              activeVenue.name
+            )}
           </h3>
 
           <p className="font-sans text-sm text-muted mb-4">
