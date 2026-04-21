@@ -1,13 +1,8 @@
 "use client";
 
-// Saved itineraries list with inline confirm-to-delete. The fetch uses
-// the same subscription-style effect pattern as HomeScreen — state is
-// keyed on `loadedFor` (the user id we loaded for) so `loading` is a
-// derivation, not a third setState inside the effect body. Lets us
-// satisfy react-hooks/set-state-in-effect without pulling in a data
-// library.
+// Saved itineraries list with inline rename and confirm-to-delete.
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { getBrowserSupabase } from "@/lib/supabase/browser";
 import type { SavedItinerary } from "@/types";
@@ -66,7 +61,6 @@ export function SavedPlansList({ userId }: Props) {
 
   const handleDelete = async (id: string) => {
     setDeletingId(id);
-    // Optimistic: snip from state before the network round-trip.
     const prevPlans = plans;
     setState((s) => ({ ...s, plans: s.plans.filter((p) => p.id !== id) }));
     setConfirmingId(null);
@@ -77,10 +71,21 @@ export function SavedPlansList({ userId }: Props) {
     setDeletingId(null);
     if (error) {
       console.error("[profile] delete failed:", error.message);
-      // Roll back on failure so the row reappears and the user can retry.
       setState((s) => ({ ...s, plans: prevPlans }));
     }
   };
+
+  const handleRenamed = useCallback(
+    (id: string, customName: string | null) => {
+      setState((s) => ({
+        ...s,
+        plans: s.plans.map((p) =>
+          p.id === id ? { ...p, custom_name: customName } : p
+        ),
+      }));
+    },
+    []
+  );
 
   return (
     <section className="mb-10">
@@ -89,7 +94,7 @@ export function SavedPlansList({ userId }: Props) {
       </h2>
 
       {loading ? (
-        <p className="font-sans text-sm text-muted py-8">Loading…</p>
+        <p className="font-sans text-sm text-muted py-8">Loading...</p>
       ) : plans.length === 0 ? (
         <div className="py-8 border-t border-border">
           <p className="font-sans text-sm text-muted">
@@ -107,6 +112,7 @@ export function SavedPlansList({ userId }: Props) {
               onAskDelete={() => handleConfirm(plan.id)}
               onConfirmDelete={() => void handleDelete(plan.id)}
               onCancelDelete={handleCancel}
+              onRenamed={handleRenamed}
             />
           ))}
         </div>
@@ -122,6 +128,7 @@ interface PlanRowProps {
   onAskDelete: () => void;
   onConfirmDelete: () => void;
   onCancelDelete: () => void;
+  onRenamed: (id: string, customName: string | null) => void;
 }
 
 function PlanRow({
@@ -131,29 +138,109 @@ function PlanRow({
   onAskDelete,
   onConfirmDelete,
   onCancelDelete,
+  onRenamed,
 }: PlanRowProps) {
+  const displayName = plan.custom_name || plan.title || "Saved night";
   const date = new Date(plan.created_at).toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
     year: "numeric",
   });
 
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(displayName);
+  const [saving, setSaving] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const startEditing = () => {
+    setDraft(displayName);
+    setEditing(true);
+    setTimeout(() => {
+      inputRef.current?.focus();
+      inputRef.current?.select();
+    }, 0);
+  };
+
+  const cancelEditing = () => {
+    setEditing(false);
+    setDraft(displayName);
+  };
+
+  const saveRename = async () => {
+    const trimmed = draft.trim();
+    const newName = trimmed || null;
+    if (newName === (plan.custom_name || plan.title || "Saved night")) {
+      setEditing(false);
+      return;
+    }
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/itineraries/${plan.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ customName: newName }),
+      });
+      if (res.ok) {
+        onRenamed(plan.id, newName);
+      }
+    } catch {
+      // silently fail — name stays as-is
+    }
+    setSaving(false);
+    setEditing(false);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      void saveRename();
+    } else if (e.key === "Escape") {
+      cancelEditing();
+    }
+  };
+
   return (
     <div className="py-4 flex items-start justify-between gap-4">
-      <Link
-        href={`/itinerary/saved/${plan.id}`}
-        className="flex-1 min-w-0 group"
-      >
-        <div className="font-serif text-lg text-charcoal leading-snug truncate group-hover:text-burgundy transition-colors">
-          {plan.title ?? "Saved night"}
-        </div>
-        {plan.subtitle && (
+      <div className="flex-1 min-w-0">
+        {editing ? (
+          <input
+            ref={inputRef}
+            type="text"
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={handleKeyDown}
+            onBlur={() => void saveRename()}
+            disabled={saving}
+            className="w-full font-serif text-lg text-charcoal leading-snug bg-transparent border-b border-burgundy focus:outline-none disabled:opacity-50"
+          />
+        ) : (
+          <Link
+            href={`/itinerary/saved/${plan.id}`}
+            className="group flex items-center gap-2"
+          >
+            <span className="font-serif text-lg text-charcoal leading-snug truncate group-hover:text-burgundy transition-colors">
+              {displayName}
+            </span>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                startEditing();
+              }}
+              aria-label="Rename"
+              className="shrink-0 text-muted hover:text-charcoal transition-colors opacity-0 group-hover:opacity-100"
+            >
+              <PencilIcon />
+            </button>
+          </Link>
+        )}
+        {!editing && plan.subtitle && (
           <div className="font-sans text-sm text-warm-gray mt-0.5">
             {plan.subtitle}
           </div>
         )}
         <div className="font-sans text-xs text-muted mt-1">Saved {date}</div>
-      </Link>
+      </div>
 
       {confirming ? (
         <div className="flex items-center gap-2 font-sans text-xs shrink-0 pt-1">
@@ -166,7 +253,9 @@ function PlanRow({
           >
             Yes
           </button>
-          <span aria-hidden className="text-muted">·</span>
+          <span aria-hidden className="text-muted">
+            ·
+          </span>
           <button
             type="button"
             onClick={onCancelDelete}
@@ -187,6 +276,25 @@ function PlanRow({
         </button>
       )}
     </div>
+  );
+}
+
+function PencilIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width="14"
+      height="14"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M17 3a2.83 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+      <path d="m15 5 4 4" />
+    </svg>
   );
 }
 

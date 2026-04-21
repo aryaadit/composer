@@ -181,7 +181,7 @@ export function HomeScreen({ userName }: HomeScreenProps) {
             {savedPlans.map((plan) => {
               const stops = plan.stops ?? [];
               const firstStop = stops[0];
-              const title = plan.title ?? "Saved night";
+              const title = plan.custom_name || plan.title || "Saved night";
               const date = new Date(plan.created_at).toLocaleDateString("en-US", {
                 month: "short",
                 day: "numeric",

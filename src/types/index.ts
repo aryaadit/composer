@@ -216,6 +216,7 @@ export interface ItineraryResponse {
 export interface SavedItinerary {
   id: string;
   user_id: string;
+  custom_name: string | null;
   title: string | null;
   subtitle: string | null;
   occasion: string | null;
