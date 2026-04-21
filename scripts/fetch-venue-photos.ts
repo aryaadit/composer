@@ -3,6 +3,8 @@
 //
 // Usage: npx tsx scripts/fetch-venue-photos.ts
 
+import { config } from "dotenv";
+config({ path: ".env.local" });
 import { createClient } from "@supabase/supabase-js";
 import { fetchPlacePhoto } from "../src/lib/google-places";
 

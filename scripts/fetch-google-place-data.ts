@@ -3,6 +3,8 @@
 //
 // Usage: npx tsx scripts/fetch-google-place-data.ts
 
+import { config } from "dotenv";
+config({ path: ".env.local" });
 import { createClient } from "@supabase/supabase-js";
 import { fetchPlaceDetails } from "../src/lib/google-places";
 

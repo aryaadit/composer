@@ -1,7 +1,9 @@
 // Google Places API helpers for batch-fetching venue details and photos.
 // Used by scripts and admin API routes — not called from client components.
 
-const GOOGLE_PLACES_API_KEY = process.env.GOOGLE_PLACES_API_KEY ?? "";
+function getApiKey(): string {
+  return process.env.GOOGLE_PLACES_API_KEY ?? "";
+}
 
 const FIELD_MASK = [
   "displayName",
@@ -57,8 +59,8 @@ export type PlaceData = Record<string, unknown>;
 export async function fetchPlaceDetails(
   placeId: string
 ): Promise<PlaceData | null> {
-  if (!GOOGLE_PLACES_API_KEY) {
-    console.error("[google-places] GOOGLE_PLACES_API_KEY not set");
+  if (!getApiKey()) {
+    console.error("[google-places] getApiKey() not set");
     return null;
   }
 
@@ -66,7 +68,7 @@ export async function fetchPlaceDetails(
     `https://places.googleapis.com/v1/places/${placeId}`,
     {
       headers: {
-        "X-Goog-Api-Key": GOOGLE_PLACES_API_KEY,
+        "X-Goog-Api-Key": getApiKey(),
         "X-Goog-FieldMask": FIELD_MASK,
       },
     }
@@ -95,13 +97,13 @@ export async function fetchPlacePhoto(
   photoName: string,
   maxWidthPx = 800
 ): Promise<Buffer | null> {
-  if (!GOOGLE_PLACES_API_KEY) {
-    console.error("[google-places] GOOGLE_PLACES_API_KEY not set");
+  if (!getApiKey()) {
+    console.error("[google-places] getApiKey() not set");
     return null;
   }
 
   const res = await fetch(
-    `https://places.googleapis.com/v1/${photoName}/media?maxWidthPx=${maxWidthPx}&key=${GOOGLE_PLACES_API_KEY}`
+    `https://places.googleapis.com/v1/${photoName}/media?maxWidthPx=${maxWidthPx}&key=${getApiKey()}`
   );
 
   if (!res.ok) {
