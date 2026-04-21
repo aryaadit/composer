@@ -10,9 +10,16 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { motion } from "motion/react";
 import { Button } from "@/components/ui/Button";
-import { sendPhoneOtp, verifyPhoneOtp } from "@/lib/auth";
+import {
+  sendPhoneOtp,
+  verifyPhoneOtp,
+  signInOrSignUp,
+  MIN_PASSWORD_LENGTH,
+} from "@/lib/auth";
 import { getBrowserSupabase } from "@/lib/supabase/browser";
+import { ForgotPasswordScreen } from "./ForgotPasswordScreen";
 
+type AuthMode = "phone" | "email";
 type View = "phone" | "verify";
 
 /** Strip non-digits, prepend +1 if needed. */
@@ -35,6 +42,7 @@ const CODE_LENGTH = 6;
 const RESEND_COOLDOWN_S = 60;
 
 export function AuthScreen() {
+  const [authMode, setAuthMode] = useState<AuthMode>("phone");
   const [view, setView] = useState<View>("phone");
   const [phone, setPhone] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -186,6 +194,12 @@ export function AuthScreen() {
 
   // ── Render ──────────────────────────────────────────────────
 
+  if (authMode === "email") {
+    return (
+      <EmailAuthForm onSwitchToPhone={() => setAuthMode("phone")} />
+    );
+  }
+
   if (view === "verify") {
     return (
       <main className="min-h-screen flex flex-col justify-center items-center bg-cream px-6">
@@ -308,6 +322,156 @@ export function AuthScreen() {
             {submitting ? "Sending..." : "Send Code"}
           </Button>
         </form>
+
+        <button
+          type="button"
+          onClick={() => setAuthMode("email")}
+          className="block mx-auto mt-6 font-sans text-xs text-muted hover:text-charcoal transition-colors"
+        >
+          Use email instead
+        </button>
+      </motion.div>
+    </main>
+  );
+}
+
+// ── Email/password auth form ────────────────────────────────
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function EmailAuthForm({
+  onSwitchToPhone,
+}: {
+  onSwitchToPhone: () => void;
+}) {
+  const [emailView, setEmailView] = useState<"signin" | "forgot">("signin");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  if (emailView === "forgot") {
+    return (
+      <ForgotPasswordScreen
+        email={email}
+        onBack={() => setEmailView("signin")}
+      />
+    );
+  }
+
+  const emailValid = EMAIL_RE.test(email.trim());
+  const passwordValid = password.length >= MIN_PASSWORD_LENGTH;
+  const canSubmit = emailValid && passwordValid && !submitting;
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!canSubmit) {
+      if (!emailValid) setError("Enter a valid email.");
+      else if (!passwordValid)
+        setError(`Password must be at least ${MIN_PASSWORD_LENGTH} characters.`);
+      return;
+    }
+    setSubmitting(true);
+    setError(null);
+
+    const result = await signInOrSignUp(email.trim(), password);
+    if (!result.ok || !result.user) {
+      const message = result.error ?? "Something went wrong.";
+      if (message.toLowerCase().includes("already registered")) {
+        setError('Incorrect password. Use "Forgot password?" to reset it.');
+      } else {
+        setError(message);
+      }
+      setSubmitting(false);
+      return;
+    }
+
+    // Session is now live — AuthProvider + root gate handle routing.
+  };
+
+  return (
+    <main className="min-h-screen flex flex-col justify-center items-center bg-cream px-6">
+      <motion.div
+        className="w-full max-w-sm"
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4 }}
+      >
+        <h1 className="font-serif text-3xl font-normal text-charcoal text-center mb-10">
+          Compose your night.
+        </h1>
+
+        <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+          <div>
+            <label className="font-sans text-xs tracking-widest uppercase text-muted mb-2 block">
+              Email
+            </label>
+            <input
+              type="email"
+              inputMode="email"
+              autoComplete="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="you@example.com"
+              className="w-full px-0 py-3 text-base font-sans bg-transparent border-b border-border focus:border-charcoal focus:outline-none transition-colors text-charcoal placeholder:text-muted"
+              autoFocus
+            />
+          </div>
+
+          <div>
+            <label className="font-sans text-xs tracking-widest uppercase text-muted mb-2 block">
+              Password
+            </label>
+            <div className="relative">
+              <input
+                type={showPassword ? "text" : "password"}
+                autoComplete="current-password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="At least 8 characters"
+                className="w-full px-0 py-3 pr-16 text-base font-sans bg-transparent border-b border-border focus:border-charcoal focus:outline-none transition-colors text-charcoal placeholder:text-muted"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((v) => !v)}
+                className="absolute right-0 top-1/2 -translate-y-1/2 font-sans text-xs text-muted hover:text-charcoal transition-colors"
+              >
+                {showPassword ? "Hide" : "Show"}
+              </button>
+            </div>
+          </div>
+
+          {error && (
+            <p className="font-sans text-xs text-charcoal">{error}</p>
+          )}
+
+          <Button
+            variant="primary"
+            type="submit"
+            disabled={submitting}
+            className="w-full"
+          >
+            {submitting ? "Continuing..." : "Continue"}
+          </Button>
+        </form>
+
+        <div className="flex justify-center gap-4 mt-6">
+          <button
+            type="button"
+            onClick={() => setEmailView("forgot")}
+            className="font-sans text-xs text-muted hover:text-charcoal transition-colors"
+          >
+            Forgot password?
+          </button>
+          <button
+            type="button"
+            onClick={onSwitchToPhone}
+            className="font-sans text-xs text-muted hover:text-charcoal transition-colors"
+          >
+            Use phone instead
+          </button>
+        </div>
       </motion.div>
     </main>
   );
