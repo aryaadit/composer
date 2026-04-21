@@ -15,7 +15,6 @@ import { ActionBar } from "@/components/itinerary/ActionBar";
 import { StepLoading } from "@/components/questionnaire/StepLoading";
 import { Button } from "@/components/ui/Button";
 import { Header } from "@/components/Header";
-import { VenueDetailModal } from "@/components/venue/VenueDetailModal";
 import {
   walkTimeMinutes,
   walkDistanceKm,
@@ -100,7 +99,6 @@ export default function SavedItineraryPage({
   const [itinerary, setItinerary] = useState<ItineraryResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
-  const [detailVenueIndex, setDetailVenueIndex] = useState<number | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -138,11 +136,6 @@ export default function SavedItineraryPage({
   }
 
   const noopRegenerate = () => {};
-  const detailVenue =
-    detailVenueIndex !== null
-      ? itinerary.stops[detailVenueIndex]?.venue ?? null
-      : null;
-
   return (
     <main className="flex flex-1 flex-col items-center min-h-screen px-6 pt-6 pb-8">
       <div className="w-full max-w-lg mx-auto mb-6">
@@ -150,20 +143,12 @@ export default function SavedItineraryPage({
       </div>
 
       <CompositionHeader header={itinerary.header} />
-      <ItineraryView
-        stops={itinerary.stops}
-        walks={itinerary.walks}
-        onVenueTap={setDetailVenueIndex}
-      />
+      <ItineraryView stops={itinerary.stops} walks={itinerary.walks} />
       <ActionBar
         itinerary={itinerary}
         onRegenerate={noopRegenerate}
         isRegenerating={false}
         initialSaved
-      />
-      <VenueDetailModal
-        venue={detailVenue}
-        onClose={() => setDetailVenueIndex(null)}
       />
     </main>
   );

@@ -13,7 +13,6 @@ import { STORAGE_KEYS } from "@/config/storage";
 import { getRecentVenueIds } from "@/lib/exclusions";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { useSwapStop } from "@/hooks/useSwapStop";
-import { VenueDetailModal } from "@/components/venue/VenueDetailModal";
 import { CompositionHeader } from "@/components/itinerary/CompositionHeader";
 import { ItineraryView } from "@/components/itinerary/ItineraryView";
 import { ActionBar } from "@/components/itinerary/ActionBar";
@@ -46,13 +45,6 @@ function ItineraryContent() {
     itinerary,
     updateItinerary
   );
-
-  // ── Venue detail modal ──────────────────────────────────────
-  const [detailVenueIndex, setDetailVenueIndex] = useState<number | null>(null);
-  const detailVenue =
-    detailVenueIndex !== null && itinerary
-      ? itinerary.stops[detailVenueIndex]?.venue ?? null
-      : null;
 
   const fetchItinerary = useCallback(
     async (inputs: GenerateRequestBody, excludeVenueIds: string[] = []) => {
@@ -189,7 +181,6 @@ function ItineraryContent() {
           onAddStop={handleAddStop}
           isAddingStop={addingStop}
           onSwapStop={handleSwap}
-          onVenueTap={setDetailVenueIndex}
           swappingIndex={swappingIndex}
           swapError={swapError}
         />
@@ -206,10 +197,6 @@ function ItineraryContent() {
         itinerary={itinerary}
         onRegenerate={handleRegenerate}
         isRegenerating={regenerating}
-      />
-      <VenueDetailModal
-        venue={detailVenue}
-        onClose={() => setDetailVenueIndex(null)}
       />
     </main>
   );

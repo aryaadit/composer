@@ -12,7 +12,6 @@ import { CompositionHeader } from "@/components/itinerary/CompositionHeader";
 import { ItineraryView } from "@/components/itinerary/ItineraryView";
 import { Header } from "@/components/Header";
 import { Button } from "@/components/ui/Button";
-import { VenueDetailModal } from "@/components/venue/VenueDetailModal";
 import type { ItineraryResponse } from "@/types";
 
 type LoadState =
@@ -27,7 +26,6 @@ export default function SharedItineraryPage({
 }) {
   const { id } = use(params);
   const [state, setState] = useState<LoadState>({ status: "loading" });
-  const [detailVenueIndex, setDetailVenueIndex] = useState<number | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -72,22 +70,13 @@ export default function SharedItineraryPage({
   }
 
   const { itinerary } = state;
-  const detailVenue =
-    detailVenueIndex !== null
-      ? itinerary.stops[detailVenueIndex]?.venue ?? null
-      : null;
-
   return (
     <main className="flex flex-1 flex-col items-center min-h-screen px-6 pt-6 pb-8">
       <div className="w-full max-w-lg mx-auto mb-6">
         <Header />
       </div>
       <CompositionHeader header={itinerary.header} />
-      <ItineraryView
-        stops={itinerary.stops}
-        walks={itinerary.walks}
-        onVenueTap={setDetailVenueIndex}
-      />
+      <ItineraryView stops={itinerary.stops} walks={itinerary.walks} />
 
       {/* Minimal footer — Maps link + CTA to make their own */}
       <div className="w-full max-w-lg mx-auto mt-10 pt-4 border-t border-border">
@@ -109,10 +98,6 @@ export default function SharedItineraryPage({
           </Link>
         </div>
       </div>
-      <VenueDetailModal
-        venue={detailVenue}
-        onClose={() => setDetailVenueIndex(null)}
-      />
     </main>
   );
 }
