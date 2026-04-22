@@ -8,19 +8,24 @@ function getApiKey(): string {
 const FIELD_MASK = [
   "displayName",
   "formattedAddress",
+  "location",
   "nationalPhoneNumber",
   "internationalPhoneNumber",
   "websiteUri",
   "googleMapsUri",
   "rating",
   "userRatingCount",
+  "priceLevel",
   "priceRange",
+  "businessStatus",
+  "editorialSummary",
   "currentOpeningHours",
   "regularOpeningHours",
   "photos",
   "types",
   "primaryType",
   "primaryTypeDisplayName",
+  "addressDescriptor",
   "takeout",
   "delivery",
   "dineIn",
@@ -37,14 +42,16 @@ const FIELD_MASK = [
   "outdoorSeating",
   "liveMusic",
   "restroom",
+  "goodForChildren",
+  "allowsDogs",
   "paymentOptions",
   "accessibilityOptions",
   "goodForWatchingSports",
 ].join(",");
 
+// Only strip fields that are truly useless bulk (reviews, HTML formatting, etc.)
 const FIELDS_TO_STRIP = [
   "addressComponents",
-  "addressDescriptor",
   "reviews",
   "adrFormatAddress",
   "googleMapsLinks",
@@ -60,7 +67,7 @@ export async function fetchPlaceDetails(
   placeId: string
 ): Promise<PlaceData | null> {
   if (!getApiKey()) {
-    console.error("[google-places] getApiKey() not set");
+    console.error("[google-places] GOOGLE_PLACES_API_KEY not set");
     return null;
   }
 
@@ -98,7 +105,7 @@ export async function fetchPlacePhoto(
   maxWidthPx = 800
 ): Promise<Buffer | null> {
   if (!getApiKey()) {
-    console.error("[google-places] getApiKey() not set");
+    console.error("[google-places] GOOGLE_PLACES_API_KEY not set");
     return null;
   }
 

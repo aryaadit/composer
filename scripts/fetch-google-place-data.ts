@@ -18,11 +18,18 @@ function sleep(ms: number) {
 }
 
 async function main() {
-  const { data: venues, error } = await supabase
+  const refreshAll = process.argv.includes("--refresh");
+
+  let query = supabase
     .from("composer_venues")
     .select("id, venue_id, name, google_place_id")
-    .not("google_place_id", "is", null)
-    .is("google_place_data", null);
+    .not("google_place_id", "is", null);
+
+  if (!refreshAll) {
+    query = query.is("google_place_data", null);
+  }
+
+  const { data: venues, error } = await query;
 
   if (error) {
     console.error("Failed to fetch venues:", error.message);
