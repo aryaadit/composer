@@ -44,16 +44,20 @@ export function QuestionnaireShell() {
   const prefilledOccasionRef = useRef(false);
   useEffect(() => {
     if (prefilledOccasionRef.current) return;
-    if (!profile?.context) return;
+    if (!profile?.context?.length) return;
+    // Multiple contexts → user explicitly chose plural, let them pick
+    // occasion fresh for this specific night.
+    if (profile.context.length > 1) {
+      prefilledOccasionRef.current = true;
+      return;
+    }
     if (state.answers.occasion) {
       prefilledOccasionRef.current = true;
       return;
     }
-    const occasion = CONTEXT_TO_OCCASION[profile.context];
+    const occasion = CONTEXT_TO_OCCASION[profile.context[0]];
     if (!occasion) return;
     prefilledOccasionRef.current = true;
-    // Microtask hop keeps the dispatch off the synchronous effect body
-    // (react-hooks/set-state-in-effect rule).
     void Promise.resolve().then(() => {
       dispatch({
         type: "SET_FIELD",

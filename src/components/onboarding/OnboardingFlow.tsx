@@ -70,7 +70,7 @@ export function OnboardingFlow() {
 
     const prefs: UserPrefs = {
       name: name.trim() || "Friend",
-      context: contexts[0] ?? "",
+      context: contexts,
       drinks: (drinks || undefined) as DrinksPref | undefined,
       dietary,
       favoriteHoods,
@@ -233,6 +233,10 @@ export function OnboardingFlow() {
                       </button>
                     ))}
                   </div>
+                  <p className="font-sans text-xs text-muted mt-3 italic">
+                    We&apos;re building dietary filters — for now, check
+                    venue menus directly.
+                  </p>
                 </div>
               </div>
             )}

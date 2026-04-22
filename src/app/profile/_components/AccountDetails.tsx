@@ -58,15 +58,53 @@ interface FieldProps {
 }
 
 function ContextField({ profile, userId, onSaved }: FieldProps) {
+  const f = useFieldEditor<string[]>(profile.context, userId, onSaved);
+  const canSave = !sameArray(f.draft, profile.context);
+
+  const toggle = (id: string) => {
+    f.setDraft((prev) =>
+      prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id]
+    );
+  };
+
+  const displayLabel =
+    profile.context.length === 0
+      ? "Not set"
+      : profile.context
+          .map((id) => CONTEXT_OPTIONS.find((o) => o.id === id)?.label ?? id)
+          .join(", ");
+
   return (
-    <SinglePillSelectField
-      label="Usually here for"
-      column="context"
-      options={CONTEXT_OPTIONS}
-      initial={profile.context ?? null}
-      userId={userId}
-      onSaved={onSaved}
-    />
+    <FieldShell label="Usually here for" editing={f.editing} onEdit={f.beginEdit}>
+      {f.editing ? (
+        <>
+          <div className="flex flex-wrap gap-2">
+            {CONTEXT_OPTIONS.map((opt) => (
+              <button
+                key={opt.id}
+                type="button"
+                onClick={() => toggle(opt.id)}
+                className={pillClass(f.draft.includes(opt.id))}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+          <EditActions
+            onSave={() => void f.save("context", f.draft)}
+            onCancel={f.cancel}
+            saving={f.saving}
+            canSave={canSave}
+            error={f.error}
+          />
+        </>
+      ) : (
+        <>
+          <p className="font-sans text-base text-charcoal">{displayLabel}</p>
+          <SavedIndicator show={f.justSaved} />
+        </>
+      )}
+    </FieldShell>
   );
 }
 

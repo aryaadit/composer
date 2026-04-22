@@ -32,6 +32,7 @@ export function NeighborhoodStep({
   // changes, including the legitimate "deselect all" case.
   const { profile } = useAuth();
   const prefilledRef = useRef(false);
+  const [didPrefill, setDidPrefill] = useState(false);
   useEffect(() => {
     if (prefilledRef.current) return;
     if (initialSelected.length > 0) {
@@ -42,7 +43,10 @@ export function NeighborhoodStep({
     const prefill = profile.favorite_hoods.slice(0, MAX_HOODS);
     if (prefill.length === 0) return;
     prefilledRef.current = true;
-    void Promise.resolve().then(() => setSelected(prefill));
+    void Promise.resolve().then(() => {
+      setSelected(prefill);
+      setDidPrefill(true);
+    });
   }, [profile, initialSelected]);
 
   return (
@@ -54,6 +58,11 @@ export function NeighborhoodStep({
         }`}
       >
         {selected.length}/{MAX_HOODS} selected
+        {didPrefill && (
+          <span className="block text-muted text-[11px] mt-0.5">
+            Pre-filled from your favorites
+          </span>
+        )}
       </p>
 
       <NeighborhoodPicker

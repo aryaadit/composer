@@ -39,9 +39,10 @@ export const CONTEXT_OPTIONS: ContextOption[] = [
 // (`first-date`, `established`, `friends`, `solo`), so we map
 // onboarding context to the most natural default here.
 export const CONTEXT_TO_OCCASION: Record<string, string> = {
-  dating: "first_date",
-  relationship: "couple",
+  dating: "dating",
+  relationship: "relationship",
   friends: "friends",
+  family: "family",
   solo: "solo",
 };
 

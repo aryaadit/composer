@@ -70,7 +70,7 @@ export async function upsertProfile(
   const row = {
     id: userId,
     name: prefs.name,
-    context: prefs.context ?? null,
+    context: prefs.context ?? [],
     drinks: prefs.drinks ?? null,
     dietary: prefs.dietary ?? [],
     favorite_hoods: prefs.favoriteHoods ?? [],

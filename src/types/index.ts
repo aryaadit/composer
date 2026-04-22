@@ -39,7 +39,7 @@ export type DrinksPref = "yes" | "sometimes" | "no";
 // which uses snake_case to match the Supabase column naming.
 export interface UserPrefs {
   name: string;
-  context?: string;
+  context?: string[];
   drinks?: DrinksPref;
   dietary?: string[];
   favoriteHoods?: string[];
@@ -51,7 +51,7 @@ export interface UserPrefs {
 export interface ComposerUser {
   id: string;
   name: string;
-  context: string | null;
+  context: string[];
   drinks: DrinksPref | string | null;
   dietary: string[];
   favorite_hoods: string[];
@@ -62,7 +62,7 @@ export interface ComposerUser {
 export function composerUserToPrefs(u: ComposerUser): UserPrefs {
   return {
     name: u.name,
-    context: u.context ?? undefined,
+    context: u.context,
     drinks: (u.drinks as DrinksPref | null) ?? undefined,
     dietary: u.dietary,
     favoriteHoods: u.favorite_hoods,
