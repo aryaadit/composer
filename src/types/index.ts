@@ -150,6 +150,12 @@ export interface Venue {
   // Scoring — now imported from the sheet, not admin-only.
   quality_score: number; // 1-10, default 7
   curation_boost: number; // 0-2, default 0
+
+  // Google Places — batch-fetched, cached in DB
+  google_place_id: string | null;
+  google_place_data: Record<string, unknown> | null;
+  google_place_photos: string[]; // Supabase Storage paths
+  google_data_updated_at: string | null;
 }
 
 export interface ScoredVenue extends Venue {
@@ -210,6 +216,7 @@ export interface ItineraryResponse {
 export interface SavedItinerary {
   id: string;
   user_id: string;
+  custom_name: string | null;
   title: string | null;
   subtitle: string | null;
   occasion: string | null;

@@ -70,7 +70,6 @@ export default function SharedItineraryPage({
   }
 
   const { itinerary } = state;
-
   return (
     <main className="flex flex-1 flex-col items-center min-h-screen px-6 pt-6 pb-8">
       <div className="w-full max-w-lg mx-auto mb-6">

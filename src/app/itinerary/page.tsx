@@ -95,9 +95,7 @@ function ItineraryContent() {
     try {
       // Exclude venues from saved plans + the current plan's venues so
       // Regenerate can't return the plan the user is looking at.
-      const recentIds = user?.id
-        ? await getRecentVenueIds(user.id)
-        : [];
+      const recentIds = user?.id ? await getRecentVenueIds(user.id) : [];
       const currentIds = itinerary.stops.map((s) => s.venue.id);
       const excludeVenueIds = Array.from(
         new Set([...recentIds, ...currentIds])

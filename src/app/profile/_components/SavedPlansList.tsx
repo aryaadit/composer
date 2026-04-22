@@ -1,86 +1,19 @@
 "use client";
 
-// Saved itineraries list with inline confirm-to-delete. The fetch uses
-// the same subscription-style effect pattern as HomeScreen — state is
-// keyed on `loadedFor` (the user id we loaded for) so `loading` is a
-// derivation, not a third setState inside the effect body. Lets us
-// satisfy react-hooks/set-state-in-effect without pulling in a data
-// library.
+// Saved itineraries section on the profile page. Uses the shared
+// SavedPlanRow component and useSavedPlans hook.
 
-import { useEffect, useState } from "react";
-import Link from "next/link";
-import { getBrowserSupabase } from "@/lib/supabase/browser";
-import type { SavedItinerary } from "@/types";
-import type { PostgrestError } from "@supabase/supabase-js";
+import { useSavedPlans } from "@/hooks/useSavedPlans";
+import { SavedPlanRow } from "@/components/shared/SavedPlanRow";
 
 interface Props {
   userId: string;
 }
 
-type PlansState = {
-  plans: SavedItinerary[];
-  loadedFor: string | null;
-};
-
 export function SavedPlansList({ userId }: Props) {
-  const [{ plans, loadedFor }, setState] = useState<PlansState>({
-    plans: [],
-    loadedFor: null,
+  const { plans, loading, deletePlan, renamePlan } = useSavedPlans({
+    userId,
   });
-  const [confirmingId, setConfirmingId] = useState<string | null>(null);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    const currentUser = userId;
-    getBrowserSupabase()
-      .from("composer_saved_itineraries")
-      .select("*")
-      .order("created_at", { ascending: false })
-      .then(
-        ({
-          data,
-          error,
-        }: {
-          data: SavedItinerary[] | null;
-          error: PostgrestError | null;
-        }) => {
-          if (cancelled) return;
-          if (error) {
-            console.error("[profile] load saved plans failed:", error.message);
-            setState({ plans: [], loadedFor: currentUser });
-          } else {
-            setState({ plans: data ?? [], loadedFor: currentUser });
-          }
-        }
-      );
-    return () => {
-      cancelled = true;
-    };
-  }, [userId]);
-
-  const loading = loadedFor !== userId;
-
-  const handleConfirm = (id: string) => setConfirmingId(id);
-  const handleCancel = () => setConfirmingId(null);
-
-  const handleDelete = async (id: string) => {
-    setDeletingId(id);
-    // Optimistic: snip from state before the network round-trip.
-    const prevPlans = plans;
-    setState((s) => ({ ...s, plans: s.plans.filter((p) => p.id !== id) }));
-    setConfirmingId(null);
-    const { error } = await getBrowserSupabase()
-      .from("composer_saved_itineraries")
-      .delete()
-      .eq("id", id);
-    setDeletingId(null);
-    if (error) {
-      console.error("[profile] delete failed:", error.message);
-      // Roll back on failure so the row reappears and the user can retry.
-      setState((s) => ({ ...s, plans: prevPlans }));
-    }
-  };
 
   return (
     <section className="mb-10">
@@ -89,7 +22,7 @@ export function SavedPlansList({ userId }: Props) {
       </h2>
 
       {loading ? (
-        <p className="font-sans text-sm text-muted py-8">Loading…</p>
+        <p className="font-sans text-sm text-muted py-8">Loading...</p>
       ) : plans.length === 0 ? (
         <div className="py-8 border-t border-border">
           <p className="font-sans text-sm text-muted">
@@ -99,115 +32,16 @@ export function SavedPlansList({ userId }: Props) {
       ) : (
         <div className="divide-y divide-border border-t border-border">
           {plans.map((plan) => (
-            <PlanRow
+            <SavedPlanRow
               key={plan.id}
               plan={plan}
-              confirming={confirmingId === plan.id}
-              deleting={deletingId === plan.id}
-              onAskDelete={() => handleConfirm(plan.id)}
-              onConfirmDelete={() => void handleDelete(plan.id)}
-              onCancelDelete={handleCancel}
+              showSubtitle
+              onDelete={deletePlan}
+              onRenamed={renamePlan}
             />
           ))}
         </div>
       )}
     </section>
-  );
-}
-
-interface PlanRowProps {
-  plan: SavedItinerary;
-  confirming: boolean;
-  deleting: boolean;
-  onAskDelete: () => void;
-  onConfirmDelete: () => void;
-  onCancelDelete: () => void;
-}
-
-function PlanRow({
-  plan,
-  confirming,
-  deleting,
-  onAskDelete,
-  onConfirmDelete,
-  onCancelDelete,
-}: PlanRowProps) {
-  const date = new Date(plan.created_at).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-
-  return (
-    <div className="py-4 flex items-start justify-between gap-4">
-      <Link
-        href={`/itinerary/saved/${plan.id}`}
-        className="flex-1 min-w-0 group"
-      >
-        <div className="font-serif text-lg text-charcoal leading-snug truncate group-hover:text-burgundy transition-colors">
-          {plan.title ?? "Saved night"}
-        </div>
-        {plan.subtitle && (
-          <div className="font-sans text-sm text-warm-gray mt-0.5">
-            {plan.subtitle}
-          </div>
-        )}
-        <div className="font-sans text-xs text-muted mt-1">Saved {date}</div>
-      </Link>
-
-      {confirming ? (
-        <div className="flex items-center gap-2 font-sans text-xs shrink-0 pt-1">
-          <span className="text-muted">Remove?</span>
-          <button
-            type="button"
-            onClick={onConfirmDelete}
-            disabled={deleting}
-            className="font-medium text-burgundy hover:text-burgundy-light transition-colors disabled:text-muted"
-          >
-            Yes
-          </button>
-          <span aria-hidden className="text-muted">·</span>
-          <button
-            type="button"
-            onClick={onCancelDelete}
-            disabled={deleting}
-            className="text-muted hover:text-charcoal transition-colors"
-          >
-            Cancel
-          </button>
-        </div>
-      ) : (
-        <button
-          type="button"
-          onClick={onAskDelete}
-          aria-label="Remove saved plan"
-          className="text-muted hover:text-burgundy transition-colors shrink-0 pt-1"
-        >
-          <TrashIcon />
-        </button>
-      )}
-    </div>
-  );
-}
-
-function TrashIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      width="16"
-      height="16"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-    >
-      <path d="M3 6h18" />
-      <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-      <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
-      <path d="M10 11v6" />
-      <path d="M14 11v6" />
-    </svg>
   );
 }

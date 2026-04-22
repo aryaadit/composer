@@ -2,16 +2,28 @@
 
 interface ProfileHeaderProps {
   name: string;
-  email: string;
+  /** Email if set, otherwise null (phone-only users). */
+  email: string | null;
+  /** Phone in E.164 format if present. */
+  phone: string | null;
   onSignOut: () => Promise<void> | void;
 }
 
-export function ProfileHeader({ name, email, onSignOut }: ProfileHeaderProps) {
-  // Name + email are read-only identity info — stacked on two lines
-  // with the name slightly weightier than the email so the eye lands
-  // on the person, then the handle. `text-charcoal` is the project's
-  // `gray-800` equivalent (primary body color); `text-muted` is the
-  // `gray-400` secondary.
+function formatPhone(e164: string): string {
+  const digits = e164.replace(/\D/g, "");
+  const local = digits.startsWith("1") ? digits.slice(1) : digits;
+  if (local.length !== 10) return e164;
+  return `(${local.slice(0, 3)}) ${local.slice(3, 6)}-${local.slice(6)}`;
+}
+
+export function ProfileHeader({
+  name,
+  email,
+  phone,
+  onSignOut,
+}: ProfileHeaderProps) {
+  const identifier = email || (phone ? formatPhone(phone) : "");
+
   return (
     <div className="flex items-start justify-between mb-8">
       <div>
@@ -21,7 +33,9 @@ export function ProfileHeader({ name, email, onSignOut }: ProfileHeaderProps) {
         <p className="font-sans text-base font-medium text-charcoal mt-2">
           {name}
         </p>
-        <p className="font-sans text-sm text-muted mt-0.5">{email}</p>
+        {identifier && (
+          <p className="font-sans text-sm text-muted mt-0.5">{identifier}</p>
+        )}
       </div>
       <button
         onClick={() => void onSignOut()}

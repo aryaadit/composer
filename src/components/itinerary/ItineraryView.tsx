@@ -1,10 +1,11 @@
 "use client";
 
-import { Fragment } from "react";
+import { Fragment, useState } from "react";
 import { motion } from "motion/react";
 import { ItineraryResponse } from "@/types";
 import { StopCard } from "@/components/ui/StopCard";
 import { WalkConnector } from "@/components/ui/WalkConnector";
+import { VenueDetailModal } from "@/components/venue/VenueDetailModal";
 
 interface ItineraryViewProps {
   stops: ItineraryResponse["stops"];
@@ -25,42 +26,53 @@ export function ItineraryView({
   swappingIndex,
   swapError,
 }: ItineraryViewProps) {
+  const [detailIndex, setDetailIndex] = useState<number | null>(null);
+  const detailVenue =
+    detailIndex !== null ? stops[detailIndex]?.venue ?? null : null;
+
   return (
-    <div className="w-full max-w-lg mx-auto border-y border-[#D8D8D8] divide-y divide-[#D8D8D8]">
-      {stops.map((stop, i) => (
-        <Fragment key={stop.venue.id}>
-          <StopCard
-            stop={stop}
-            index={i}
-            onSwap={onSwapStop ? () => onSwapStop(i) : undefined}
-            isSwapping={swappingIndex === i}
-            swapError={swapError?.index === i ? swapError.message : null}
-          />
-          {i < stops.length - 1 && walks[i] && (
-            <WalkConnector
-              walkMinutes={walks[i].walk_minutes}
+    <>
+      <div className="w-full max-w-lg mx-auto border-y border-[#D8D8D8] divide-y divide-[#D8D8D8]">
+        {stops.map((stop, i) => (
+          <Fragment key={stop.venue.id}>
+            <StopCard
+              stop={stop}
               index={i}
-              mapUrl={walks[i].map_url}
+              onSwap={onSwapStop ? () => onSwapStop(i) : undefined}
+              onVenueTap={() => setDetailIndex(i)}
+              isSwapping={swappingIndex === i}
+              swapError={swapError?.index === i ? swapError.message : null}
             />
-          )}
-        </Fragment>
-      ))}
-      {onAddStop && (
-        <motion.div
-          className="py-6 flex justify-center"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.4, delay: 0.6 }}
-        >
-          <button
-            onClick={onAddStop}
-            disabled={isAddingStop}
-            className="inline-flex items-center gap-2 rounded-full border border-dashed border-burgundy/50 px-5 py-2.5 font-sans text-sm text-burgundy hover:bg-burgundy/5 hover:border-burgundy transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            {i < stops.length - 1 && walks[i] && (
+              <WalkConnector
+                walkMinutes={walks[i].walk_minutes}
+                index={i}
+                mapUrl={walks[i].map_url}
+              />
+            )}
+          </Fragment>
+        ))}
+        {onAddStop && (
+          <motion.div
+            className="py-6 flex justify-center"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.4, delay: 0.6 }}
           >
-            {isAddingStop ? "Finding another spot…" : "+ Add another stop"}
-          </button>
-        </motion.div>
-      )}
-    </div>
+            <button
+              onClick={onAddStop}
+              disabled={isAddingStop}
+              className="inline-flex items-center gap-2 rounded-full border border-dashed border-burgundy/50 px-5 py-2.5 font-sans text-sm text-burgundy hover:bg-burgundy/5 hover:border-burgundy transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isAddingStop ? "Finding another spot…" : "+ Add another stop"}
+            </button>
+          </motion.div>
+        )}
+      </div>
+      <VenueDetailModal
+        venue={detailVenue}
+        onClose={() => setDetailIndex(null)}
+      />
+    </>
   );
 }
