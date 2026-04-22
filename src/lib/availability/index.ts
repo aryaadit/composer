@@ -5,6 +5,11 @@
 import { getSupabase } from "@/lib/supabase";
 import { getResyAvailability } from "./resy";
 import { buildResyBookingUrl } from "./booking-url";
+import {
+  extractOpenTableSlug,
+  buildOpenTableBookingUrl,
+  getOpenTableRid,
+} from "./opentable";
 import type { AvailabilitySlot } from "./resy";
 
 export type { AvailabilitySlot };
@@ -60,6 +65,22 @@ export async function getVenueAvailability(
       slots,
       bookingUrl,
     };
+  }
+
+  // OpenTable — no live slots, but build a proper deep-link
+  if (platform === "opentable" && venue.reservation_url) {
+    const slug = extractOpenTableSlug(venue.reservation_url);
+    if (slug) {
+      const rid = await getOpenTableRid(slug);
+      const bookingUrl = buildOpenTableBookingUrl(slug, partySize, date, rid);
+      return {
+        venueId: venue.id,
+        platform: "opentable",
+        venueName: venue.name,
+        slots: [],
+        bookingUrl,
+      };
+    }
   }
 
   // Other platforms or 'none' — return empty slots with fallback URL
