@@ -64,12 +64,12 @@ function SplashScreen({
   onLogIn: () => void;
 }) {
   return (
-    <main className="min-h-screen flex flex-col bg-cream">
-      <div className="flex-1 flex flex-col items-center justify-center text-center px-6">
+    <main className="min-h-screen flex flex-col items-center justify-center bg-cream px-6">
+      <div className="w-full max-w-lg text-center">
         <h1 className="font-serif text-6xl md:text-7xl text-charcoal mb-8">
           Composer
         </h1>
-        <div className="flex items-center justify-center gap-3 font-serif text-3xl md:text-4xl text-charcoal leading-tight mb-12">
+        <div className="flex items-center justify-center gap-3 font-serif text-3xl md:text-4xl text-charcoal leading-tight mb-8">
           <span>For</span>
           <span
             className="inline-block h-[1.6em] w-[5.5em] text-left"
@@ -113,22 +113,22 @@ function SplashScreen({
             </motion.span>
           </span>
         </div>
-        <p className="font-sans text-base text-warm-gray max-w-xs mb-2">
+        <p className="font-sans text-base text-warm-gray max-w-xs mx-auto mb-12">
           A time and a place. Plans in NYC made by people who live here.
         </p>
-      </div>
 
-      <div className="px-6 pb-10 max-w-lg w-full mx-auto space-y-3">
-        <Button variant="primary" onClick={onGetStarted} className="w-full">
-          Get Started
-        </Button>
-        <button
-          type="button"
-          onClick={onLogIn}
-          className="w-full py-3 font-sans text-sm text-muted hover:text-charcoal transition-colors text-center"
-        >
-          Already have an account? Log in
-        </button>
+        <div className="space-y-3">
+          <Button variant="primary" onClick={onGetStarted} className="w-full">
+            Get Started
+          </Button>
+          <button
+            type="button"
+            onClick={onLogIn}
+            className="w-full py-3 font-sans text-sm text-muted hover:text-charcoal transition-colors text-center"
+          >
+            Already have an account? Log in
+          </button>
+        </div>
       </div>
     </main>
   );
