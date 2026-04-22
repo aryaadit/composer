@@ -1,12 +1,10 @@
 "use client";
 
-// Onboarding: splash → profile collection. The user is already
-// authenticated (session exists, no profile row yet). Collects
-// name, context, preferences, neighborhoods, then upserts the
-// profile and routes home.
+// Onboarding: profile collection. The user is already authenticated
+// (session exists, no profile row yet). Splash screen lives on the
+// root page — this component handles the profile steps only.
 //
-// Steps: 0 splash, 1 name, 2 context (multi), 3 preferences,
-//        4 neighborhoods → save → home
+// Steps: 0 name, 1 context, 2 preferences, 3 neighborhoods → save → home
 
 import { useRef, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
@@ -25,7 +23,7 @@ import { NeighborhoodPicker } from "@/components/shared/NeighborhoodPicker";
 import { Header } from "@/components/Header";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 
-const TOTAL_STEPS = 5; // 0–4
+const TOTAL_STEPS = 4; // 0–3
 
 export function OnboardingFlow() {
   const router = useRouter();
@@ -88,9 +86,8 @@ export function OnboardingFlow() {
     }
   };
 
-  // Progress dots: show for steps 1–4 (profile collection). Hidden on splash (0).
-  const showProgress = step >= 1 && step <= 4;
-  const progressSteps = 4; // steps 1–4
+  const showProgress = step >= 0;
+  const progressSteps = TOTAL_STEPS;
 
   if (saving) {
     return (
@@ -111,19 +108,18 @@ export function OnboardingFlow() {
         <div className="px-6">
           <div className="w-full max-w-lg mx-auto relative">
             <Header />
-            <button
-              type="button"
-              onClick={handleBack}
-              className="absolute right-0 top-1/2 -translate-y-1/2 font-sans text-sm text-warm-gray hover:text-charcoal transition-colors"
-            >
-              &larr; Back
-            </button>
+            {step > 0 && (
+              <button
+                type="button"
+                onClick={handleBack}
+                className="absolute right-0 top-1/2 -translate-y-1/2 font-sans text-sm text-warm-gray hover:text-charcoal transition-colors"
+              >
+                &larr; Back
+              </button>
+            )}
           </div>
           <div className="w-full max-w-lg mx-auto mt-1">
-            <ProgressBar
-              currentStep={step - 1}
-              totalSteps={progressSteps}
-            />
+            <ProgressBar currentStep={step} totalSteps={progressSteps} />
           </div>
         </div>
       )}
@@ -138,67 +134,8 @@ export function OnboardingFlow() {
             transition={{ duration: 0.25 }}
             className="flex-1 flex flex-col"
           >
-            {/* ── Step 0: Splash ──────────────────────────── */}
+            {/* ── Step 0: Name ────────────────────────────── */}
             {step === 0 && (
-              <div className="flex-1 flex flex-col items-center justify-center text-center">
-                <h1 className="font-serif text-6xl md:text-7xl text-charcoal mb-8">
-                  Composer
-                </h1>
-                <div
-                  className="flex items-center justify-center gap-3 font-serif text-3xl md:text-4xl text-charcoal leading-tight mb-12"
-                >
-                  <span>For</span>
-                  <span
-                    className="inline-block h-[1.6em] w-[5.5em] text-left"
-                    style={{ clipPath: "inset(0 -100vw 0 0)" }}
-                  >
-                    <motion.span
-                      className="block text-burgundy"
-                      animate={{
-                        y: [
-                          "0%", "-7.143%", "-14.286%", "-21.429%",
-                          "-28.571%", "-35.714%", "-42.857%", "-50%",
-                          "-57.143%", "-64.286%", "-71.429%", "-78.571%",
-                          "-85.714%", "-92.857%",
-                        ],
-                      }}
-                      transition={{
-                        duration: 26,
-                        repeat: Infinity,
-                        repeatType: "loop",
-                        ease: "easeInOut",
-                        times: [
-                          0, 0.077, 0.154, 0.231, 0.308, 0.385, 0.462,
-                          0.538, 0.615, 0.692, 0.769, 0.846, 0.923, 1,
-                        ],
-                      }}
-                    >
-                      <span className="block h-[1.6em] flex items-center whitespace-nowrap">a first date</span>
-                      <span className="block h-[1.6em] flex items-center whitespace-nowrap">solo Sundays</span>
-                      <span className="block h-[1.6em] flex items-center whitespace-nowrap">group chats</span>
-                      <span className="block h-[1.6em] flex items-center whitespace-nowrap">date night</span>
-                      <span className="block h-[1.6em] flex items-center whitespace-nowrap">the girlies</span>
-                      <span className="block h-[1.6em] flex items-center whitespace-nowrap">the parents</span>
-                      <span className="block h-[1.6em] flex items-center whitespace-nowrap">family fun</span>
-                      <span className="block h-[1.6em] flex items-center whitespace-nowrap">NYC weekends</span>
-                      <span className="block h-[1.6em] flex items-center whitespace-nowrap">random Tuesdays</span>
-                      <span className="block h-[1.6em] flex items-center whitespace-nowrap">your anniversary</span>
-                      <span className="block h-[1.6em] flex items-center whitespace-nowrap">the boys</span>
-                      <span className="block h-[1.6em] flex items-center whitespace-nowrap">a rainy day</span>
-                      <span className="block h-[1.6em] flex items-center whitespace-nowrap">the birthday</span>
-                      <span className="block h-[1.6em] flex items-center whitespace-nowrap">a first date</span>
-                    </motion.span>
-                  </span>
-                </div>
-                <p className="font-sans text-base text-warm-gray max-w-xs mb-2">
-                  A time and a place. Plans in NYC made by people who live
-                  here.
-                </p>
-              </div>
-            )}
-
-            {/* ── Step 1: Name ────────────────────────────── */}
-            {step === 1 && (
               <div className="flex-1 flex flex-col justify-center">
                 <h1 className="font-sans text-2xl font-medium text-charcoal mb-2">
                   What should we call you?
@@ -220,8 +157,8 @@ export function OnboardingFlow() {
               </div>
             )}
 
-            {/* ── Step 2: Context (multi-select) ──────────── */}
-            {step === 2 && (
+            {/* ── Step 1: Context (multi-select) ──────────── */}
+            {step === 1 && (
               <div className="flex-1 flex flex-col justify-center">
                 <h1 className="font-sans text-2xl font-medium text-charcoal mb-2">
                   What brings you here?
@@ -252,8 +189,8 @@ export function OnboardingFlow() {
               </div>
             )}
 
-            {/* ── Step 3: Preferences ─────────────────────── */}
-            {step === 3 && (
+            {/* ── Step 2: Preferences ─────────────────────── */}
+            {step === 2 && (
               <div className="flex-1 flex flex-col pt-8">
                 <h1 className="font-sans text-2xl font-medium text-charcoal mb-2">
                   A couple quick things
@@ -300,8 +237,8 @@ export function OnboardingFlow() {
               </div>
             )}
 
-            {/* ── Step 4: Neighborhoods ───────────────────── */}
-            {step === 4 && (
+            {/* ── Step 3: Neighborhoods ───────────────────── */}
+            {step === 3 && (
               <div className="flex-1 flex flex-col pt-8">
                 <h1 className="font-sans text-2xl font-medium text-charcoal mb-2">
                   Favorite neighborhoods?
@@ -323,25 +260,20 @@ export function OnboardingFlow() {
 
       {/* ── Bottom action area ──────────────────────────── */}
       <div className="relative z-10 px-6 pb-10 pt-4 max-w-lg w-full mx-auto">
-        {step === 0 && (
-          <Button variant="primary" onClick={handleNext} className="w-full">
-            Start Composing
-          </Button>
-        )}
-        {step >= 1 && step <= 3 && (
+        {step >= 0 && step <= 2 && (
           <Button
             variant="primary"
             onClick={handleNext}
             disabled={
-              (step === 1 && !name.trim()) ||
-              (step === 2 && contexts.length === 0)
+              (step === 0 && !name.trim()) ||
+              (step === 1 && contexts.length === 0)
             }
             className="w-full"
           >
             Next →
           </Button>
         )}
-        {step === 4 && (
+        {step === 3 && (
           <Button
             variant="primary"
             onClick={() => void handleFinish()}
