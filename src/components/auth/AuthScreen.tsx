@@ -202,136 +202,143 @@ export function AuthScreen() {
 
   if (view === "verify") {
     return (
-      <main className="min-h-screen flex flex-col justify-center items-center bg-cream px-6">
-        <motion.div
-          className="w-full max-w-sm"
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4 }}
-        >
-          <h1 className="font-serif text-3xl font-normal text-charcoal text-center mb-3">
-            Enter your code
-          </h1>
-          <p className="font-sans text-sm text-muted text-center mb-8">
-            Sent to {formatPhone(phone)}
-          </p>
-
-          <div className="flex justify-center gap-3 mb-6">
-            {code.map((digit, i) => (
-              <input
-                key={i}
-                ref={(el) => { inputRefs.current[i] = el; }}
-                type="text"
-                inputMode="numeric"
-                autoComplete="one-time-code"
-                maxLength={1}
-                value={digit}
-                onChange={(e) => handleDigitChange(i, e.target.value)}
-                onKeyDown={(e) => handleKeyDown(i, e)}
-                onPaste={i === 0 ? handlePaste : undefined}
-                disabled={verifying}
-                className="w-12 h-14 text-center text-xl font-sans font-medium text-charcoal bg-transparent border-b-2 border-border focus:border-charcoal focus:outline-none transition-colors disabled:opacity-50"
-              />
-            ))}
-          </div>
-
-          {verifyError && (
-            <p className="font-sans text-xs text-charcoal text-center mb-4">
-              {verifyError}
+      <div className="min-h-screen flex flex-col bg-cream">
+        <div className="flex-1 flex flex-col px-6 max-w-lg w-full mx-auto">
+          <motion.div
+            className="flex-1 flex flex-col justify-center"
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.25 }}
+          >
+            <h1 className="font-sans text-2xl font-medium text-charcoal mb-2">
+              Enter your code
+            </h1>
+            <p className="font-sans text-sm text-warm-gray mb-8">
+              Sent to {formatPhone(phone)}
             </p>
-          )}
 
-          {verifying && (
-            <p className="font-sans text-sm text-muted text-center mb-4">
-              Verifying...
-            </p>
-          )}
+            <div className="flex gap-3 mb-6">
+              {code.map((digit, i) => (
+                <input
+                  key={i}
+                  ref={(el) => { inputRefs.current[i] = el; }}
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  maxLength={1}
+                  value={digit}
+                  onChange={(e) => handleDigitChange(i, e.target.value)}
+                  onKeyDown={(e) => handleKeyDown(i, e)}
+                  onPaste={i === 0 ? handlePaste : undefined}
+                  disabled={verifying}
+                  className="w-12 h-14 text-center text-xl font-sans font-medium text-charcoal bg-transparent border-b-2 border-border focus:border-charcoal focus:outline-none transition-colors disabled:opacity-50"
+                />
+              ))}
+            </div>
 
-          <div className="flex justify-center gap-4 mt-6">
-            <button
-              type="button"
-              onClick={handleResend}
-              disabled={resendCooldown > 0}
-              className="font-sans text-xs text-muted hover:text-charcoal transition-colors disabled:cursor-not-allowed"
-            >
-              {resendCooldown > 0
-                ? `Resend in ${resendCooldown}s`
-                : "Resend code"}
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setView("phone");
-                setCode(Array(CODE_LENGTH).fill(""));
-                setVerifyError(null);
-              }}
-              className="font-sans text-xs text-muted hover:text-charcoal transition-colors"
-            >
-              Change number
-            </button>
-          </div>
-        </motion.div>
-      </main>
+            {verifyError && (
+              <p className="font-sans text-xs text-charcoal mb-4">
+                {verifyError}
+              </p>
+            )}
+
+            {verifying && (
+              <p className="font-sans text-sm text-muted mb-4">
+                Verifying...
+              </p>
+            )}
+
+            <div className="flex gap-4 mt-4">
+              <button
+                type="button"
+                onClick={handleResend}
+                disabled={resendCooldown > 0}
+                className="font-sans text-xs text-muted hover:text-charcoal transition-colors disabled:cursor-not-allowed"
+              >
+                {resendCooldown > 0
+                  ? `Resend in ${resendCooldown}s`
+                  : "Resend code"}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setView("phone");
+                  setCode(Array(CODE_LENGTH).fill(""));
+                  setVerifyError(null);
+                }}
+                className="font-sans text-xs text-muted hover:text-charcoal transition-colors"
+              >
+                Change number
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      </div>
     );
   }
 
   return (
-    <main className="min-h-screen flex flex-col justify-center items-center bg-cream px-6">
-      <motion.div
-        className="w-full max-w-sm"
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4 }}
-      >
-        <h1 className="font-serif text-3xl font-normal text-charcoal text-center mb-10">
-          Compose your night.
-        </h1>
-
-        <form onSubmit={handleSendCode} className="flex flex-col gap-5">
-          <div>
-            <label className="font-sans text-xs tracking-widest uppercase text-muted mb-2 block">
-              Phone number
-            </label>
-            <div className="flex items-center gap-3">
-              <span className="font-sans text-base text-muted shrink-0">
-                +1
-              </span>
-              <input
-                type="tel"
-                inputMode="tel"
-                autoComplete="tel-national"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="(212) 555-1234"
-                className="w-full px-0 py-3 text-base font-sans bg-transparent border-b border-border focus:border-charcoal focus:outline-none transition-colors text-charcoal placeholder:text-muted"
-                autoFocus
-              />
-            </div>
-          </div>
-
-          {error && (
-            <p className="font-sans text-xs text-charcoal">{error}</p>
-          )}
-
-          <Button
-            variant="primary"
-            type="submit"
-            disabled={!phoneValid || submitting}
-            className="w-full"
-          >
-            {submitting ? "Sending..." : "Send Code"}
-          </Button>
-        </form>
-
-        <button
-          type="button"
-          onClick={() => setAuthMode("email")}
-          className="block mx-auto mt-6 font-sans text-xs text-muted hover:text-charcoal transition-colors"
+    <div className="min-h-screen flex flex-col bg-cream">
+      <div className="flex-1 flex flex-col px-6 max-w-lg w-full mx-auto">
+        <motion.div
+          className="flex-1 flex flex-col justify-center"
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.25 }}
         >
-          Use email instead
-        </button>
-      </motion.div>
-    </main>
+          <h1 className="font-sans text-2xl font-medium text-charcoal mb-2">
+            Can we have your number?
+          </h1>
+          <p className="font-sans text-sm text-warm-gray mb-8">
+            So you don&apos;t lose all your plans.
+          </p>
+
+          <form onSubmit={handleSendCode} className="flex flex-col gap-5">
+            <div>
+              <label className="font-sans text-xs tracking-widest uppercase text-muted mb-2 block">
+                Phone number
+              </label>
+              <div className="flex items-center gap-3">
+                <span className="font-sans text-base text-muted shrink-0">
+                  +1
+                </span>
+                <input
+                  type="tel"
+                  inputMode="tel"
+                  autoComplete="tel-national"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="(212) 555-1234"
+                  className="w-full px-0 py-3 text-base font-sans bg-transparent border-b border-border focus:border-charcoal focus:outline-none transition-colors text-charcoal placeholder:text-muted"
+                  autoFocus
+                />
+              </div>
+            </div>
+
+            {error && (
+              <p className="font-sans text-xs text-charcoal">{error}</p>
+            )}
+
+            <Button
+              variant="primary"
+              type="submit"
+              disabled={!phoneValid || submitting}
+              className="w-full"
+            >
+              {submitting ? "Sending..." : "Send Code"}
+            </Button>
+          </form>
+
+          <button
+            type="button"
+            onClick={() => setAuthMode("email")}
+            className="block mt-6 font-sans text-xs text-muted hover:text-charcoal transition-colors"
+          >
+            Use email instead
+          </button>
+        </motion.div>
+      </div>
+    </div>
   );
 }
 
@@ -391,18 +398,22 @@ function EmailAuthForm({
   };
 
   return (
-    <main className="min-h-screen flex flex-col justify-center items-center bg-cream px-6">
-      <motion.div
-        className="w-full max-w-sm"
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4 }}
-      >
-        <h1 className="font-serif text-3xl font-normal text-charcoal text-center mb-10">
-          Compose your night.
-        </h1>
+    <div className="min-h-screen flex flex-col bg-cream">
+      <div className="flex-1 flex flex-col px-6 max-w-lg w-full mx-auto">
+        <motion.div
+          className="flex-1 flex flex-col justify-center"
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.25 }}
+        >
+          <h1 className="font-sans text-2xl font-medium text-charcoal mb-2">
+            Sign in with email
+          </h1>
+          <p className="font-sans text-sm text-warm-gray mb-8">
+            So you don&apos;t lose all your plans.
+          </p>
 
-        <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+          <form onSubmit={handleSubmit} className="flex flex-col gap-5">
           <div>
             <label className="font-sans text-xs tracking-widest uppercase text-muted mb-2 block">
               Email
@@ -456,23 +467,24 @@ function EmailAuthForm({
           </Button>
         </form>
 
-        <div className="flex justify-center gap-4 mt-6">
-          <button
-            type="button"
-            onClick={() => setEmailView("forgot")}
-            className="font-sans text-xs text-muted hover:text-charcoal transition-colors"
-          >
-            Forgot password?
-          </button>
-          <button
-            type="button"
-            onClick={onSwitchToPhone}
-            className="font-sans text-xs text-muted hover:text-charcoal transition-colors"
-          >
-            Use phone instead
-          </button>
-        </div>
-      </motion.div>
-    </main>
+          <div className="flex gap-4 mt-6">
+            <button
+              type="button"
+              onClick={() => setEmailView("forgot")}
+              className="font-sans text-xs text-muted hover:text-charcoal transition-colors"
+            >
+              Forgot password?
+            </button>
+            <button
+              type="button"
+              onClick={onSwitchToPhone}
+              className="font-sans text-xs text-muted hover:text-charcoal transition-colors"
+            >
+              Use phone instead
+            </button>
+          </div>
+        </motion.div>
+      </div>
+    </div>
   );
 }

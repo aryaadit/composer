@@ -101,6 +101,27 @@ export function WhenStep({
     setDay(value);
   };
 
+  const TIME_BLOCKS = [
+    { id: "morning", label: "Morning", description: "8am – 12pm" },
+    { id: "afternoon", label: "Afternoon", description: "12 – 5pm" },
+    { id: "evening", label: "Evening", description: "5 – 10pm" },
+    { id: "late_night", label: "Late Night", description: "10pm – 2am" },
+  ] as const;
+
+  const [timeBlocks, setTimeBlocks] = useState<Set<string>>(new Set(["evening"]));
+
+  const toggleTimeBlock = (id: string) => {
+    setTimeBlocks((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        if (next.size > 1) next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
   const pillClassFor = (selected: boolean) =>
     `rounded-full px-4 py-2 text-sm font-sans font-medium transition-all border ${
       selected
@@ -157,6 +178,32 @@ export function WhenStep({
           aria-hidden
           tabIndex={-1}
         />
+      </div>
+
+      {/* ── Time of Day ──────────────────────────────────────── */}
+      <h3 className="font-sans text-xs tracking-widest uppercase text-muted mb-3 text-center">
+        Time of day
+      </h3>
+      <div className="flex flex-wrap justify-center gap-2 mb-10">
+        {TIME_BLOCKS.map((block, i) => {
+          const isSelected = timeBlocks.has(block.id);
+          return (
+            <motion.button
+              key={block.id}
+              onClick={() => toggleTimeBlock(block.id)}
+              className={pillClassFor(isSelected)}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.2, delay: i * 0.03 + 0.05 }}
+              whileTap={{ scale: 0.97 }}
+            >
+              {block.label}
+              <span className={`ml-1.5 text-xs ${isSelected ? "text-cream/70" : "text-muted"}`}>
+                {block.description}
+              </span>
+            </motion.button>
+          );
+        })}
       </div>
 
       {/* ── Duration ────────────────────────────────────────── */}

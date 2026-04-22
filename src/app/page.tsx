@@ -1,18 +1,18 @@
 "use client";
 
-// Root gate. Four states, picked from AuthProvider:
+// Root gate. Three states:
+//   - loading       → spinner
+//   - no session    → OnboardingFlow (splash → profile → phone auth)
+//   - session + profile → HomeScreen
 //
-//   - loading              → spinner (prevents flash-of-auth-screen
-//                            before the cookie session hydrates)
-//   - no session           → <AuthScreen /> (sign in or sign up)
-//   - session, no profile  → redirect to /onboarding (profile row
-//                            doesn't exist yet; user needs to finish
-//                            onboarding before landing on Home)
-//   - session + profile    → <HomeScreen />
+// The onboarding flow handles auth at the end (phone OTP), so
+// unauthenticated users go through splash → profile → auth in one
+// continuous flow. Returning users who already have a session + profile
+// land directly on HomeScreen.
 
-import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { AuthScreen } from "@/components/auth/AuthScreen";
+import { useEffect } from "react";
+import { OnboardingFlow } from "@/components/onboarding/OnboardingFlow";
 import { HomeScreen } from "@/components/home/HomeScreen";
 import { useAuth } from "@/components/providers/AuthProvider";
 
@@ -20,6 +20,9 @@ export default function Home() {
   const router = useRouter();
   const { session, profile, isLoading } = useAuth();
 
+  // Session exists but no profile → onboarding page handles the
+  // remaining profile setup. This covers edge cases like a user
+  // who verified their phone but the profile upsert failed.
   useEffect(() => {
     if (isLoading) return;
     if (session && !profile) {
@@ -35,13 +38,11 @@ export default function Home() {
     );
   }
 
-  if (!session) {
-    return <AuthScreen />;
+  if (session && profile) {
+    return <HomeScreen userName={profile.name} />;
   }
 
-  if (!profile) {
-    // Effect above is redirecting to /onboarding; render a neutral
-    // loader for the single frame before the nav kicks in.
+  if (session && !profile) {
     return (
       <main className="flex flex-1 items-center justify-center min-h-screen bg-cream">
         <div className="w-6 h-6 border-2 border-charcoal border-t-transparent rounded-full animate-spin" />
@@ -49,5 +50,5 @@ export default function Home() {
     );
   }
 
-  return <HomeScreen userName={profile.name} />;
+  return <OnboardingFlow />;
 }

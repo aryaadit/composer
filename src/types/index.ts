@@ -237,5 +237,6 @@ export interface QuestionStep {
   id: keyof QuestionnaireAnswers;
   kind: StepKind;
   question: string;
+  subtitle?: string;
   options: { value: string; label: string; description?: string }[];
 }

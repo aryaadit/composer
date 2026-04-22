@@ -21,11 +21,12 @@ export const questionSteps: QuestionStep[] = [
     id: "occasion",
     kind: "cards",
     question: "What kind of night is this?",
+    subtitle: "Who are we planning for?",
     options: [
-      { value: "first_date", label: "Early Dating", description: "Make the first couple of dates count" },
-      { value: "dating", label: "Dating", description: "You know each other" },
-      { value: "couple", label: "Couple", description: "Surprise them" },
+      { value: "dating", label: "Dating", description: "Meeting someone new" },
+      { value: "relationship", label: "Relationship", description: "Nights with my partner" },
       { value: "friends", label: "Friends Night Out", description: "No rules" },
+      { value: "family", label: "Family Fun", description: "Something for everyone" },
       { value: "solo", label: "Solo", description: "Just me" },
     ],
   },
@@ -40,7 +41,7 @@ export const questionSteps: QuestionStep[] = [
   {
     id: "budget",
     kind: "cards",
-    question: "How are we spending tonight?",
+    question: "What are we working with?",
     options: BUDGETS.map((b) => ({
       value: b.slug,
       label: b.label,

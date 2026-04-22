@@ -29,7 +29,8 @@ export interface ContextOption {
 export const CONTEXT_OPTIONS: ContextOption[] = [
   { id: "dating", label: "Dating", emoji: "", description: "Meeting someone new" },
   { id: "relationship", label: "Relationship", emoji: "", description: "Nights with my partner" },
-  { id: "friends", label: "Friends", emoji: "", description: "Group nights out" },
+  { id: "friends", label: "Friends Night Out", emoji: "", description: "No rules" },
+  { id: "family", label: "Family Fun", emoji: "", description: "Something for everyone" },
   { id: "solo", label: "Solo", emoji: "", description: "Just me exploring" },
 ];
 

@@ -156,7 +156,15 @@ export function QuestionnaireShell() {
     [state.answers, submitAnswers]
   );
 
-  if (state.status === "loading") return <StepLoading />;
+  if (state.status === "loading") {
+    return (
+      <StepLoading
+        occasion={state.answers.occasion}
+        neighborhoods={state.answers.neighborhoods}
+        vibe={state.answers.vibe}
+      />
+    );
+  }
 
   const step = questionSteps[state.currentStep];
   if (!step) return <StepLoading />;
@@ -206,9 +214,15 @@ export function QuestionnaireShell() {
               transition={{ duration: 0.25, ease: "easeInOut" }}
               className="w-full"
             >
-              <h2 className="font-sans text-2xl font-medium text-charcoal mb-6 text-center leading-tight">
+              <h2 className="font-sans text-2xl font-medium text-charcoal mb-2 text-center leading-tight">
                 {step.question}
               </h2>
+              {step.subtitle && (
+                <p className="font-sans text-sm text-warm-gray mb-6 text-center">
+                  {step.subtitle}
+                </p>
+              )}
+              {!step.subtitle && <div className="mb-4" />}
 
               {step.kind === "pills" && (
                 <NeighborhoodStep

@@ -1,17 +1,21 @@
 "use client";
 
-// Four-step profile builder. Runs after auth (signUp or signIn) — the
-// session is already live when this component renders, so the
-// completion path just upserts to composer_users and routes home. No
-// email field: email lives on auth.users and is captured by
-// AuthScreen before onboarding begins.
+// Onboarding: splash → profile collection → auth. Collects profile
+// info first (steps 0–4), then hands off to the existing AuthScreen
+// (step 5) for phone/email authentication. After auth succeeds the
+// AuthProvider session fires; a useEffect watches for it, saves the
+// profile, and routes home.
+//
+// Steps: 0 splash, 1 name, 2 context (multi), 3 preferences,
+//        4 neighborhoods, 5 auth (full AuthScreen)
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { upsertProfile } from "@/lib/auth";
 import { useAuth } from "@/components/providers/AuthProvider";
+import { AuthScreen } from "@/components/auth/AuthScreen";
 import { UserPrefs, DrinksPref } from "@/types";
 import { pillClass } from "@/lib/styles";
 import {
@@ -20,57 +24,35 @@ import {
   DIETARY_OPTIONS,
 } from "@/config/onboarding";
 import { NeighborhoodPicker } from "@/components/shared/NeighborhoodPicker";
+import { Header } from "@/components/Header";
+import { ProgressBar } from "@/components/ui/ProgressBar";
+
+const PROFILE_STEPS = 5; // 0–4
+const TOTAL_STEPS = 6; // 0–5
 
 export function OnboardingFlow() {
   const router = useRouter();
-  const { user, profile, refreshProfile } = useAuth();
+  const { user, refreshProfile } = useAuth();
 
-  // Pre-fill from any existing profile — this happens when an admin
-  // hits the reset-onboarding backdoor to redo their own profile, or
-  // when a partially-onboarded user returns.
-  const [step, setStep] = useState(0); // 0=name, 1=context, 2=preferences, 3=neighborhoods
-  const [name, setName] = useState(profile?.name ?? "");
-  const [context, setContext] = useState(profile?.context ?? "");
-  const [drinks, setDrinks] = useState<DrinksPref | "">(
-    (profile?.drinks as DrinksPref | null) ?? ""
-  );
-  const [dietary, setDietary] = useState<string[]>(profile?.dietary ?? []);
-  const [favoriteHoods, setFavoriteHoods] = useState<string[]>(
-    profile?.favorite_hoods ?? []
-  );
+  const [step, setStep] = useState(0);
+
+  // Profile state
+  const [name, setName] = useState("");
+  const [contexts, setContexts] = useState<string[]>([]);
+  const [drinks, setDrinks] = useState<DrinksPref | "">("");
+  const [dietary, setDietary] = useState<string[]>([]);
+  const [favoriteHoods, setFavoriteHoods] = useState<string[]>([]);
+
   const [saving, setSaving] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
+  const savingRef = useRef(false);
 
-  const totalSteps = 4;
+  const handleNext = () => setStep((s) => Math.min(s + 1, TOTAL_STEPS - 1));
+  const handleBack = () => setStep((s) => Math.max(s - 1, 0));
 
-  const handleNext = () => {
-    if (step < totalSteps - 1) setStep(step + 1);
-  };
-
-  const handleFinish = async () => {
-    if (saving || !user) return;
-    setSaving(true);
-    setSaveError(null);
-
-    const prefs: UserPrefs = {
-      name: name.trim() || "Friend",
-      context,
-      drinks: (drinks || undefined) as DrinksPref | undefined,
-      dietary,
-      favoriteHoods,
-    };
-
-    const result = await upsertProfile(user.id, prefs);
-    if (!result) {
-      setSaveError("Couldn't save your profile. Try again.");
-      setSaving(false);
-      return;
-    }
-
-    // AuthProvider's `profile` is stale until refetched — do that
-    // before we navigate so HomeScreen mounts with the fresh row.
-    await refreshProfile();
-    router.replace("/");
+  const toggleContext = (id: string) => {
+    setContexts((prev) =>
+      prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id]
+    );
   };
 
   const toggleDietary = (id: string) => {
@@ -86,204 +68,284 @@ export function OnboardingFlow() {
     }
   };
 
+  // When auth completes (user appears), save the collected profile and
+  // route home. The AuthScreen handles its own UI; we just watch for
+  // the session to land.
+  useEffect(() => {
+    if (step !== TOTAL_STEPS - 1 || !user || savingRef.current) return;
+    savingRef.current = true;
+    void Promise.resolve().then(() => setSaving(true));
+
+    const prefs: UserPrefs = {
+      name: name.trim() || "Friend",
+      context: contexts[0] ?? "",
+      drinks: (drinks || undefined) as DrinksPref | undefined,
+      dietary,
+      favoriteHoods,
+    };
+
+    void upsertProfile(user.id, prefs).then(async (saved) => {
+      if (saved) {
+        await refreshProfile();
+        router.replace("/");
+      } else {
+        setSaving(false);
+        savingRef.current = false;
+      }
+    });
+  }, [user, step, name, contexts, drinks, dietary, favoriteHoods, refreshProfile, router]);
+
+  // Progress dots: show for steps 1–4 (profile collection). Hidden on
+  // splash (0) and auth (5) since AuthScreen has its own chrome.
+  const showProgress = step >= 1 && step <= 4;
+  const progressSteps = 4; // steps 1–4
+
   return (
     <div className="min-h-screen flex flex-col bg-cream">
-      {/* Progress dots */}
-      <div className="flex items-center justify-center gap-2 pt-12 pb-6 px-6">
-        {Array.from({ length: totalSteps }).map((_, i) => (
-          <div
-            key={i}
-            className={`h-1 rounded-full transition-all ${
-              i === step
-                ? "w-8 bg-charcoal"
-                : i < step
-                ? "w-1.5 bg-charcoal/40"
-                : "w-1.5 bg-border"
-            }`}
-          />
-        ))}
-      </div>
-
-      {/* Content */}
-      <div className="flex-1 flex flex-col px-6 max-w-lg w-full mx-auto">
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={step}
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            transition={{ duration: 0.25 }}
-            className="flex-1 flex flex-col"
-          >
-            {/* Step 0: Name */}
-            {step === 0 && (
-              <div className="flex-1 flex flex-col justify-center">
-                <h1 className="font-sans text-2xl font-medium text-charcoal mb-2">
-                  What should we call you?
-                </h1>
-                <p className="font-sans text-sm text-warm-gray mb-8">
-                  Shows up on every plan we make you.
-                </p>
-                <input
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="Your first name"
-                  className="w-full px-0 py-3 text-xl font-sans bg-transparent border-b border-border focus:border-charcoal focus:outline-none transition-colors text-charcoal placeholder:text-muted"
-                  autoFocus
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && name.trim()) handleNext();
-                  }}
-                />
-              </div>
-            )}
-
-            {/* Step 1: Context */}
-            {step === 1 && (
-              <div className="flex-1 flex flex-col justify-center">
-                <h1 className="font-sans text-2xl font-medium text-charcoal mb-2">
-                  What brings you here?
-                </h1>
-                <p className="font-sans text-sm text-warm-gray mb-8">
-                  So we know what kind of night you&apos;re planning.
-                </p>
-                <div className="flex flex-col gap-2">
-                  {CONTEXT_OPTIONS.map((opt) => (
-                    <button
-                      key={opt.id}
-                      onClick={() => setContext(opt.id)}
-                      className={`px-4 py-3 rounded-md border text-left transition-all ${
-                        context === opt.id
-                          ? "border-border bg-burgundy-tint shadow-[inset_3px_0_0_var(--color-burgundy)]"
-                          : "border-border bg-cream hover:border-charcoal/30"
-                      }`}
-                    >
-                      <div className="font-sans text-sm font-medium text-charcoal">
-                        {opt.label}
-                      </div>
-                      <div className="font-sans text-xs text-muted mt-0.5">
-                        {opt.description}
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Step 2: Preferences */}
-            {step === 2 && (
-              <div className="flex-1 flex flex-col pt-8">
-                <h1 className="font-sans text-2xl font-medium text-charcoal mb-2">
-                  A couple quick things
-                </h1>
-                <p className="font-sans text-sm text-warm-gray mb-8">
-                  So we don&apos;t recommend anything that&apos;s not your style.
-                </p>
-
-                <div className="mb-8">
-                  <h3 className="font-sans text-xs tracking-widest uppercase text-muted mb-3">
-                    Do you drink?
-                  </h3>
-                  <div className="flex flex-wrap gap-2">
-                    {DRINK_OPTIONS.map((opt) => (
-                      <button
-                        key={opt.id}
-                        onClick={() => setDrinks(opt.id)}
-                        className={pillClass(drinks === opt.id)}
-                      >
-                        {opt.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <h3 className="font-sans text-xs tracking-widest uppercase text-muted mb-3">
-                    Any dietary restrictions?
-                  </h3>
-                  <div className="flex flex-wrap gap-2">
-                    {DIETARY_OPTIONS.map((opt) => (
-                      <button
-                        key={opt.id}
-                        onClick={() => toggleDietary(opt.id)}
-                        // "No restrictions" is a default-style choice (the
-                        // absence of a filter), not an active preference —
-                        // render it neutral charcoal so it doesn't read
-                        // as an urgent burgundy selection.
-                        className={pillClass(
-                          dietary.includes(opt.id),
-                          opt.id === "none" ? "charcoal" : "burgundy"
-                        )}
-                      >
-                        {opt.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Step 3: Favorite neighborhoods */}
-            {step === 3 && (
-              <div className="flex-1 flex flex-col pt-8">
-                <h1 className="font-sans text-2xl font-medium text-charcoal mb-2">
-                  Favorite neighborhoods?
-                </h1>
-                <p className="font-sans text-sm text-warm-gray mb-6">
-                  Optional — pick a few you love or skip this.
-                </p>
-
-                <NeighborhoodPicker
-                  selected={favoriteHoods}
-                  onChange={setFavoriteHoods}
-                  groupByBorough={false}
-                  animated={false}
-                />
-              </div>
-            )}
-          </motion.div>
-        </AnimatePresence>
-      </div>
-
-      {/* Bottom action area */}
-      <div className="relative z-10 px-6 pb-10 pt-4 max-w-lg w-full mx-auto">
-        {saveError && (
-          <p className="font-sans text-xs text-charcoal mb-3 text-center">
-            {saveError}
-          </p>
-        )}
-        {step < 3 ? (
-          <Button
-            variant="primary"
-            onClick={handleNext}
-            disabled={
-              (step === 0 && !name.trim()) || (step === 1 && !context)
-            }
-            className="w-full"
-          >
-            Next →
-          </Button>
-        ) : (
-          <div className="flex gap-3">
-            <Button
-              variant="secondary"
-              onClick={() => void handleFinish()}
-              disabled={saving}
-              className="flex-1"
+      {showProgress && (
+        <div className="px-6">
+          <div className="w-full max-w-lg mx-auto relative">
+            <Header />
+            <button
+              type="button"
+              onClick={handleBack}
+              className="absolute right-0 top-1/2 -translate-y-1/2 font-sans text-sm text-warm-gray hover:text-charcoal transition-colors"
             >
-              Skip
-            </Button>
-            <Button
-              variant="primary"
-              onClick={() => void handleFinish()}
-              disabled={saving}
-              className="flex-1"
-            >
-              {saving ? "Saving…" : "Let's go"}
-            </Button>
+              &larr; Back
+            </button>
           </div>
-        )}
-      </div>
+          <div className="w-full max-w-lg mx-auto mt-1">
+            <ProgressBar
+              currentStep={step - 1}
+              totalSteps={progressSteps}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* ── Auth step: render the full AuthScreen ──────────── */}
+      {step === TOTAL_STEPS - 1 && (
+        saving ? (
+          <main className="flex flex-1 items-center justify-center min-h-screen">
+            <div className="text-center">
+              <div className="w-6 h-6 border-2 border-charcoal border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+              <p className="font-sans text-sm text-muted">Setting up your account...</p>
+            </div>
+          </main>
+        ) : (
+          <AuthScreen />
+        )
+      )}
+
+      {/* ── Profile steps: splash + 4 data collection steps ── */}
+      {step < PROFILE_STEPS && (
+        <>
+          <div className="flex-1 flex flex-col px-6 max-w-lg w-full mx-auto">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={step}
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                transition={{ duration: 0.25 }}
+                className="flex-1 flex flex-col"
+              >
+                {/* ── Step 0: Splash ──────────────────────────── */}
+                {step === 0 && (
+                  <div className="flex-1 flex flex-col items-center justify-center text-center">
+                    <h1 className="font-serif text-6xl md:text-7xl text-charcoal mb-8">
+                      Composer
+                    </h1>
+                    <div className="flex items-center justify-center gap-3 font-serif text-3xl md:text-4xl text-charcoal leading-tight mb-12">
+                      <span>For</span>
+                      <span className="inline-block h-[1.6em] w-[5.5em] text-left" style={{ clipPath: "inset(0 -100vw 0 0)" }}>
+                        <motion.span
+                          className="block text-burgundy"
+                          animate={{
+                            y: [
+                              "0%", "-7.143%", "-14.286%", "-21.429%",
+                              "-28.571%", "-35.714%", "-42.857%", "-50%",
+                              "-57.143%", "-64.286%", "-71.429%", "-78.571%",
+                              "-85.714%", "-92.857%",
+                            ],
+                          }}
+                          transition={{
+                            duration: 26,
+                            repeat: Infinity,
+                            repeatType: "loop",
+                            ease: "easeInOut",
+                            times: [0, 0.077, 0.154, 0.231, 0.308, 0.385, 0.462, 0.538, 0.615, 0.692, 0.769, 0.846, 0.923, 1],
+                          }}
+                        >
+                          <span className="block h-[1.6em] flex items-center whitespace-nowrap">a first date</span>
+                          <span className="block h-[1.6em] flex items-center whitespace-nowrap">solo Sundays</span>
+                          <span className="block h-[1.6em] flex items-center whitespace-nowrap">group chats</span>
+                          <span className="block h-[1.6em] flex items-center whitespace-nowrap">date night</span>
+                          <span className="block h-[1.6em] flex items-center whitespace-nowrap">the girlies</span>
+                          <span className="block h-[1.6em] flex items-center whitespace-nowrap">the parents</span>
+                          <span className="block h-[1.6em] flex items-center whitespace-nowrap">family fun</span>
+                          <span className="block h-[1.6em] flex items-center whitespace-nowrap">NYC weekends</span>
+                          <span className="block h-[1.6em] flex items-center whitespace-nowrap">random Tuesdays</span>
+                          <span className="block h-[1.6em] flex items-center whitespace-nowrap">your anniversary</span>
+                          <span className="block h-[1.6em] flex items-center whitespace-nowrap">the boys</span>
+                          <span className="block h-[1.6em] flex items-center whitespace-nowrap">a rainy day</span>
+                          <span className="block h-[1.6em] flex items-center whitespace-nowrap">the birthday</span>
+                          <span className="block h-[1.6em] flex items-center whitespace-nowrap">a first date</span>
+                        </motion.span>
+                      </span>
+                    </div>
+                    <p className="font-sans text-base text-warm-gray max-w-xs mb-2">
+                      A time and a place. Plans in NYC made by people who live here.
+                    </p>
+                  </div>
+                )}
+
+                {/* ── Step 1: Name ────────────────────────────── */}
+                {step === 1 && (
+                  <div className="flex-1 flex flex-col justify-center">
+                    <h1 className="font-sans text-2xl font-medium text-charcoal mb-2">
+                      What should we call you?
+                    </h1>
+                    <p className="font-sans text-sm text-warm-gray mb-8">
+                      Shows up on every plan we make you.
+                    </p>
+                    <input
+                      type="text"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      placeholder="Your first name"
+                      className="w-full px-0 py-3 text-xl font-sans bg-transparent border-b border-border focus:border-charcoal focus:outline-none transition-colors text-charcoal placeholder:text-muted"
+                      autoFocus
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && name.trim()) handleNext();
+                      }}
+                    />
+                  </div>
+                )}
+
+                {/* ── Step 2: Context (multi-select) ──────────── */}
+                {step === 2 && (
+                  <div className="flex-1 flex flex-col justify-center">
+                    <h1 className="font-sans text-2xl font-medium text-charcoal mb-2">
+                      What brings you here?
+                    </h1>
+                    <p className="font-sans text-sm text-warm-gray mb-8">
+                      Select all that apply.
+                    </p>
+                    <div className="flex flex-col gap-2">
+                      {CONTEXT_OPTIONS.map((opt) => (
+                        <button
+                          key={opt.id}
+                          onClick={() => toggleContext(opt.id)}
+                          className={`px-4 py-3 rounded-md border text-left transition-all ${
+                            contexts.includes(opt.id)
+                              ? "border-border bg-burgundy-tint shadow-[inset_3px_0_0_var(--color-burgundy)]"
+                              : "border-border bg-cream hover:border-charcoal/30"
+                          }`}
+                        >
+                          <div className="font-sans text-sm font-medium text-charcoal">
+                            {opt.label}
+                          </div>
+                          <div className="font-sans text-xs text-muted mt-0.5">
+                            {opt.description}
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* ── Step 3: Preferences ─────────────────────── */}
+                {step === 3 && (
+                  <div className="flex-1 flex flex-col pt-8">
+                    <h1 className="font-sans text-2xl font-medium text-charcoal mb-2">
+                      A couple quick things
+                    </h1>
+                    <p className="font-sans text-sm text-warm-gray mb-8">
+                      So we don&apos;t recommend anything that&apos;s not your style.
+                    </p>
+                    <div className="mb-8">
+                      <h3 className="font-sans text-xs tracking-widest uppercase text-muted mb-3">
+                        Do you drink?
+                      </h3>
+                      <div className="flex flex-wrap gap-2">
+                        {DRINK_OPTIONS.map((opt) => (
+                          <button
+                            key={opt.id}
+                            onClick={() => setDrinks(opt.id)}
+                            className={pillClass(drinks === opt.id)}
+                          >
+                            {opt.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <h3 className="font-sans text-xs tracking-widest uppercase text-muted mb-3">
+                        Any dietary restrictions?
+                      </h3>
+                      <div className="flex flex-wrap gap-2">
+                        {DIETARY_OPTIONS.map((opt) => (
+                          <button
+                            key={opt.id}
+                            onClick={() => toggleDietary(opt.id)}
+                            className={pillClass(
+                              dietary.includes(opt.id),
+                              opt.id === "none" ? "charcoal" : "burgundy"
+                            )}
+                          >
+                            {opt.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* ── Step 4: Neighborhoods ───────────────────── */}
+                {step === 4 && (
+                  <div className="flex-1 flex flex-col pt-8">
+                    <h1 className="font-sans text-2xl font-medium text-charcoal mb-2">
+                      Favorite neighborhoods?
+                    </h1>
+                    <p className="font-sans text-sm text-warm-gray mb-6">
+                      Optional — helps us make a better plan for you.
+                    </p>
+                    <NeighborhoodPicker
+                      selected={favoriteHoods}
+                      onChange={setFavoriteHoods}
+                      groupByBorough={false}
+                      animated={false}
+                    />
+                  </div>
+                )}
+              </motion.div>
+            </AnimatePresence>
+          </div>
+
+          {/* ── Bottom action area ──────────────────────────── */}
+          <div className="relative z-10 px-6 pb-10 pt-4 max-w-lg w-full mx-auto">
+            {step === 0 && (
+              <Button variant="primary" onClick={handleNext} className="w-full">
+                Start Composing
+              </Button>
+            )}
+            {step >= 1 && step <= 4 && (
+              <Button
+                variant="primary"
+                onClick={handleNext}
+                disabled={
+                  (step === 1 && !name.trim()) ||
+                  (step === 2 && contexts.length === 0)
+                }
+                className="w-full"
+              >
+                {step === 4 ? "Continue" : "Next →"}
+              </Button>
+            )}
+          </div>
+        </>
+      )}
     </div>
   );
 }
