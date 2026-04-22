@@ -46,7 +46,8 @@ export function ActionBar({
         budget: inputs.budget,
         vibe: inputs.vibe,
         day: inputs.day,
-        duration: inputs.duration,
+        duration: inputs.timeBlock, // legacy column — stores timeBlock value
+        time_block: inputs.timeBlock,
         stops,
         walking,
         weather: header.weather,

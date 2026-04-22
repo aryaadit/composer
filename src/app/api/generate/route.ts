@@ -146,12 +146,12 @@ export async function POST(request: Request) {
       ? body.excludeVenueIds.filter((id): id is string => typeof id === "string")
       : [];
 
-    // Resolve duration → concrete startTime/endTime. Downstream scoring
+    // Resolve timeBlock → concrete startTime/endTime. Downstream scoring
     // and composition reason in minutes, so we normalize at the edge
     // and pass a full QuestionnaireAnswers through the rest of the
     // pipeline. Response.inputs echoes the resolved shape so the UI
     // can render real times.
-    const { startTime, endTime } = resolveTimeWindow(body.duration);
+    const { startTime, endTime } = resolveTimeWindow(body.timeBlock);
     const inputs: QuestionnaireAnswers = { ...body, startTime, endTime };
 
     const [prefs, weather, venueResult] = await Promise.all([

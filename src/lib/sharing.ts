@@ -1,18 +1,23 @@
 // Share-link URL encoding/decoding. Share URLs are stateless — the
 // itinerary page reads the inputs from the query string and
 // re-generates, so a shared link is a recipe, not a snapshot. The URL
-// carries `duration` (a preset), not startTime/endTime; the server
-// resolves it on each generation so a shared link regenerated at a
-// different hour still produces a coherent window.
+// carries `timeBlock` (a preset), not startTime/endTime; the server
+// resolves it on each generation.
 
 import {
   GenerateRequestBody,
-  Duration,
   Neighborhood,
+  TimeBlock,
 } from "@/types";
-import { DURATIONS } from "@/config/durations";
+import { TIME_BLOCKS } from "@/config/durations";
 
-const DURATION_IDS = new Set<string>(DURATIONS.map((d) => d.id));
+const BLOCK_IDS = new Set<string>(TIME_BLOCKS.map((b) => b.id));
+// Legacy duration IDs for decoding old share links
+const LEGACY_DURATION_TO_BLOCK: Record<string, TimeBlock> = {
+  "2h": "evening",
+  "3.5h": "evening",
+  "5h": "evening",
+};
 
 export function encodeInputsToParams(inputs: GenerateRequestBody): string {
   const params = new URLSearchParams();
@@ -21,7 +26,7 @@ export function encodeInputsToParams(inputs: GenerateRequestBody): string {
   params.set("budget", inputs.budget);
   params.set("vibe", inputs.vibe);
   params.set("day", inputs.day);
-  params.set("duration", inputs.duration);
+  params.set("timeBlock", inputs.timeBlock);
   return params.toString();
 }
 
@@ -33,17 +38,19 @@ export function decodeParamsToInputs(
   const budget = searchParams.get("budget");
   const vibe = searchParams.get("vibe");
   const day = searchParams.get("day");
+
+  // Support both new timeBlock and legacy duration params
+  let timeBlock: TimeBlock | null = null;
+  const timeBlockRaw = searchParams.get("timeBlock");
   const durationRaw = searchParams.get("duration");
 
-  if (
-    !occasion ||
-    !neighborhoodsRaw ||
-    !budget ||
-    !vibe ||
-    !day ||
-    !durationRaw ||
-    !DURATION_IDS.has(durationRaw)
-  ) {
+  if (timeBlockRaw && BLOCK_IDS.has(timeBlockRaw)) {
+    timeBlock = timeBlockRaw as TimeBlock;
+  } else if (durationRaw && durationRaw in LEGACY_DURATION_TO_BLOCK) {
+    timeBlock = LEGACY_DURATION_TO_BLOCK[durationRaw];
+  }
+
+  if (!occasion || !neighborhoodsRaw || !budget || !vibe || !day || !timeBlock) {
     return null;
   }
 
@@ -57,7 +64,7 @@ export function decodeParamsToInputs(
     budget: budget as GenerateRequestBody["budget"],
     vibe: vibe as GenerateRequestBody["vibe"],
     day,
-    duration: durationRaw as Duration,
+    timeBlock,
   };
 }
 

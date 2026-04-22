@@ -10,7 +10,7 @@ import type { NeighborhoodSlug } from "@/config/neighborhoods";
 import type { BudgetSlug } from "@/config/budgets";
 import type { VibeSlug } from "@/config/vibes";
 import type { StopRoleSlug } from "@/config/roles";
-import type { DurationSlug } from "@/config/durations";
+import type { TimeBlock, DurationSlug } from "@/config/durations";
 
 export type Occasion = OccasionSlug;
 export type Neighborhood = NeighborhoodSlug;
@@ -18,6 +18,7 @@ export type Budget = BudgetSlug;
 export type Vibe = VibeSlug;
 export type StopRole = StopRoleSlug;
 export type Duration = DurationSlug;
+export type { TimeBlock };
 
 // The 6 values a venue can carry in its stop_roles column. The
 // composition engine plans with 3 canonical roles (opener / main /
@@ -70,22 +71,22 @@ export function composerUserToPrefs(u: ComposerUser): UserPrefs {
 
 // Full canonical shape used by every downstream scoring/composition
 // function. `startTime` and `endTime` are computed server-side from
-// `duration` — the client never fills them in.
+// `timeBlock` — the client never fills them in.
 export interface QuestionnaireAnswers {
   occasion: Occasion;
   neighborhoods: Neighborhood[]; // expanded storage slugs
   budget: Budget;
   vibe: Vibe;
   day: string; // ISO date "2026-04-09"
-  duration: Duration; // "2h" | "3.5h" | "5h"
-  startTime: string; // "19:00" — resolved server-side from duration
-  endTime: string; // "22:30" — resolved server-side from duration
+  timeBlock: TimeBlock; // "morning" | "afternoon" | "evening" | "late_night"
+  startTime: string; // "17:00" — resolved server-side from timeBlock
+  endTime: string; // "22:00" — resolved server-side from timeBlock
 }
 
 // Body shape POSTed to /api/generate. Auth-derived preferences (name,
 // drinks, etc.) are read server-side from the session cookie and are
-// *not* part of the request body. Time window is also resolved on the
-// server from `duration`, so the client omits startTime/endTime.
+// *not* part of the request body. Time window is resolved on the
+// server from `timeBlock`, so the client omits startTime/endTime.
 export type GenerateRequestBody = Omit<
   QuestionnaireAnswers,
   "startTime" | "endTime"
@@ -224,7 +225,8 @@ export interface SavedItinerary {
   budget: string | null;
   vibe: string | null;
   day: string | null;
-  duration: string;
+  duration: string; // legacy — old saved plans store "2h" / "3.5h" / "5h"
+  time_block: string | null; // new saved plans store "morning" / "afternoon" / "evening" / "late_night"
   stops: ItineraryStop[];
   walking: WalkingMeta | null;
   weather: WeatherInfo | null;
