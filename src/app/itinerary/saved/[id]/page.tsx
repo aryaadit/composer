@@ -21,7 +21,7 @@ import {
   buildGoogleMapsUrl,
 } from "@/lib/geo";
 import { calculateTotalSpend } from "@/config/budgets";
-import { resolveTimeWindow } from "@/config/durations";
+import { resolveTimeWindow } from "@/config/time-blocks";
 import type {
   TimeBlock,
   ItineraryResponse,
@@ -70,14 +70,9 @@ function toItineraryResponse(saved: SavedItinerary): ItineraryResponse {
     maps_url: buildGoogleMapsUrl(stops.map((s) => s.venue)),
     // `inputs` isn't read by CompositionHeader / ItineraryView, but
     // The share view reads `inputs.startTime` for time display, so
-    // Resolve timeBlock (or legacy duration) → start/end so any
-    // downstream share affordance works without empty strings.
     inputs: (() => {
       const timeBlock = (saved.time_block as TimeBlock) ?? "evening";
-      // Legacy fallback: old saved plans have duration but no time_block.
-      // resolveTimeWindow handles both.
-      const resolveKey = (saved.time_block ?? saved.duration ?? "evening") as TimeBlock;
-      const { startTime, endTime } = resolveTimeWindow(resolveKey);
+      const { startTime, endTime } = resolveTimeWindow(timeBlock);
       return {
         occasion: (saved.occasion ?? "") as ItineraryResponse["inputs"]["occasion"],
         neighborhoods: (saved.neighborhoods ?? []) as ItineraryResponse["inputs"]["neighborhoods"],

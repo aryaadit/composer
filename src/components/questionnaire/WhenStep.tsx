@@ -7,7 +7,7 @@
 import { useMemo, useRef, useState } from "react";
 import { motion } from "motion/react";
 import { Button } from "@/components/ui/Button";
-import { TIME_BLOCKS, DEFAULT_TIME_BLOCK } from "@/config/durations";
+import { TIME_BLOCKS, DEFAULT_TIME_BLOCK } from "@/config/time-blocks";
 import type { TimeBlock } from "@/types";
 
 interface UpcomingDay {

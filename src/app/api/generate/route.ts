@@ -8,7 +8,7 @@ import { walkTimeMinutes, walkDistanceKm, buildGoogleMapsUrl } from "@/lib/geo";
 import { buildWalkMapUrl } from "@/lib/mapbox";
 import { calculateTotalSpend } from "@/config/budgets";
 import { ALCOHOL_VIBE_TAGS } from "@/config/vibes";
-import { resolveTimeWindow } from "@/config/durations";
+import { resolveTimeWindow } from "@/config/time-blocks";
 import type {
   GenerateRequestBody,
   QuestionnaireAnswers,

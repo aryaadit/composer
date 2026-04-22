@@ -10,14 +10,13 @@ import type { NeighborhoodSlug } from "@/config/neighborhoods";
 import type { BudgetSlug } from "@/config/budgets";
 import type { VibeSlug } from "@/config/vibes";
 import type { StopRoleSlug } from "@/config/roles";
-import type { TimeBlock, DurationSlug } from "@/config/durations";
+import type { TimeBlock } from "@/config/time-blocks";
 
 export type Occasion = OccasionSlug;
 export type Neighborhood = NeighborhoodSlug;
 export type Budget = BudgetSlug;
 export type Vibe = VibeSlug;
 export type StopRole = StopRoleSlug;
-export type Duration = DurationSlug;
 export type { TimeBlock };
 
 // The 6 values a venue can carry in its stop_roles column. The
@@ -225,8 +224,7 @@ export interface SavedItinerary {
   budget: string | null;
   vibe: string | null;
   day: string | null;
-  duration: string; // legacy — old saved plans store "2h" / "3.5h" / "5h"
-  time_block: string | null; // new saved plans store "morning" / "afternoon" / "evening" / "late_night"
+  time_block: string;
   stops: ItineraryStop[];
   walking: WalkingMeta | null;
   weather: WeatherInfo | null;
