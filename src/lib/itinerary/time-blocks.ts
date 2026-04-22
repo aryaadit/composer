@@ -92,6 +92,107 @@ export function isSlotInBlock(slotTime: string, block: TimeBlock): boolean {
   return timePart >= start || timePart < end;
 }
 
+// ─── Display formatting ───────────────────────────────────────
+
+/**
+ * Format a slot time for user display.
+ * Input:  "2026-04-25 19:30:00" or "19:30"
+ * Output: "7:30 PM"
+ */
+export function formatSlotTimeForDisplay(slotTime: string): string {
+  const timePart = slotTime.includes(" ")
+    ? slotTime.split(" ")[1].substring(0, 5)
+    : slotTime.substring(0, 5);
+
+  const [hStr, mStr] = timePart.split(":");
+  let h = parseInt(hStr, 10);
+  const m = mStr;
+  const ampm = h >= 12 ? "PM" : "AM";
+  if (h === 0) h = 12;
+  else if (h > 12) h -= 12;
+  return m === "00" ? `${h} ${ampm}` : `${h}:${m} ${ampm}`;
+}
+
+// ─── Recommended slot selection ───────────────────────────────
+
+import type { StopRole } from "@/types";
+import type { AvailabilitySlot } from "@/lib/availability/resy";
+
+// Typical center times by role within each block. Conservative —
+// only when there's a clear cultural norm.
+const ROLE_CENTERS: Partial<
+  Record<TimeBlock, Partial<Record<StopRole, string>>>
+> = {
+  evening: {
+    opener: "18:00",
+    main: "19:30",
+    closer: "21:00",
+  },
+  afternoon: {
+    opener: "13:00",
+    main: "14:00",
+    closer: "15:30",
+  },
+  morning: {
+    opener: "09:00",
+    main: "10:00",
+    closer: "11:00",
+  },
+  late_night: {
+    opener: "22:30",
+    main: "23:00",
+    closer: "23:30",
+  },
+};
+
+export function getTypicalTimeForRole(
+  role: StopRole,
+  block: TimeBlock
+): string | null {
+  return ROLE_CENTERS[block]?.[role] ?? null;
+}
+
+function extractHHMM(slotTime: string): string {
+  return slotTime.includes(" ")
+    ? slotTime.split(" ")[1].substring(0, 5)
+    : slotTime.substring(0, 5);
+}
+
+function minuteDistance(timeA: string, timeB: string): number {
+  const [ah, am] = timeA.split(":").map(Number);
+  const [bh, bm] = timeB.split(":").map(Number);
+  return Math.abs(ah * 60 + am - (bh * 60 + bm));
+}
+
+/**
+ * Pick recommended slots from a venue's full availability list.
+ * Clusters around the typical center time for the role if one exists,
+ * otherwise returns the first N chronologically.
+ */
+export function pickRecommendedSlots(
+  slots: AvailabilitySlot[],
+  role: StopRole,
+  block: TimeBlock,
+  count = 8
+): AvailabilitySlot[] {
+  if (slots.length <= count) return slots;
+
+  const center = getTypicalTimeForRole(role, block);
+  if (!center) return slots.slice(0, count);
+
+  // Sort by distance from center, take top N, re-sort chronologically
+  const scored = slots.map((s) => ({
+    slot: s,
+    dist: minuteDistance(extractHHMM(s.time), center),
+  }));
+  scored.sort((a, b) => a.dist - b.dist);
+  const picked = scored.slice(0, count).map((s) => s.slot);
+  picked.sort((a, b) => a.time.localeCompare(b.time));
+  return picked;
+}
+
+// ─── Time window resolution ──────────────────────────────────
+
 /**
  * Resolve a time block into start + end HH:MM strings for scoring.
  * Used by the generate route to feed startTime/endTime to the

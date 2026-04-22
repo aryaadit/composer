@@ -178,6 +178,7 @@ function ItineraryContent() {
         <ItineraryView
           stops={itinerary.stops}
           walks={itinerary.walks}
+          timeBlock={itinerary.inputs.timeBlock}
           onAddStop={handleAddStop}
           isAddingStop={addingStop}
           onSwapStop={handleSwap}
