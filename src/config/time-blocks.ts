@@ -5,10 +5,10 @@
 // resolved times — it never sees the block slug directly.
 
 export const TIME_BLOCKS = [
-  { id: "morning", label: "Morning", sublabel: "8am\u201312pm", icon: "\uD83C\uDF05", startHour: 8, endHour: 12 },
-  { id: "afternoon", label: "Afternoon", sublabel: "12pm\u20135pm", icon: "\u2600\uFE0F", startHour: 12, endHour: 17 },
-  { id: "evening", label: "Evening", sublabel: "5pm\u201310pm", icon: "\uD83C\uDF06", startHour: 17, endHour: 22 },
-  { id: "late_night", label: "Late Night", sublabel: "10pm\u20132am", icon: "\uD83C\uDF19", startHour: 22, endHour: 26 },
+  { id: "morning", label: "Morning", pillLabel: "Morning \u00b7 8a\u201312p", startHour: 8, endHour: 12 },
+  { id: "afternoon", label: "Afternoon", pillLabel: "Afternoon \u00b7 12p\u20135p", startHour: 12, endHour: 17 },
+  { id: "evening", label: "Evening", pillLabel: "Evening \u00b7 5p\u201310p", startHour: 17, endHour: 22 },
+  { id: "late_night", label: "Late Night", pillLabel: "Late Night \u00b7 10p\u20132a", startHour: 22, endHour: 26 },
 ] as const;
 
 export type TimeBlock = (typeof TIME_BLOCKS)[number]["id"];

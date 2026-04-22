@@ -92,13 +92,6 @@ export function WhenStep({
         : "bg-cream border-border text-charcoal hover:border-charcoal/40"
     }`;
 
-  const blockClass = (selected: boolean) =>
-    `flex-1 min-w-[140px] rounded-xl px-4 py-3 text-left transition-all border ${
-      selected
-        ? "bg-burgundy text-cream border-transparent"
-        : "bg-cream border-border text-charcoal hover:border-charcoal/40"
-    }`;
-
   return (
     <div>
       {/* ── When ────────────────────────────────────────────── */}
@@ -158,25 +151,13 @@ export function WhenStep({
             <motion.button
               key={block.id}
               onClick={() => setTimeBlock(block.id)}
-              className={blockClass(isSelected)}
+              className={pillClass(isSelected)}
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.2, delay: i * 0.04 + 0.1 }}
+              transition={{ duration: 0.2, delay: i * 0.03 + 0.1 }}
               whileTap={{ scale: 0.97 }}
             >
-              <span className="text-base" aria-hidden>
-                {block.icon}
-              </span>
-              <span className="font-sans text-sm font-medium ml-2">
-                {block.label}
-              </span>
-              <span
-                className={`block font-sans text-xs mt-0.5 ${
-                  isSelected ? "text-cream/70" : "text-muted"
-                }`}
-              >
-                {block.sublabel}
-              </span>
+              {block.pillLabel}
             </motion.button>
           );
         })}
