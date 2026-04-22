@@ -37,6 +37,9 @@ yarn-error.log*
 # service account credentials
 docs/*.json
 
+# script caches
+.cache/
+
 # vercel
 .vercel
 
