@@ -15,6 +15,7 @@
 
 import { useCallback, useMemo } from "react";
 import { motion } from "motion/react";
+import { pillClass } from "@/lib/styles";
 import {
   NEIGHBORHOOD_GROUPS,
   BOROUGH_LABELS,
@@ -35,14 +36,7 @@ interface NeighborhoodPickerProps {
   animated?: boolean;
 }
 
-const pillClass = (selected: boolean, atMax: boolean) =>
-  `rounded-full px-4 py-2 text-sm font-sans font-medium transition-all border ${
-    selected
-      ? "bg-burgundy text-cream border-burgundy"
-      : atMax
-      ? "bg-cream border-border text-muted cursor-not-allowed"
-      : "bg-cream border-border text-charcoal hover:border-charcoal/40"
-  }`;
+// Uses shared pillClass from @/lib/styles with disabled second arg
 
 export function NeighborhoodPicker({
   selected,

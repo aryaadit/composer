@@ -7,6 +7,7 @@
 import { useMemo, useRef, useState } from "react";
 import { motion } from "motion/react";
 import { Button } from "@/components/ui/Button";
+import { pillClass } from "@/lib/styles";
 import {
   TIME_BLOCKS,
   DEFAULT_TIME_BLOCK,
@@ -88,13 +89,6 @@ export function WhenStep({
     if (!value) return;
     setDay(value);
   };
-
-  const pillClass = (selected: boolean) =>
-    `rounded-full px-4 py-2 text-sm font-sans font-medium transition-all border ${
-      selected
-        ? "bg-burgundy text-cream border-transparent"
-        : "bg-cream border-border text-charcoal hover:border-charcoal/40"
-    }`;
 
   return (
     <div>
