@@ -7,7 +7,11 @@
 import { useMemo, useRef, useState } from "react";
 import { motion } from "motion/react";
 import { Button } from "@/components/ui/Button";
-import { TIME_BLOCKS, DEFAULT_TIME_BLOCK } from "@/config/time-blocks";
+import {
+  TIME_BLOCKS,
+  DEFAULT_TIME_BLOCK,
+  formatBlockChipLabel,
+} from "@/lib/itinerary/time-blocks";
 import type { TimeBlock } from "@/types";
 
 interface UpcomingDay {
@@ -157,7 +161,7 @@ export function WhenStep({
               transition={{ duration: 0.2, delay: i * 0.03 + 0.1 }}
               whileTap={{ scale: 0.97 }}
             >
-              {block.pillLabel}
+              {formatBlockChipLabel(block.id)}
             </motion.button>
           );
         })}

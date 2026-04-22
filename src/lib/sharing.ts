@@ -9,7 +9,7 @@ import {
   Neighborhood,
   TimeBlock,
 } from "@/types";
-import { TIME_BLOCKS } from "@/config/time-blocks";
+import { TIME_BLOCKS } from "@/lib/itinerary/time-blocks";
 
 const BLOCK_IDS = new Set<string>(TIME_BLOCKS.map((b) => b.id));
 

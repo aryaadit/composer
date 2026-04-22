@@ -21,7 +21,7 @@ import {
   buildGoogleMapsUrl,
 } from "@/lib/geo";
 import { calculateTotalSpend } from "@/config/budgets";
-import { resolveTimeWindow } from "@/config/time-blocks";
+import { resolveTimeWindow } from "@/lib/itinerary/time-blocks";
 import type {
   TimeBlock,
   ItineraryResponse,

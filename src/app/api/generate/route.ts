@@ -8,7 +8,8 @@ import { walkTimeMinutes, walkDistanceKm, buildGoogleMapsUrl } from "@/lib/geo";
 import { buildWalkMapUrl } from "@/lib/mapbox";
 import { calculateTotalSpend } from "@/config/budgets";
 import { ALCOHOL_VIBE_TAGS } from "@/config/vibes";
-import { resolveTimeWindow } from "@/config/time-blocks";
+import { resolveTimeWindow } from "@/lib/itinerary/time-blocks";
+import { enrichWithAvailability } from "@/lib/itinerary/availability-enrichment";
 import type {
   GenerateRequestBody,
   QuestionnaireAnswers,
@@ -285,7 +286,19 @@ export async function POST(request: Request) {
       inputs,
     };
 
-    return NextResponse.json(response);
+    // Enrich stops with live Resy availability, filtered to the
+    // user's time block. candidatePool = undefined for now — swap will
+    // skip and mark no_slots_in_block. Phase 3a-3 can pass the broader
+    // pool if we refactor composeItinerary to expose it.
+    const enriched = await enrichWithAvailability(
+      response,
+      inputs.day,
+      2, // default party size — Phase 3a-3 will thread this from the client
+      body.timeBlock,
+      undefined
+    );
+
+    return NextResponse.json(enriched);
   } catch (error) {
     console.error("Generation error:", error);
     return NextResponse.json(

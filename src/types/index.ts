@@ -10,7 +10,8 @@ import type { NeighborhoodSlug } from "@/config/neighborhoods";
 import type { BudgetSlug } from "@/config/budgets";
 import type { VibeSlug } from "@/config/vibes";
 import type { StopRoleSlug } from "@/config/roles";
-import type { TimeBlock } from "@/config/time-blocks";
+import type { TimeBlock } from "@/lib/itinerary/time-blocks";
+import type { AvailabilitySlot } from "@/lib/availability/resy";
 
 export type Occasion = OccasionSlug;
 export type Neighborhood = NeighborhoodSlug;
@@ -151,6 +152,11 @@ export interface Venue {
   quality_score: number; // 1-10, default 7
   curation_boost: number; // 0-2, default 0
 
+  // Reservation platform
+  reservation_platform: string | null; // 'resy' | 'opentable' | 'tock' | 'sevenrooms' | 'none'
+  resy_venue_id: number | null;
+  resy_slug: string | null;
+
   // Google Places — batch-fetched, cached in DB
   google_place_id: string | null;
   google_place_data: Record<string, unknown> | null;
@@ -162,6 +168,14 @@ export interface ScoredVenue extends Venue {
   score: number;
 }
 
+export interface StopAvailability {
+  status: "has_slots" | "no_slots_in_block" | "walk_in" | "unconfirmed";
+  slots: AvailabilitySlot[];
+  bookingUrlBase: string | null;
+  swapped: boolean;
+  swappedFrom?: { venueId: string; venueName: string };
+}
+
 export interface ItineraryStop {
   role: StopRole;
   venue: Venue;
@@ -169,6 +183,7 @@ export interface ItineraryStop {
   spend_estimate: string;
   is_fixed: boolean;
   plan_b: Venue | null;
+  availability?: StopAvailability;
 }
 
 export interface WalkSegment {
