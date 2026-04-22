@@ -304,6 +304,16 @@ Never use generic purple gradients, white backgrounds, or Inter/Roboto. The aest
 
 ## Coding Standards
 
+### Architecture Principles
+- **Single source of truth** — shared constants, labels, ranges, and taxonomies live in ONE canonical module and are imported everywhere. No duplicate string literals across files.
+- **Display formatting lives with the data** — labels, short/long ranges, and formatters live in the canonical module, not in components.
+- **Refactor existing duplication in the same commit** — if you find duplication while implementing a feature, fix it.
+- **Audit before adding** — grep for related concepts before adding new constants, types, or components.
+
+### Canonical Modules
+- `src/lib/itinerary/time-blocks.ts` — TimeBlock type, block metadata, `isSlotInBlock()`, `resolveTimeWindow()`, `formatBlockChipLabel()`
+- `src/config/generated/*.ts` — auto-generated from Google Sheet (neighborhoods, categories, vibes, occasions, stop-roles, budgets)
+
 ### TypeScript
 - Strict mode on. No `any` types. No `ts-ignore`.
 - Define types in `types/` for shared data shapes. Inline types for local-only shapes.

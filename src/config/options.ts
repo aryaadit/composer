@@ -59,10 +59,10 @@ export const questionSteps: QuestionStep[] = [
     })),
   },
   {
-    // Combined day + duration step. The step only reads `id` + `kind` +
+    // Combined day + time block step. The step only reads `id` + `kind` +
     // `question` — the `day` key is the canonical field the
     // reducer/shell listens to, but the step itself sets both day and
-    // duration via a single onContinue callback.
+    // timeBlock via a single onContinue callback.
     id: "day",
     kind: "when",
     question: "When?",

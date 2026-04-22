@@ -15,8 +15,28 @@ export type PillTone = "burgundy" | "charcoal";
  */
 export function pillClass(
   selected: boolean,
-  tone: PillTone = "burgundy"
+  toneOrDisabled: PillTone | boolean = "burgundy",
+  disabled?: boolean
 ): string {
+  // Support two call signatures:
+  //   pillClass(selected)
+  //   pillClass(selected, tone)
+  //   pillClass(selected, disabled)       — boolean second arg
+  //   pillClass(selected, tone, disabled)
+  let tone: PillTone = "burgundy";
+  let isDisabled = false;
+
+  if (typeof toneOrDisabled === "boolean") {
+    isDisabled = toneOrDisabled;
+  } else {
+    tone = toneOrDisabled;
+    isDisabled = disabled ?? false;
+  }
+
+  if (isDisabled && !selected) {
+    return "px-4 py-2 rounded-full text-sm font-sans font-medium transition-all border bg-cream border-border text-muted cursor-not-allowed";
+  }
+
   const fill =
     tone === "charcoal"
       ? "bg-charcoal text-cream border-transparent"

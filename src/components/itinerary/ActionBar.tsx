@@ -46,7 +46,7 @@ export function ActionBar({
         budget: inputs.budget,
         vibe: inputs.vibe,
         day: inputs.day,
-        duration: inputs.duration,
+        time_block: inputs.timeBlock,
         stops,
         walking,
         weather: header.weather,

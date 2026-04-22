@@ -1,18 +1,17 @@
 // Share-link URL encoding/decoding. Share URLs are stateless — the
 // itinerary page reads the inputs from the query string and
 // re-generates, so a shared link is a recipe, not a snapshot. The URL
-// carries `duration` (a preset), not startTime/endTime; the server
-// resolves it on each generation so a shared link regenerated at a
-// different hour still produces a coherent window.
+// carries `timeBlock`, not startTime/endTime; the server resolves it
+// on each generation.
 
 import {
   GenerateRequestBody,
-  Duration,
   Neighborhood,
+  TimeBlock,
 } from "@/types";
-import { DURATIONS } from "@/config/durations";
+import { TIME_BLOCKS } from "@/lib/itinerary/time-blocks";
 
-const DURATION_IDS = new Set<string>(DURATIONS.map((d) => d.id));
+const BLOCK_IDS = new Set<string>(TIME_BLOCKS.map((b) => b.id));
 
 export function encodeInputsToParams(inputs: GenerateRequestBody): string {
   const params = new URLSearchParams();
@@ -21,7 +20,7 @@ export function encodeInputsToParams(inputs: GenerateRequestBody): string {
   params.set("budget", inputs.budget);
   params.set("vibe", inputs.vibe);
   params.set("day", inputs.day);
-  params.set("duration", inputs.duration);
+  params.set("timeBlock", inputs.timeBlock);
   return params.toString();
 }
 
@@ -33,7 +32,7 @@ export function decodeParamsToInputs(
   const budget = searchParams.get("budget");
   const vibe = searchParams.get("vibe");
   const day = searchParams.get("day");
-  const durationRaw = searchParams.get("duration");
+  const timeBlockRaw = searchParams.get("timeBlock");
 
   if (
     !occasion ||
@@ -41,8 +40,8 @@ export function decodeParamsToInputs(
     !budget ||
     !vibe ||
     !day ||
-    !durationRaw ||
-    !DURATION_IDS.has(durationRaw)
+    !timeBlockRaw ||
+    !BLOCK_IDS.has(timeBlockRaw)
   ) {
     return null;
   }
@@ -57,7 +56,7 @@ export function decodeParamsToInputs(
     budget: budget as GenerateRequestBody["budget"],
     vibe: vibe as GenerateRequestBody["vibe"],
     day,
-    duration: durationRaw as Duration,
+    timeBlock: timeBlockRaw as TimeBlock,
   };
 }
 

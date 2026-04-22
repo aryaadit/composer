@@ -7,7 +7,7 @@ import { questionSteps } from "@/config/options";
 import type {
   QuestionnaireAnswers,
   GenerateRequestBody,
-  Duration,
+  TimeBlock,
   Neighborhood,
   Occasion,
 } from "@/types";
@@ -141,16 +141,16 @@ export function QuestionnaireShell() {
   }, []);
 
   const handleWhenContinue = useCallback(
-    (day: string, duration: Duration) => {
-      // Combined step — day and duration land together, then we submit
+    (day: string, timeBlock: TimeBlock) => {
+      // Combined step — day and timeBlock land together, then we submit
       // immediately. Reducer gets the update for consistency / back-nav,
       // but the fetch body is built from local values to avoid racing
       // the reducer's next render.
-      dispatch({ type: "SET_FIELDS", values: { day, duration } });
+      dispatch({ type: "SET_FIELDS", values: { day, timeBlock } });
       submitAnswers({
-        ...(state.answers as Omit<GenerateRequestBody, "day" | "duration">),
+        ...(state.answers as Omit<GenerateRequestBody, "day" | "timeBlock">),
         day,
-        duration,
+        timeBlock,
       });
     },
     [state.answers, submitAnswers]
@@ -261,7 +261,7 @@ export function QuestionnaireShell() {
               {step.kind === "when" && (
                 <WhenStep
                   initialDay={state.answers.day}
-                  initialDuration={state.answers.duration}
+                  initialTimeBlock={state.answers.timeBlock}
                   onContinue={handleWhenContinue}
                 />
               )}
