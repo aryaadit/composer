@@ -9,7 +9,11 @@ import {
   pickRecommendedSlots,
   formatSlotTimeForDisplay,
 } from "@/lib/itinerary/time-blocks";
-import type { StopAvailability as StopAvailabilityType, StopRole } from "@/types";
+import { buildResySlotBookingUrl } from "@/lib/availability/booking-url";
+import type {
+  StopAvailability as StopAvailabilityType,
+  StopRole,
+} from "@/types";
 import type { AvailabilitySlot } from "@/lib/availability/resy";
 import type { TimeBlock } from "@/lib/itinerary/time-blocks";
 
@@ -18,6 +22,11 @@ interface StopAvailabilityProps {
   role: StopRole;
   timeBlock: TimeBlock;
   platform: string | null;
+  venueName: string;
+  venueSlug: string | null;
+  venueResyId: number | null;
+  date: string;
+  partySize: number;
   selectedSlot: AvailabilitySlot | null;
   onSelectSlot: (slot: AvailabilitySlot | null) => void;
 }
@@ -34,6 +43,11 @@ export function StopAvailabilitySection({
   role,
   timeBlock,
   platform,
+  venueName,
+  venueSlug,
+  venueResyId,
+  date,
+  partySize,
   selectedSlot,
   onSelectSlot,
 }: StopAvailabilityProps) {
@@ -97,6 +111,11 @@ export function StopAvailabilitySection({
       role={role}
       timeBlock={timeBlock}
       bookingUrlBase={bookingUrlBase}
+      venueName={venueName}
+      venueSlug={venueSlug}
+      venueResyId={venueResyId}
+      date={date}
+      partySize={partySize}
       selectedSlot={selectedSlot}
       onSelectSlot={onSelectSlot}
     />
@@ -108,6 +127,11 @@ function HasSlotsView({
   role,
   timeBlock,
   bookingUrlBase,
+  venueName,
+  venueSlug,
+  venueResyId,
+  date,
+  partySize,
   selectedSlot,
   onSelectSlot,
 }: {
@@ -115,6 +139,11 @@ function HasSlotsView({
   role: StopRole;
   timeBlock: TimeBlock;
   bookingUrlBase: string | null;
+  venueName: string;
+  venueSlug: string | null;
+  venueResyId: number | null;
+  date: string;
+  partySize: number;
   selectedSlot: AvailabilitySlot | null;
   onSelectSlot: (slot: AvailabilitySlot | null) => void;
 }) {
@@ -125,19 +154,35 @@ function HasSlotsView({
 
   const handleSelect = (slot: AvailabilitySlot) => {
     if (selectedSlot?.token === slot.token) {
-      onSelectSlot(null); // deselect
+      onSelectSlot(null);
     } else {
       onSelectSlot(slot);
     }
   };
 
-  const bookingHref = selectedSlot && bookingUrlBase
-    ? `${bookingUrlBase}&slot=${encodeURIComponent(selectedSlot.token)}`
-    : bookingUrlBase;
+  // Build booking URL — slot-specific deep-link if we have a selection,
+  // fallback to venue page otherwise.
+  let bookingHref = bookingUrlBase;
+  let buttonText = "See times on Resy";
 
-  const buttonText = selectedSlot
-    ? `Book ${formatSlotTimeForDisplay(selectedSlot.time)} on Resy`
-    : "See times on Resy";
+  if (selectedSlot && venueSlug && venueResyId) {
+    try {
+      bookingHref = buildResySlotBookingUrl(
+        venueSlug,
+        date,
+        partySize,
+        selectedSlot,
+        venueName,
+        venueResyId
+      );
+      buttonText = `Book ${formatSlotTimeForDisplay(selectedSlot.time)} on Resy`;
+    } catch (err) {
+      // Graceful fallback — malformed token, use venue page URL
+      console.error("[StopAvailability] Failed to build slot URL:", err);
+      bookingHref = bookingUrlBase;
+      buttonText = "See times on Resy";
+    }
+  }
 
   return (
     <div className="mt-3 space-y-3">

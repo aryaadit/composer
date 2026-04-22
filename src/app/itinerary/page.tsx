@@ -179,6 +179,8 @@ function ItineraryContent() {
           stops={itinerary.stops}
           walks={itinerary.walks}
           timeBlock={itinerary.inputs.timeBlock}
+          date={itinerary.inputs.day}
+          partySize={2}
           onAddStop={handleAddStop}
           isAddingStop={addingStop}
           onSwapStop={handleSwap}

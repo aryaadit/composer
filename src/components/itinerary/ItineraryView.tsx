@@ -18,6 +18,8 @@ interface ItineraryViewProps {
   stops: ItineraryResponse["stops"];
   walks: ItineraryResponse["walks"];
   timeBlock?: TimeBlock;
+  date?: string;
+  partySize?: number;
   onAddStop?: () => void;
   isAddingStop?: boolean;
   onSwapStop?: (index: number) => void;
@@ -29,6 +31,8 @@ export function ItineraryView({
   stops,
   walks,
   timeBlock = "evening",
+  date = "",
+  partySize = 2,
   onAddStop,
   isAddingStop = false,
   onSwapStop,
@@ -106,6 +110,11 @@ export function ItineraryView({
                     role={stop.role}
                     timeBlock={timeBlock}
                     platform={stop.venue.reservation_platform}
+                    venueName={stop.venue.name}
+                    venueSlug={stop.venue.resy_slug}
+                    venueResyId={stop.venue.resy_venue_id}
+                    date={date}
+                    partySize={partySize}
                     selectedSlot={selectedSlots[stop.venue.id] ?? null}
                     onSelectSlot={(slot) =>
                       handleSelectSlot(stop.venue.id, slot)
