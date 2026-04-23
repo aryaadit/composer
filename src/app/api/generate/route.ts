@@ -8,7 +8,11 @@ import { walkTimeMinutes, walkDistanceKm, buildGoogleMapsUrl } from "@/lib/geo";
 import { buildWalkMapUrl } from "@/lib/mapbox";
 import { calculateTotalSpend } from "@/config/budgets";
 import { ALCOHOL_VIBE_TAGS } from "@/config/vibes";
-import { resolveTimeWindow } from "@/lib/itinerary/time-blocks";
+import {
+  resolveTimeWindow,
+  dateToDayColumn,
+  venueOpenForBlock,
+} from "@/lib/itinerary/time-blocks";
 import { enrichWithAvailability } from "@/lib/itinerary/availability-enrichment";
 import type {
   GenerateRequestBody,
@@ -158,7 +162,7 @@ export async function POST(request: Request) {
     const [prefs, weather, venueResult] = await Promise.all([
       readAuthedPrefs(),
       fetchWeather(),
-      getSupabase().from("composer_venues").select("*").eq("active", true),
+      getSupabase().from("composer_venues_v2").select("*").eq("active", true),
     ]);
 
     if (venueResult.error) {
@@ -197,6 +201,26 @@ export async function POST(request: Request) {
         (v) => !v.vibe_tags.some((t) => ALCOHOL_VIBE_TAGS.has(t))
       );
     }
+
+    // Time block filter — only venues open during the selected block on
+    // the selected day. Per-day blocks override global time_blocks.
+    const dayColumn = dateToDayColumn(inputs.day);
+    const preBlockCount = venues.length;
+    venues = venues.filter((v) =>
+      venueOpenForBlock(v, dayColumn, body.timeBlock)
+    );
+    if (venues.length < 30) {
+      console.warn(
+        `[generate] time block filter: ${preBlockCount} → ${venues.length} venues (${body.timeBlock} on ${dayColumn})`
+      );
+    }
+
+    // Filter out permanently/temporarily closed venues
+    venues = venues.filter(
+      (v) =>
+        v.business_status !== "CLOSED_PERMANENTLY" &&
+        v.business_status !== "CLOSED_TEMPORARILY"
+    );
 
     // Plan the stop mix from the time window, then score + assemble stops
     const composed = composeItinerary(venues, inputs, weather);
@@ -266,7 +290,7 @@ export async function POST(request: Request) {
       if (aiNote) stop.curation_note = aiNote;
     }
 
-    const totalRange = calculateTotalSpend(stops.map((s) => s.venue.price_tier));
+    const totalRange = calculateTotalSpend(stops.map((s) => s.venue.price_tier ?? 2));
     const walking = computeWalkingMeta(walks, weather);
 
     const response: ItineraryResponse = {

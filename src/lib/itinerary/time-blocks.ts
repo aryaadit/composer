@@ -92,6 +92,68 @@ export function isSlotInBlock(slotTime: string, block: TimeBlock): boolean {
   return timePart >= start || timePart < end;
 }
 
+// ─── Day-of-week filtering ────────────────────────────────────
+
+export type DayColumn =
+  | "mon_blocks" | "tue_blocks" | "wed_blocks" | "thu_blocks"
+  | "fri_blocks" | "sat_blocks" | "sun_blocks";
+
+const DAY_INDEX_MAP: Record<number, DayColumn> = {
+  0: "sun_blocks",
+  1: "mon_blocks",
+  2: "tue_blocks",
+  3: "wed_blocks",
+  4: "thu_blocks",
+  5: "fri_blocks",
+  6: "sat_blocks",
+};
+
+/**
+ * Map an ISO date (YYYY-MM-DD) to the per-day column name.
+ * Parses as local date to match the user's intent.
+ */
+export function dateToDayColumn(isoDate: string): DayColumn {
+  const [y, m, d] = isoDate.split("-").map(Number);
+  const localDate = new Date(y, m - 1, d);
+  return DAY_INDEX_MAP[localDate.getDay()];
+}
+
+/**
+ * Returns effective time blocks for a venue on a specific day.
+ * Per-day blocks take precedence; falls back to global time_blocks.
+ */
+interface VenueBlocks {
+  time_blocks: string[];
+  mon_blocks: string[];
+  tue_blocks: string[];
+  wed_blocks: string[];
+  thu_blocks: string[];
+  fri_blocks: string[];
+  sat_blocks: string[];
+  sun_blocks: string[];
+}
+
+export function effectiveBlocksForDay(
+  venue: VenueBlocks,
+  dayColumn: DayColumn
+): string[] {
+  const perDay = venue[dayColumn];
+  if (perDay && perDay.length > 0) return perDay;
+  return venue.time_blocks ?? [];
+}
+
+/**
+ * True if venue is open during the given block on the given day.
+ */
+export function venueOpenForBlock(
+  venue: VenueBlocks,
+  dayColumn: DayColumn,
+  block: TimeBlock
+): boolean {
+  const blocks = effectiveBlocksForDay(venue, dayColumn);
+  return blocks.includes(block);
+}
+
 // ─── Display formatting ───────────────────────────────────────
 
 /**
