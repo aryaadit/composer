@@ -167,9 +167,23 @@ interface SyncRequestBody {
   venue_id?: string;
 }
 
+const EXPECTED_SHEET_ID = "139gp-s2sBbEZbi4-6mrsMlhKykpoGWvuQdboMaAt20o";
+
 export async function POST(request: Request) {
   const auth = await requireAdmin();
   if (auth !== true) return auth;
+
+  if (process.env.GOOGLE_SHEET_ID !== EXPECTED_SHEET_ID) {
+    return NextResponse.json(
+      {
+        error:
+          "GOOGLE_SHEET_ID in .env.local does not match the expected v2 sheet. Update your .env.local before running sync to avoid corrupting v2 data with stale v1 sheet data.",
+        expected: EXPECTED_SHEET_ID,
+        got: process.env.GOOGLE_SHEET_ID,
+      },
+      { status: 500 }
+    );
+  }
 
   try {
     const body = (await request.json().catch(() => ({}))) as SyncRequestBody;

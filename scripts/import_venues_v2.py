@@ -343,6 +343,13 @@ def main():
                     key, _, val = line.partition("=")
                     os.environ.setdefault(key.strip(), val.strip())
 
+    EXPECTED_SHEET_ID = "139gp-s2sBbEZbi4-6mrsMlhKykpoGWvuQdboMaAt20o"
+    env_sheet_id = os.environ.get("GOOGLE_SHEET_ID", "")
+    if env_sheet_id and env_sheet_id != EXPECTED_SHEET_ID:
+        print(f"ERROR: GOOGLE_SHEET_ID in .env.local ({env_sheet_id}) does not match expected v2 sheet ({EXPECTED_SHEET_ID}).")
+        print("Update your .env.local before running import to avoid corrupting v2 data.")
+        sys.exit(1)
+
     print("Reading Google Sheet...")
     headers, rows = read_sheet()
     print(f"  Headers: {len(headers)} columns")
