@@ -54,7 +54,7 @@ export async function getSheetData(): Promise<string[][]> {
 
   const response = await sheets.spreadsheets.values.get({
     spreadsheetId: process.env.GOOGLE_SHEET_ID,
-    range: "Venues!A3:AH", // Row 3+ = data (row 1 = group headers, row 2 = column headers)
+    range: "NYC Venues!A3:BD", // Row 3+ = data (row 1 = section headers, row 2 = column headers)
   });
 
   return response.data.values || [];
@@ -70,7 +70,7 @@ export async function getSheetHeaders(): Promise<string[]> {
 
   const response = await sheets.spreadsheets.values.get({
     spreadsheetId: process.env.GOOGLE_SHEET_ID,
-    range: "Venues!A2:AH2",
+    range: "NYC Venues!A2:BD2",
   });
 
   return response.data.values?.[0] || [];

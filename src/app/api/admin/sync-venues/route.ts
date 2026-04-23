@@ -1,9 +1,9 @@
 // POST /api/admin/sync-venues
 //
 // Reads venue data directly from the Google Sheet and upserts into
-// composer_venues. Two modes:
+// composer_venues_v2. Two modes:
 //   - Full sync:   POST {} → upserts all venues
-//   - Single sync: POST { venue_id: "v148" } → upserts one venue
+//   - Single sync: POST { venue_id: "c0001" } → upserts one venue
 //
 // Column mapping is built dynamically from the sheet's header row
 // so reordering columns in the sheet doesn't break the sync.
@@ -33,6 +33,7 @@ async function requireAdmin(): Promise<true | Response> {
 function splitCsv(s: string | undefined): string[] {
   if (!s) return [];
   return s
+    .replace(/\|/g, ",")
     .split(",")
     .map((t) => t.trim())
     .filter(Boolean);
@@ -84,43 +85,81 @@ function rowToVenue(
   if (lat == null || lng == null) return null;
 
   return {
+    // Core identity
     venue_id,
     name,
-    neighborhood: get("neighborhood")?.toLowerCase() ?? null,
-    category: get("category")?.toLowerCase() ?? null,
+    neighborhood: get("neighborhood") ?? null,
+    category: get("category") ?? null,
     price_tier: parseNum(get("price_tier") ?? undefined),
+
+    // Matching & scoring
     vibe_tags: splitCsv(get("vibe_tags") ?? undefined),
     occasion_tags: splitCsv(get("occasion_tags") ?? undefined),
     stop_roles: splitCsv(get("stop_roles") ?? undefined),
+    time_blocks: splitCsv(get("time_blocks") ?? undefined),
+    mon_blocks: splitCsv(get("mon_blocks") ?? undefined),
+    tue_blocks: splitCsv(get("tue_blocks") ?? undefined),
+    wed_blocks: splitCsv(get("wed_blocks") ?? undefined),
+    thu_blocks: splitCsv(get("thu_blocks") ?? undefined),
+    fri_blocks: splitCsv(get("fri_blocks") ?? undefined),
+    sat_blocks: splitCsv(get("sat_blocks") ?? undefined),
+    sun_blocks: splitCsv(get("sun_blocks") ?? undefined),
+
+    // Logistics
     duration_hours: parseNum(get("duration_hours") ?? undefined),
     outdoor_seating: get("outdoor_seating")?.toLowerCase() ?? null,
-    reservation_difficulty: parseNum(
-      get("reservation_difficulty") ?? undefined
-    ),
+    reservation_difficulty: parseNum(get("reservation_difficulty") ?? undefined),
+    reservation_lead_days: parseNum(get("reservation_lead_days") ?? undefined),
     reservation_url: get("reservation_url"),
     maps_url: get("maps_url"),
-    curation_note: get("curation_note") ?? "",
+
+    // Curation
+    curation_note: get("curation_note"),
     awards: get("awards"),
+    quality_score: parseNum(get("quality_score") ?? undefined) ?? 7,
+    curation_boost: parseNum(get("curation_boost") ?? undefined) ?? 0,
     curated_by: get("curated_by")?.toLowerCase() ?? null,
-    signature_order: get("signature_order"),
+
+    // Geo
     address: get("address"),
     latitude: lat,
     longitude: lng,
-    active:
-      parseBool(get("active") ?? undefined) ?? true,
+
+    // Status
+    active: parseBool(get("active") ?? undefined) ?? true,
     notes: get("notes"),
+    verified: parseBool(get("verified") ?? undefined),
     hours: get("hours"),
     last_verified: parseDate(get("last_verified") ?? undefined),
+    last_updated: parseDate(get("last_updated") ?? undefined),
+
+    // Attributes
     happy_hour: get("happy_hour"),
     dog_friendly: parseBool(get("dog_friendly") ?? undefined),
     kid_friendly: parseBool(get("kid_friendly") ?? undefined),
-    wheelchair_accessible: parseBool(
-      get("wheelchair_accessible") ?? undefined
-    ),
-    cash_only: parseBool(get("cash_only") ?? undefined),
+    wheelchair_accessible: parseBool(get("wheelchair_accessible") ?? undefined),
+    signature_order: get("signature_order"),
     google_place_id: get("google_place_id"),
-    quality_score: parseNum(get("quality_score") ?? undefined) ?? 7,
-    curation_boost: parseNum(get("curation_boost") ?? undefined) ?? 0,
+
+    // Corner source
+    corner_id: get("corner_id"),
+    corner_photo_url: get("corner_photo_url"),
+    guide_count: parseNum(get("guide_count") ?? undefined),
+    source_guides: splitCsv(get("source_guides") ?? undefined),
+    all_neighborhoods: splitCsv(get("all_neighborhoods") ?? undefined),
+
+    // Google Places
+    google_rating: parseNum(get("google_rating") ?? undefined),
+    google_review_count: parseNum(get("google_review_count") ?? undefined),
+    google_types: splitCsv(get("google_types") ?? undefined),
+    google_phone: get("google_phone"),
+    enriched: parseBool(get("enriched") ?? undefined) ?? false,
+    business_status: get("business_status"),
+
+    // Reservation
+    reservation_platform: get("reservation_platform"),
+    resy_venue_id: parseNum(get("resy_venue_id") ?? undefined),
+    resy_slug: get("resy_slug"),
   };
 }
 
