@@ -26,7 +26,7 @@ const ROLE_EXPANSION = GEN_ROLE_EXPANSION as Record<VenueRole, readonly StopRole
 /** Check whether a venue can serve a given canonical composition role. */
 function venueMatchesRole(venue: Venue, role: StopRole): boolean {
   return venue.stop_roles.some(
-    (vr) => (ROLE_EXPANSION[vr] ?? []).includes(role)
+    (vr) => (ROLE_EXPANSION[vr as VenueRole] ?? []).includes(role)
   );
 }
 
@@ -61,7 +61,7 @@ function scoreVenue(
 
   // Budget match (15%)
   const allowedTiers = BUDGET_TIER_MAP[answers.budget] ?? [1, 2, 3];
-  if (allowedTiers.includes(venue.price_tier)) {
+  if (allowedTiers.includes(venue.price_tier ?? 2)) {
     score += 15;
   }
 
@@ -180,7 +180,16 @@ export function pickBestForRole(
     ...v,
     score: scoreVenue(v, answers, role, jitter),
   }));
-  scored.sort((a, b) => b.score - a.score);
+  scored.sort((a, b) => {
+    const scoreDiff = b.score - a.score;
+    if (Math.abs(scoreDiff) > 0.01) return scoreDiff;
+    // Tiebreaker: google_rating → google_review_count → quality_score
+    const ratingDiff = (b.google_rating ?? 0) - (a.google_rating ?? 0);
+    if (Math.abs(ratingDiff) > 0.01) return ratingDiff;
+    const reviewDiff = (b.google_review_count ?? 0) - (a.google_review_count ?? 0);
+    if (reviewDiff !== 0) return reviewDiff;
+    return b.quality_score - a.quality_score;
+  });
 
   return { best: scored[0] ?? null, scored };
 }

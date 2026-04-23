@@ -43,7 +43,7 @@ export function StopCard({
 
   const bookAhead =
     (activeVenue.reservation_difficulty ?? 0) >= BOOK_AHEAD_THRESHOLD;
-  const cashOnly = activeVenue.cash_only === true;
+  const cashOnly = activeVenue.vibe_tags?.includes("cash_only") ?? false;
   const bookingPlatform = detectBookingPlatform(activeVenue.reservation_url);
   const statusKind = stop.is_fixed ? "fixed" : "flexible";
 
@@ -76,10 +76,25 @@ export function StopCard({
             )}
           </h3>
 
-          <p className="font-sans text-sm text-muted mb-4">
-            {formatCategory(activeVenue.category)} &middot;{" "}
+          <p className="font-sans text-sm text-muted mb-1">
+            {formatCategory(activeVenue.category ?? "")} &middot;{" "}
             {neighborhoodLabel(activeVenue.neighborhood)}
           </p>
+
+          {activeVenue.google_rating != null && (
+            <p className="font-sans text-xs text-muted mb-4">
+              {activeVenue.google_rating} ★
+              {activeVenue.google_review_count != null && (
+                <span>
+                  {" "}· {activeVenue.google_review_count >= 1000
+                    ? `${(activeVenue.google_review_count / 1000).toFixed(1)}k`
+                    : activeVenue.google_review_count} reviews
+                </span>
+              )}
+            </p>
+          )}
+
+          {!activeVenue.google_rating && <div className="mb-3" />}
 
           {activeVenue.awards && (
             <div className="mb-4">
