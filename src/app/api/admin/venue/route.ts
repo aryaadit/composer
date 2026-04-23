@@ -34,7 +34,7 @@ export async function GET(request: Request) {
   }
 
   const { data, error } = await getSupabase()
-    .from("composer_venues")
+    .from("composer_venues_v2")
     .select("*")
     .ilike("name", `%${name}%`)
     .limit(5);

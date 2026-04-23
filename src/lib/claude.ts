@@ -28,9 +28,9 @@ export async function generateCopy(
   const venueData = stops.map((s) => ({
     role: s.role,
     name: s.venue.name,
-    category: s.venue.category,
+    category: s.venue.category ?? "",
     neighborhood: s.venue.neighborhood,
-    curation_note: s.venue.curation_note,
+    curation_note: s.venue.curation_note ?? "",
     // Per-venue "what to order" hint — 117 venues in the curated DB have
     // this populated. When present, Gemini should use it verbatim rather
     // than guessing at a dish.
@@ -70,7 +70,7 @@ export async function generateCopy(
     // Graceful fallback: use DB curation notes
     const venue_notes: Record<string, string> = {};
     for (const stop of stops) {
-      venue_notes[stop.venue.name] = stop.venue.curation_note;
+      venue_notes[stop.venue.name] = stop.venue.curation_note ?? "";
     }
 
     return {

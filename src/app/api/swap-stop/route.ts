@@ -75,7 +75,7 @@ export async function POST(request: Request) {
     const [drinks, weather, venueResult] = await Promise.all([
       readDrinksPref(),
       fetchWeather(),
-      getSupabase().from("composer_venues").select("*").eq("active", true),
+      getSupabase().from("composer_venues_v2").select("*").eq("active", true),
     ]);
 
     if (venueResult.error) {
@@ -129,8 +129,8 @@ export async function POST(request: Request) {
     const newStop: ItineraryStop = {
       role: stopToReplace.role,
       venue: best,
-      curation_note: best.curation_note,
-      spend_estimate: spendEstimate(best.price_tier),
+      curation_note: best.curation_note ?? "",
+      spend_estimate: spendEstimate(best.price_tier ?? 2),
       is_fixed: false,
       plan_b: planB,
     };
@@ -155,7 +155,7 @@ export async function POST(request: Request) {
       walks: { before: walkBefore, after: walkAfter },
       maps_url: buildGoogleMapsUrl(patchedVenues),
       estimated_total: calculateTotalSpend(
-        patchedVenues.map((v) => v.price_tier)
+        patchedVenues.map((v) => v.price_tier ?? 2)
       ),
     });
   } catch (error) {

@@ -125,7 +125,7 @@ function VenueCard({
   };
   const fields: [string, string][] = [
     ["Neighborhood", venue.neighborhood],
-    ["Category", venue.category],
+    ["Category", venue.category ?? "—"],
     ["Price Tier", String(venue.price_tier)],
     ["Vibe Tags", venue.vibe_tags?.join(", ") || "—"],
     ["Occasion Tags", venue.occasion_tags?.join(", ") || "—"],

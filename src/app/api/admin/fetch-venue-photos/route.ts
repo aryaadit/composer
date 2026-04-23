@@ -50,7 +50,7 @@ export async function POST(request: Request) {
     const supabase = getServiceSupabase();
 
     let query = supabase
-      .from("composer_venues")
+      .from("composer_venues_v2")
       .select("id, venue_id, name, google_place_data")
       .not("google_place_data", "is", null);
 
@@ -98,7 +98,7 @@ export async function POST(request: Request) {
 
       if (paths.length > 0) {
         const { error: updateError } = await supabase
-          .from("composer_venues")
+          .from("composer_venues_v2")
           .update({ google_place_photos: paths })
           .eq("id", venue.id);
 

@@ -94,74 +94,90 @@ export type GenerateRequestBody = Omit<
   excludeVenueIds?: string[];
 };
 
-// Venue shape — mirrors the `composer_venues` Supabase table (v2 schema).
-// See `supabase/migrations/20260419_venue_schema_v2.sql`.
+// Venue shape — mirrors `composer_venues_v2` table.
+// See `supabase/migrations/20260428_composer_venues_v2.sql`.
 export interface Venue {
   id: string;
   venue_id: string;
   name: string;
-  neighborhood: Neighborhood;
-  category: string;
-  price_tier: 1 | 2 | 3 | 4;
+  neighborhood: string;
+  category: string | null;
+  price_tier: number | null;
 
-  // Tags (arrays). vibe_tags stores canonical scored + cross-cutting tags.
-  // occasion_tags uses the 5-slug snake_case taxonomy.
-  // stop_roles stores the raw 6 venue roles from the sheet.
+  // Tags (arrays)
   vibe_tags: string[];
-  occasion_tags: Occasion[];
-  stop_roles: VenueRole[];
+  occasion_tags: string[];
+  stop_roles: string[];
 
-  // Timing — hours (1, 2, 3), not minutes. Scoring falls back to
-  // ROLE_AVG_DURATION_MIN when null.
+  // Time blocks — per-day with global fallback
+  time_blocks: string[];
+  mon_blocks: string[];
+  tue_blocks: string[];
+  wed_blocks: string[];
+  thu_blocks: string[];
+  fri_blocks: string[];
+  sat_blocks: string[];
+  sun_blocks: string[];
+
+  // Logistics
   duration_hours: number | null;
-
-  // Tri-state text enum — 'yes' | 'no' | 'unknown'. Weather gate
-  // filters out 'yes' when conditions are bad.
-  outdoor_seating: "yes" | "no" | "unknown" | null;
-  reservation_difficulty: number | null; // 1..4
-
-  // URLs
+  outdoor_seating: string | null;
+  reservation_difficulty: number | null;
+  reservation_lead_days: number | null;
   reservation_url: string | null;
   maps_url: string | null;
 
   // Curation
-  curation_note: string;
-  awards: string | null; // single text, e.g. "Michelin Star"
-  curated_by: string | null; // 'reid' | 'adit' | 'community'
-  signature_order: string | null; // "Get the cacio e pepe"
+  curation_note: string | null;
+  awards: string | null;
+  quality_score: number;
+  curation_boost: number;
+  curated_by: string | null;
 
-  // Location
+  // Geo
   address: string | null;
   latitude: number;
   longitude: number;
 
   // Status
   active: boolean;
-  notes: string | null; // internal notes, not surfaced in UI
-  hours: string | null; // free-text, e.g. "Mon-Fri 11am-11pm"
-  last_verified: string | null; // ISO date, e.g. "2026-04-11"
+  notes: string | null;
+  verified: boolean | null;
+  hours: string | null;
+  last_verified: string | null;
+  last_updated: string | null;
 
-  // Additional attributes
+  // Attributes
   happy_hour: string | null;
   dog_friendly: boolean | null;
   kid_friendly: boolean | null;
   wheelchair_accessible: boolean | null;
-  cash_only: boolean | null;
+  signature_order: string | null;
+  google_place_id: string | null;
 
-  // Scoring — now imported from the sheet, not admin-only.
-  quality_score: number; // 1-10, default 7
-  curation_boost: number; // 0-2, default 0
+  // Corner source
+  corner_id: string | null;
+  corner_photo_url: string | null;
+  guide_count: number | null;
+  source_guides: string[];
+  all_neighborhoods: string[];
+
+  // Google Places
+  google_rating: number | null;
+  google_review_count: number | null;
+  google_types: string[];
+  google_phone: string | null;
+  enriched: boolean;
+  business_status: string | null;
 
   // Reservation platform
-  reservation_platform: string | null; // 'resy' | 'opentable' | 'tock' | 'sevenrooms' | 'none'
+  reservation_platform: string | null;
   resy_venue_id: number | null;
   resy_slug: string | null;
 
-  // Google Places — batch-fetched, cached in DB
-  google_place_id: string | null;
-  google_place_data: Record<string, unknown> | null;
-  google_place_photos: string[]; // Supabase Storage paths
-  google_data_updated_at: string | null;
+  // Timestamps
+  created_at: string;
+  updated_at: string;
 }
 
 export interface ScoredVenue extends Venue {

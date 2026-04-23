@@ -113,7 +113,7 @@ export function composeItinerary(
   const positioned: (ItineraryStop | null)[] = pattern.map((role) => {
     if (role === "main" && !mainPlaced) {
       mainPlaced = true;
-      return makeStop("main", main, main.curation_note, true, null);
+      return makeStop("main", main, main.curation_note ?? "", true, null);
     }
     return null;
   });
@@ -133,7 +133,7 @@ export function composeItinerary(
     if (!best) continue;
     usedIds.add(best.id);
     const planB = scored.find((v) => v.id !== best.id) ?? null;
-    positioned[i] = makeStop(role, best, best.curation_note, false, planB);
+    positioned[i] = makeStop(role, best, best.curation_note ?? "", false, planB);
   }
 
   const stops = positioned.filter((s): s is ItineraryStop => s !== null);
@@ -151,7 +151,7 @@ function makeStop(
     role,
     venue,
     curation_note: note,
-    spend_estimate: spendEstimate(venue.price_tier),
+    spend_estimate: spendEstimate(venue.price_tier ?? 2),
     is_fixed: isFixed,
     plan_b: planB,
   };

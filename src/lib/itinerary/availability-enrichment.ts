@@ -249,7 +249,7 @@ export async function enrichWithAvailability(
           return {
             ...stop,
             venue: swapResult.venue,
-            curation_note: swapResult.venue.curation_note,
+            curation_note: swapResult.venue.curation_note ?? "",
             availability: swapResult.availability,
           };
         }

@@ -37,7 +37,7 @@ export async function getVenueAvailability(
   partySize: number
 ): Promise<VenueAvailability> {
   const { data, error } = await getSupabase()
-    .from("composer_venues")
+    .from("composer_venues_v2")
     .select(
       "id, name, reservation_platform, reservation_url, resy_venue_id, resy_slug"
     )

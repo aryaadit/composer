@@ -12,13 +12,6 @@ import { formatCategory } from "@/lib/format/category";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
 
-/** Safely read a string/number field from the JSONB blob. */
-function placeStr(place: Record<string, unknown> | null, key: string): string | null {
-  if (!place) return null;
-  const v = place[key];
-  if (v == null) return null;
-  return String(v);
-}
 
 interface VenueDetailModalProps {
   venue: Venue | null;
@@ -88,8 +81,8 @@ function VenueDetailContent({
   venue: Venue;
   onClose: () => void;
 }) {
-  const place = venue.google_place_data as Record<string, unknown> | null;
-  const photos = venue.google_place_photos ?? [];
+  // V2 venues have Google data as direct fields, not JSONB
+  const photos: string[] = [];
 
   return (
     <div className="pb-[max(1.5rem,env(safe-area-inset-bottom))]">
@@ -114,26 +107,26 @@ function VenueDetailContent({
           {venue.name}
         </h2>
         <p className="font-sans text-sm text-muted mt-1">
-          {formatCategory(venue.category)} &middot;{" "}
+          {formatCategory(venue.category ?? "")} &middot;{" "}
           {neighborhoodLabel(venue.neighborhood)}
         </p>
 
         {/* Rating + phone */}
         <div className="flex items-center gap-4 mt-3 font-sans text-sm">
-          {placeStr(place, "rating") != null && (
+          {venue.google_rating != null && (
             <span className="text-charcoal font-medium">
-              ★ {placeStr(place, "rating")}{" "}
+              ★ {venue.google_rating}{" "}
               <span className="text-muted font-normal">
-                ({placeStr(place, "userRatingCount") ?? "0"})
+                ({venue.google_review_count ?? 0})
               </span>
             </span>
           )}
-          {placeStr(place, "nationalPhoneNumber") != null && (
+          {venue.google_phone && (
             <a
-              href={`tel:${placeStr(place, "internationalPhoneNumber") ?? placeStr(place, "nationalPhoneNumber")}`}
+              href={`tel:${venue.google_phone}`}
               className="text-burgundy hover:text-burgundy-light transition-colors"
             >
-              {placeStr(place, "nationalPhoneNumber")}
+              {venue.google_phone}
             </a>
           )}
         </div>
@@ -177,8 +170,10 @@ function VenueDetailContent({
         )}
 
         {/* Hours */}
-        {place?.regularOpeningHours != null && (
-          <HoursSection hours={place.regularOpeningHours as HoursData} />
+        {venue.hours && (
+          <div className="mt-4">
+            <p className="font-sans text-sm text-muted">{venue.hours}</p>
+          </div>
         )}
         {venue.happy_hour && (
           <p className="font-sans text-sm text-muted mt-2">
@@ -188,14 +183,13 @@ function VenueDetailContent({
         )}
 
         {/* Address */}
-        {(venue.address || placeStr(place, "formattedAddress")) && (
+        {venue.address && (
           <div className="mt-4">
             <p className="font-sans text-sm text-muted">
-              {placeStr(place, "formattedAddress") ?? venue.address}
+              {venue.address}
             </p>
             <a
               href={
-                placeStr(place, "googleMapsUri") ??
                 venue.maps_url ??
                 `https://maps.google.com/?q=${venue.latitude},${venue.longitude}`
               }
@@ -209,7 +203,7 @@ function VenueDetailContent({
         )}
 
         {/* Amenity badges */}
-        <AmenityBadges venue={venue} place={place} />
+        <AmenityBadges venue={venue} />
 
         {/* Action buttons */}
         <div className="flex gap-3 mt-6">
@@ -221,16 +215,6 @@ function VenueDetailContent({
               className="flex-1 text-center px-4 py-3 rounded-full bg-burgundy text-cream font-sans text-sm font-medium hover:bg-burgundy-light transition-colors"
             >
               Reserve
-            </a>
-          )}
-          {placeStr(place, "websiteUri") && (
-            <a
-              href={placeStr(place, "websiteUri")!}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex-1 text-center px-4 py-3 rounded-full border border-border text-charcoal font-sans text-sm font-medium hover:border-charcoal/40 transition-colors"
-            >
-              Website
             </a>
           )}
         </div>
@@ -287,56 +271,18 @@ function PhotoCarousel({ photos }: { photos: string[] }) {
   );
 }
 
-// ── Hours ───────────────────────────────────────────────────
-
-interface HoursData {
-  weekdayDescriptions?: string[];
-}
-
-function HoursSection({ hours }: { hours: HoursData }) {
-  const [expanded, setExpanded] = useState(false);
-  const descriptions = hours.weekdayDescriptions;
-  if (!descriptions?.length) return null;
-
-  return (
-    <div className="mt-4">
-      <button
-        type="button"
-        onClick={() => setExpanded(!expanded)}
-        className="font-sans text-sm text-charcoal font-medium hover:text-burgundy transition-colors"
-      >
-        Hours {expanded ? "▾" : "▸"}
-      </button>
-      {expanded && (
-        <ul className="mt-2 space-y-0.5">
-          {descriptions.map((line) => (
-            <li key={line} className="font-sans text-sm text-muted">
-              {line}
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
-}
-
 // ── Amenity Badges ──────────────────────────────────────────
 
-function AmenityBadges({
-  venue,
-  place,
-}: {
-  venue: Venue;
-  place: Record<string, unknown> | null;
-}) {
+function AmenityBadges({ venue }: { venue: Venue }) {
   const badges: { label: string; icon: string }[] = [];
 
   if (venue.dog_friendly) badges.push({ label: "Dog friendly", icon: "🐕" });
   if (venue.wheelchair_accessible)
     badges.push({ label: "Accessible", icon: "♿" });
-  if (venue.cash_only) badges.push({ label: "Cash only", icon: "💵" });
-  if (place?.outdoorSeating) badges.push({ label: "Outdoor seating", icon: "☀️" });
-  if (place?.liveMusic) badges.push({ label: "Live music", icon: "🎵" });
+  if (venue.vibe_tags?.includes("cash_only"))
+    badges.push({ label: "Cash only", icon: "💵" });
+  if (venue.outdoor_seating === "yes")
+    badges.push({ label: "Outdoor seating", icon: "☀️" });
 
   if (badges.length === 0) return null;
 

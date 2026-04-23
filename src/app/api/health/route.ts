@@ -91,7 +91,7 @@ async function checkSupabase(): Promise<SupabaseCheck> {
   try {
     const supabase = getSupabase();
     const { count, error } = await supabase
-      .from("composer_venues")
+      .from("composer_venues_v2")
       .select("*", { count: "exact", head: true })
       .eq("active", true);
     if (error) {
@@ -107,7 +107,7 @@ async function checkScoring(): Promise<ScoringCheck> {
   try {
     const supabase = getSupabase();
     const { data, error } = await supabase
-      .from("composer_venues")
+      .from("composer_venues_v2")
       .select("*")
       .eq("active", true);
     if (error) {
@@ -132,7 +132,7 @@ async function checkScoring(): Promise<ScoringCheck> {
     const top3 = scored.slice(0, 3).map((v) => ({
       name: v.name,
       neighborhood: v.neighborhood,
-      price_tier: v.price_tier,
+      price_tier: v.price_tier ?? 2,
       score: Math.round(v.score * 100) / 100,
     }));
 

@@ -54,7 +54,7 @@ function toItineraryResponse(saved: SavedItinerary): ItineraryResponse {
       subtitle: saved.subtitle ?? "",
       occasion_tag: saved.occasion ?? "",
       vibe_tag: saved.vibe ?? "",
-      estimated_total: calculateTotalSpend(stops.map((s) => s.venue.price_tier)),
+      estimated_total: calculateTotalSpend(stops.map((s) => s.venue.price_tier ?? 2)),
       weather: saved.weather,
     },
     stops,

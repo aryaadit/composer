@@ -48,7 +48,7 @@ export async function POST(request: Request) {
     const supabase = getServiceSupabase();
 
     let query = supabase
-      .from("composer_venues")
+      .from("composer_venues_v2")
       .select("id, venue_id, name, google_place_id")
       .not("google_place_id", "is", null);
 
@@ -74,7 +74,7 @@ export async function POST(request: Request) {
       const placeData = await fetchPlaceDetails(venue.google_place_id);
       if (placeData) {
         const { error: updateError } = await supabase
-          .from("composer_venues")
+          .from("composer_venues_v2")
           .update({
             google_place_data: placeData,
             google_data_updated_at: new Date().toISOString(),

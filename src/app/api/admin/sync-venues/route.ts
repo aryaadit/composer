@@ -177,7 +177,7 @@ export async function POST(request: Request) {
       }
 
       const { error } = await supabase
-        .from("composer_venues")
+        .from("composer_venues_v2")
         .upsert(venue, { onConflict: "venue_id" });
 
       if (error) {
@@ -209,7 +209,7 @@ export async function POST(request: Request) {
       for (let i = 0; i < venues.length; i += 100) {
         const batch = venues.slice(i, i + 100);
         const { error } = await supabase
-          .from("composer_venues")
+          .from("composer_venues_v2")
           .upsert(batch, { onConflict: "venue_id" });
         if (error) {
           console.error("[sync-venues] batch upsert error:", error.message);
