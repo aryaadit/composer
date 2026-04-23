@@ -83,12 +83,14 @@ const BASE_ANSWERS: QuestionnaireAnswers = {
 const CLEAR_WEATHER: WeatherInfo = {
   temp_f: 72,
   condition: "clear",
+  description: "Clear skies",
   is_bad_weather: false,
 };
 
 const BAD_WEATHER: WeatherInfo = {
   temp_f: 45,
   condition: "rain",
+  description: "Heavy rain",
   is_bad_weather: true,
 };
 
