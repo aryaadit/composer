@@ -6,6 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "lint": "eslint",
     "generate-configs": "python3 scripts/generate-configs.py"
   },
@@ -33,6 +35,7 @@
     "eslint-config-next": "16.2.3",
     "string-similarity": "^4.0.4",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^3.2.4"
   }
 }
