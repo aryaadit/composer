@@ -2,9 +2,8 @@ import { describe, it, expect } from "vitest";
 import {
   dateToDayColumn,
   venueOpenForBlock,
-  effectiveBlocksForDay,
 } from "@/lib/itinerary/time-blocks";
-import type { Venue } from "@/types";
+import type { TimeBlock } from "@/lib/itinerary/time-blocks";
 
 /**
  * These tests validate the venue filtering pipeline — the logic that
@@ -132,7 +131,7 @@ describe("venue pool — hybrid time block rule", () => {
       const days = ["mon_blocks", "tue_blocks", "wed_blocks", "thu_blocks", "fri_blocks", "sat_blocks", "sun_blocks"] as const;
       for (const day of days) {
         for (const block of allBlocks) {
-          expect(venueOpenForBlock(venue, day, block as any)).toBe(true);
+          expect(venueOpenForBlock(venue, day, block as TimeBlock)).toBe(true);
         }
       }
     });
