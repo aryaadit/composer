@@ -7,6 +7,7 @@ import { neighborhoodLabel } from "@/config/neighborhoods";
 import { formatCategory } from "@/lib/format/category";
 import { StopStatusBadge } from "@/components/ui/StopStatusBadge";
 import { detectBookingPlatform } from "@/lib/booking";
+import { getVenueHeroImageUrl } from "@/lib/venues/images";
 
 const BOOK_AHEAD_THRESHOLD = 3;
 
@@ -62,6 +63,20 @@ export function StopCard({
         <SwapSkeleton />
       ) : (
         <>
+          {(() => {
+            const heroUrl = getVenueHeroImageUrl(activeVenue.image_keys ?? []);
+            return heroUrl ? (
+              <div className="rounded-lg overflow-hidden mb-4 -mx-1">
+                <img
+                  src={heroUrl}
+                  alt={activeVenue.name}
+                  className="w-full h-40 object-cover"
+                  loading="lazy"
+                />
+              </div>
+            ) : null;
+          })()}
+
           <h3 className="font-serif text-2xl font-normal text-charcoal mb-1 leading-snug">
             {onVenueTap ? (
               <button

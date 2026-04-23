@@ -1,14 +1,14 @@
 "use client";
 
 // Venue detail modal — bottom sheet on mobile, centered modal on desktop.
-// Reads from the cached google_place_data JSONB and google_place_photos
-// storage paths. No live API calls on open.
+// Photos from Supabase Storage via image_keys. No live API calls on open.
 
 import { useCallback, useEffect, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import type { Venue } from "@/types";
 import { neighborhoodLabel } from "@/config/neighborhoods";
 import { formatCategory } from "@/lib/format/category";
+import { getVenueImageUrls } from "@/lib/venues/images";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
 
@@ -82,7 +82,7 @@ function VenueDetailContent({
   onClose: () => void;
 }) {
   // V2 venues have Google data as direct fields, not JSONB
-  const photos: string[] = [];
+  const photos = getVenueImageUrls(venue.image_keys ?? []);
 
   return (
     <div className="pb-[max(1.5rem,env(safe-area-inset-bottom))]">

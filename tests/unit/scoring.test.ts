@@ -60,6 +60,7 @@ function makeVenue(overrides: Partial<Venue> = {}): Venue {
     google_phone: null,
     enriched: false,
     business_status: "OPERATIONAL",
+    image_keys: [],
     reservation_platform: null,
     resy_venue_id: null,
     resy_slug: null,

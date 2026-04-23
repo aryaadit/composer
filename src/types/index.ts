@@ -170,6 +170,9 @@ export interface Venue {
   enriched: boolean;
   business_status: string | null;
 
+  // Photos (Supabase Storage paths keyed by google_place_id)
+  image_keys: string[];
+
   // Reservation platform
   reservation_platform: string | null;
   resy_venue_id: number | null;
