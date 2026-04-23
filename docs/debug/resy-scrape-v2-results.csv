@@ -1,0 +1,1459 @@
+sheet_row,venue_id,name,hit_name,hit_id,hit_slug,distance_m,name_similarity,status
+3,v0001,Rubirosa,Rubirosa,466,rubirosa,8,100.0,matched
+4,v0002,chloe.,,,,,,no_hits
+5,v0003,Bobo,Bobo NYC,53199,bobo-nyc,15,100.0,matched
+6,v0004,Georgie’s Cafe & Bar,,,,,,rejected_geo
+7,v0005,Le Botaniste,,,,,,rejected_geo
+8,v0006,The Butcher's Daughter,,,,,,rejected_geo
+9,v0007,abcV,abcV by Jean-Georges,5256,abcv,4,100.0,matched
+10,v0008,Dante NYC,Dante,1290,dante,1,100.0,matched
+11,v0009,Studio 151,Studio 151,53695,studio-151,8,100.0,matched
+12,v0010,The Django,The Django,58129,the-django,4,100.0,matched
+13,v0011,Tigre,Tigre,76553,tigre,26,100.0,matched
+14,v0012,Tomi Jazz,,,,,,no_hits
+15,v0013,12 Matcha,,,,,,no_hits
+16,v0014,Bodhi Kosher Vegetarian Restaurant,,,,,,rejected_geo
+17,v0015,Book Club Bar,,,,,,rejected_geo
+18,v0016,Bub's Bakery,,,,,,rejected_geo
+19,v0017,Dudleys,,,,,,no_hits
+20,v0018,La Lanterna di Vittorio,La Lanterna di Vittorio,27758,la-lanterna-di-vittorio,5,100.0,matched
+21,v0019,Mezzrow,,,,,,no_hits
+22,v0020,Outer Heaven,,,,,,no_hits
+23,v0021,Silence Please,,,,,,rejected_geo
+24,v0022,Soda Club,Soda Club,47868,soda-club,4,100.0,matched
+25,v0023,Spicy Moon West Village,Spicy Moon West Village,31196,spicy-moon-west-village,6,100.0,matched
+26,v0024,Superiority Burger,Superiority Burger,83283,superiority-burger,17,100.0,matched
+27,v0025,The Ripple Room,,,,,,rejected_geo
+28,v0026,Anixi Mediterranean Vegan Restaurant,Anixi,67889,anixi,7,100.0,matched
+29,v0027,Café Lyria,,,,,,rejected_geo
+30,v0028,Café Maud,Café Maud - East Village,83050,cafe-maud,36,100.0,matched
+31,v0029,Conwell Coffee & Cocktail Hall,Conwell Hall,93480,conwell-hall,20,100.0,matched
+32,v0030,Davelle,,,,,,no_hits
+33,v0031,Dialogue Coffee & Flowers,,,,,,rejected_similarity
+34,v0032,kalei nyc,,,,,,rejected_geo
+35,v0033,Obvio Cocktail Bar Nomad,,,,,,rejected_geo
+36,v0034,Planta Queen,,,,,,rejected_geo
+37,v0035,Please Don't Tell,Please Don't Tell (PDT),10500,pdt,2,100.0,matched
+38,v0036,St Jardim,St. Jardim,59132,st-jardim,7,94.73684210526315,matched
+39,v0037,The Little Shop,The Little Shop,36432,the-little-shop,7,100.0,matched
+40,v0038,Bar Pisellino,,,,,,rejected_geo
+41,v0039,Boris & Horton,,,,,,no_hits
+42,v0040,Bungee Space,,,,,,rejected_geo
+43,v0041,Employees Only,Employees Only,35203,employees-only-nyc,4,100.0,matched
+44,v0042,Good Thanks Cafe,,,,,,rejected_similarity
+45,v0043,Hangawi,Hangawi,1440,hangawi,0,100.0,matched
+46,v0044,Jajaja Mexicana,,,,,,rejected_geo
+47,v0045,Jerrell's BETR BRGR,,,,,,no_hits
+48,v0046,L'Artusi,L'Artusi,25973,lartusi-ny,9,100.0,matched
+49,v0047,Ladybird,Ladybird,618,ladybird,7,100.0,matched
+50,v0048,Modern Bread and Bagel,,,,,,no_hits
+51,v0049,PARK at KIMS,,,,,,no_hits
+52,v0050,San Marzano,,,,,,rejected_geo
+53,v0051,Sip&Guzzle,,,,,,no_hits
+54,v0052,Stone Street Café,,,,,,rejected_geo
+55,v0053,Win Son Bakery,,,,,,rejected_geo
+56,v0054,230 Fifth Rooftop Bar,,,,,,rejected_geo
+57,v0055,ANDO patisserie,,,,,,no_hits
+58,v0056,Bar Valentina,Bar Valentina,59853,barvalentina,22,100.0,matched
+59,v0057,Bubby's,Bubby's,93082,bubbys-tribeca,47,100.0,matched
+60,v0058,By the Way Bakery,,,,,,no_hits
+61,v0059,Café-Flor / Bar 21,,,,,,rejected_geo
+62,v0060,Cantina Rooftop,,,,,,rejected_geo
+63,v0061,Coletta Italian Vegan Restaurant,Coletta,58982,coletta,20,100.0,matched
+64,v0062,Dirt Candy,Dirt Candy,29371,dirt-candy,21,100.0,matched
+65,v0063,DUCKSOUP,,,,,,no_hits
+66,v0064,Funny Bar,,,,,,rejected_similarity
+67,v0065,Hungry Llama,,,,,,no_hits
+68,v0066,Jajaja Mexicana,,,,,,rejected_geo
+69,v0067,Jean's,Jean's,81473,jeans,28,100.0,matched
+70,v0068,Kesté Pizza e Vino,Kesté Pizza & Vino,59213,keste-pizza-and-vino,75,94.44444444444444,matched
+71,v0069,Le Dive,Le Dive,60381,le-dive,26,100.0,matched
+72,v0070,Mandrake Café,,,,,,rejected_geo
+73,v0071,Mr. Purple,,,,,,no_hits
+74,v0072,Orchard Grocer,,,,,,no_hits
+75,v0073,Paquita,Paquita,83502,paquita,24,100.0,matched
+76,v0074,Parcelle Chinatown,,,,,,rejected_geo
+77,v0075,Pastis,Pastis,6484,pastis,6,100.0,matched
+78,v0076,Pause Cafe,,,,,,rejected_geo
+79,v0077,Prince Street Pizza,,,,,,rejected_geo
+80,v0078,Skin Contact,,,,,,no_hits
+81,v0079,Spicy Moon East Village,Spicy Moon Vegan East Village,49084,spicy-moon-vegan-east-village,7,100.0,matched
+82,v0080,Tera,Tera NYC,94201,tera-nyc,34,100.0,matched
+83,v0081,The Back Room,,,,,,rejected_geo
+84,v0082,The Dead Rabbit,The Dead Rabbit New York City,38660,the-dead-rabbit,1,100.0,matched
+85,v0083,The Devonshire,,,,,,no_hits
+86,v0084,Veselka,Veselka (East Village),92399,veselka-east-village,11,100.0,matched
+87,v0085,Wild,,,,,,rejected_geo
+88,v0086,Zinc Bar,,,,,,rejected_similarity
+89,v0087,Apotheke Chinatown,,,,,,rejected_similarity
+90,v0088,Bar Bianchi,Bar Bianchi,89411,bar-bianchi,21,100.0,matched
+91,v0089,Bar Crispin,,,,,,no_hits
+92,v0090,Binx,Binx,89511,binx,27,100.0,matched
+93,v0091,Café Colmado,,,,,,rejected_geo
+94,v0092,"Complete Cafe, LLC",,,,,,rejected_geo
+95,v0093,Delice & Sarrasin,Delice & Sarrasin,88073,delice-and-sarrasin,23,100.0,matched
+96,v0094,Divya's Kitchen,Divya's Kitchen,73726,divyas-kitchen,12,100.0,matched
+97,v0095,Do Not Feed Alligators,,,,,,rejected_geo
+98,v0096,Double Zero,Double Zero,8037,double-zero,3,100.0,matched
+99,v0097,El Camino,,,,,,rejected_geo
+100,v0098,La Cabra,,,,,,rejected_geo
+101,v0099,le gaz,,,,,,rejected_similarity
+102,v0100,LOS TACOS No.1,,,,,,rejected_geo
+103,v0101,Manjul Coffee & Clothing,,,,,,no_hits
+104,v0102,Monarch Rooftop,,,,,,rejected_geo
+105,v0103,MONO+MONO,,,,,,rejected_geo
+106,v0104,Papa d’Amour,,,,,,no_hits
+107,v0105,Posh Pop Bakeshop,,,,,,no_hits
+108,v0106,"RHYTHM ZERO, WEST VILLAGE",,,,,,rejected_geo
+109,v0107,Risotteria Melotti NYC,,,,,,rejected_similarity
+110,v0108,Ruffian,Ruffian,27786,ruffian,15,100.0,matched
+111,v0109,Senza Gluten,Senza Gluten,81951,senza-gluten,44,100.0,matched
+112,v0110,Senza Gluten by Jemiko - 100% Gluten Free Cafe & Bakery,,,,,,rejected_geo
+113,v0111,Seven Dials Market,,,,,,no_hits
+114,v0112,Shy Shy,Shy Shy,85942,shy-shy,21,100.0,matched
+115,v0113,Sonnyboy,Sonnyboy,4530,sonnyboy,8,100.0,matched
+116,v0114,Stafili Wine Cafe,Stafili Wine Cafe,54637,stafili-wine-cafe,2,100.0,matched
+117,v0115,Sullaluna,Sullaluna,84150,sullaluna,2,100.0,matched
+118,v0116,The Commerce Inn,The Commerce Inn,53342,the-commerce-inn,95,100.0,matched
+119,v0117,THE ELK,,,,,,no_hits
+120,v0118,The Odeon,,,,,,no_hits
+121,v0119,Ye's Apothecary 夜莺,Ye's Apothecary 夜莺,60980,yes-apothecary,23,100.0,matched
+122,v0120,🧳 Paper Coffee,,,,,,rejected_geo
+123,v0121,313 VINTAGE,,,,,,rejected_geo
+124,v0122,Ahimsa,Ahimsa,94760,ahimsa,24,100.0,matched
+125,v0123,Alabaster Bookshop,,,,,,no_hits
+126,v0124,Arcane Estate Coffee,,,,,,rejected_geo
+127,v0125,Ariston Coffee Bar,,,,,,rejected_geo
+128,v0126,Art Bar,,,,,,rejected_geo
+129,v0127,Arthur's Tavern,Arthur's Tavern,65181,arthurs-tavern,21,100.0,matched
+130,v0128,Augusta Coffee Bar,,,,,,rejected_geo
+131,v0129,Azul on the Rooftop,Azul on the Rooftop,96401,azul-on-the-rooftop,12,100.0,matched
+132,v0130,BabySips,,,,,,no_hits
+133,v0131,Banter NYC,,,,,,rejected_geo
+134,v0132,Banter NYC - West Village,,,,,,rejected_geo
+135,v0133,Bar Kabawa,,,,,,rejected_geo
+136,v0134,Bar Room at the Beekman,The Bar Room at The Beekman,40703,the-bar-room-at-the-beekman,7,95.65217391304348,matched
+137,v0135,Bedford Studio,,,,,,no_hits
+138,v0136,Below Stone Nest,,,,,,no_hits
+139,v0137,Berenjak Soho,,,,,,no_hits
+140,v0138,Birds,,,,,,rejected_similarity
+141,v0139,Bleecker Street Pizza,,,,,,rejected_similarity
+142,v0140,Blind Barber,,,,,,rejected_geo
+143,v0141,"BOTTINO, modern italian dining",,,,,,rejected_geo
+144,v0142,Bubala Soho,,,,,,no_hits
+145,v0143,Buddy's,Buddys,93834,buddys-ny,22,92.3076923076923,matched
+146,v0144,Butterdose,,,,,,no_hits
+147,v0145,Bánh by Lauren,,,,,,no_hits
+148,v0146,Café Habibti,,,,,,rejected_geo
+149,v0147,canteenM,,,,,,no_hits
+150,v0148,Carmine's - Upper West Side,,,,,,rejected_geo
+151,v0149,Cellar Dog,,,,,,rejected_locality
+152,v0150,Cha-An,,,,,,no_hits
+153,v0151,Clinton St. Baking Company,Clinton St. Baking Co,2078,clinton-st-baking-co,8,92.3076923076923,matched
+154,v0152,colbo,,,,,,no_hits
+155,v0153,Coming Soon,,,,,,no_hits
+156,v0154,COTE Flatiron,COTE Flatiron,72271,cote-nyc,14,100.0,matched
+157,v0155,Crown Shy,Crown Shy,10726,crown-shy,34,100.0,matched
+158,v0156,Daintree,Daintree,59032,daintree,15,100.0,matched
+159,v0157,Derby Cup Coffee,,,,,,no_hits
+160,v0158,Do Not Disturb,Do Not Disturb,62913,do-not-disturb,21,100.0,matched
+161,v0159,Duo Cafe,,,,,,rejected_geo
+162,v0160,Early Terrible New York City,,,,,,rejected_geo
+163,v0161,East Village Books,,,,,,rejected_geo
+164,v0162,Edna + Vita,,,,,,no_hits
+165,v0163,Electric Lemon,Electric Lemon,6769,electric-lemon,40,100.0,matched
+166,v0164,Elsie Rooftop & Penthouse,Elsie Rooftop + Penthouse,89724,elsie-penthouse,15,92.0,matched
+167,v0165,Elvis,Elvis,84584,elvis,14,100.0,matched
+168,v0166,ENLY,,,,,,rejected_geo
+169,v0167,ESSX NYC,,,,,,rejected_geo
+170,v0168,Fa San,,,,,,rejected_geo
+171,v0169,FIKA Cafe,,,,,,no_hits
+172,v0170,FILM CAFE,,,,,,no_hits
+173,v0171,Friedman's,,,,,,no_hits
+174,v0172,Gem Home,,,,,,no_hits
+175,v0173,Grasso,,,,,,no_hits
+176,v0174,Gus Tacos,,,,,,no_hits
+177,v0175,Happy Medium,,,,,,no_hits
+178,v0176,Interlude Coffee & Tea,,,,,,rejected_geo
+179,v0177,Jac's on Bond,Jac's on Bond,69010,jacs-on-bond,6,100.0,matched
+180,v0178,Jeffrey's Grocery,,,,,,no_hits
+181,v0179,JIMMY,,,,,,rejected_geo
+182,v0180,KIJITORA E14th,,,,,,no_hits
+183,v0181,Kiln,,,,,,no_hits
+184,v0182,Kopitiam,,,,,,no_hits
+185,v0183,La Bomboniera,,,,,,rejected_geo
+186,v0184,Locanda Verde Hudson Yards,Locanda Verde Hudson Yards,83891,locanda-verde-hudson-yards,14,100.0,matched
+187,v0185,LOS TACOS No.1,,,,,,no_hits
+188,v0186,L’industrie Pizzeria West Village,,,,,,rejected_geo
+189,v0187,MADE RITE COFFEE,,,,,,no_hits
+190,v0188,Mast Books,,,,,,rejected_similarity
+191,v0189,Moonflower,Moonflower,64117,moonflower,9,100.0,matched
+192,v0190,Mountain Beak Street,,,,,,no_hits
+193,v0191,Nish Nush,,,,,,no_hits
+194,v0192,Nubeluz,,,,,,no_hits
+195,v0193,OASES,,,,,,no_hits
+196,v0194,Old Mates Pub,,,,,,rejected_geo
+197,v0195,Oslo Coffee Roasters (West Village),,,,,,rejected_geo
+198,v0196,outro nyc,,,,,,rejected_geo
+199,v0197,"P&T Knitwear Bookstore, Coffee, & Podcast Studio",,,,,,rejected_geo
+200,v0198,P.S. Kitchen,PS Kitchen,5856,ps-kitchen,5,90.9090909090909,matched
+201,v0199,Partners Coffee West Village,,,,,,rejected_geo
+202,v0200,People’s,,,,,,no_hits
+203,v0201,Pera Cafe,,,,,,no_hits
+204,v0202,Pimbeche Vintage,,,,,,rejected_geo
+205,v0203,Pinky Swear,Pinky Swear,86648,pinky-swear,25,100.0,matched
+206,v0204,Project Seoul,,,,,,no_hits
+207,v0205,PUBLIC Hotel,,,,,,no_hits
+208,v0206,Punjabi Deli,,,,,,no_hits
+209,v0207,Qahwah House W Village,,,,,,rejected_geo
+210,v0208,Ribalta,,,,,,no_hits
+211,v0209,Rita's,,,,,,no_hits
+212,v0210,Ronnie Scott's,,,,,,no_hits
+213,v0211,ROOME,,,,,,no_hits
+214,v0212,Scarr's Pizza,,,,,,no_hits
+215,v0213,Seed Library NYC,,,,,,rejected_geo
+216,v0214,Seven Grams Caffe,,,,,,rejected_geo
+217,v0215,Sojourn Social,,,,,,no_hits
+218,v0216,SOMA Soho,,,,,,no_hits
+219,v0217,Spes,,,,,,no_hits
+220,v0218,Springbone Kitchen,,,,,,no_hits
+221,v0219,St. George Coffee,,,,,,rejected_geo
+222,v0220,Subject: A Cocktail Bar,Subject: A Cocktail Bar,1657,subject,16,100.0,matched
+223,v0221,Sud Forno,,,,,,no_hits
+224,v0222,Teabowl,,,,,,no_hits
+225,v0223,Terroni,,,,,,no_hits
+226,v0224,"The DL, Best Rooftop Lounge NYC",,,,,,rejected_similarity
+227,v0225,The Hideout Chai Bar,,,,,,rejected_geo
+228,v0226,The Ten Bells,The Ten Bells,5748,the-ten-bells,10,100.0,matched
+229,v0227,TIME AGAIN,,,,,,no_hits
+230,v0228,Upside Pizza,,,,,,rejected_geo
+231,v0229,Urban Backyard,,,,,,no_hits
+232,v0230,Verlaine,,,,,,no_hits
+233,v0231,Willow Vegan Bistro,Willow Vegan Bistro,48995,willow,13,100.0,matched
+234,v0232,11:59 Bar:Café,,,,,,no_hits
+235,v0233,192 Books,,,,,,no_hits
+236,v0234,4 Charles Prime Rib,4 Charles Prime Rib,834,4-charles-prime-rib,1,100.0,matched
+237,v0235,787 Coffee,,,,,,no_hits
+238,v0236,7th Street Burger East Village,,,,,,rejected_geo
+239,v0237,9/11 Memorial & Museum,,,,,,no_hits
+240,v0238,99 Favor Taste,,,,,,no_hits
+241,v0239,A Pasta Bar,A Pasta Bar,10272,a-pasta-bar,8,100.0,matched
+242,v0240,Ace Hotel New York,,,,,,rejected_geo
+243,v0241,Adore,Bar Adore,87568,bar-adore,18,100.0,matched
+244,v0242,Ahgassi Gopchang Korean BBQ,,,,,,rejected_geo
+245,v0243,AIRE Ancient Baths New York · Tribeca,,,,,,rejected_geo
+246,v0244,Albertine,,,,,,no_hits
+247,v0245,All Blues,,,,,,rejected_similarity
+248,v0246,Altro Paradiso,,,,,,no_hits
+249,v0247,Amano Cafe,,,,,,no_hits
+250,v0248,Amano Italian Kitchen,,,,,,no_hits
+251,v0249,"Amélie West Village Restaurant, Bistro & Wine Bar",Amélie West Village,42565,amelie-wine-bar,2,100.0,matched
+252,v0250,Andrew Edmunds,,,,,,no_hits
+253,v0251,"Angelina Paris New-York - Bryant Park, Tearoom",,,,,,rejected_similarity
+254,v0252,Anton Kern Gallery,,,,,,rejected_geo
+255,v0253,Antoya Korean BBQ,Antoya Korean BBQ,96117,antoya-korean-bbq,22,100.0,matched
+256,v0254,Aquelarre Shop,,,,,,rejected_geo
+257,v0255,Archie's Press,,,,,,no_hits
+258,v0256,Assembly New York,,,,,,rejected_geo
+259,v0257,Au Cheval,Au Cheval - NYC,5769,au-cheval-nyc,14,100.0,matched
+260,v0258,Balthazar,Balthazar,50227,balthazar-nyc,6,100.0,matched
+261,v0259,Bancone Golden Square,,,,,,no_hits
+262,v0260,Bandits Burger + Dive,Bandits Burger & Dive,51904,bandits,3,95.23809523809524,matched
+263,v0261,Bangkok Supper Club,Bangkok Supper Club,73418,bangkok-supper-club,6,100.0,matched
+264,v0262,BAR GOTO,,,,,,rejected_similarity
+265,v0263,Bar Lina Soho,,,,,,no_hits
+266,v0264,Bar Revival,Bar Revival,86903,bar-revival,25,100.0,matched
+267,v0265,Bar Termini,,,,,,no_hits
+268,v0266,Bar Tizio,Bar Tizio,90164,bar-tizio,24,100.0,matched
+269,v0267,Barrafina Dean Street,,,,,,no_hits
+270,v0268,Bartley Dunnes,,,,,,no_hits
+271,v0269,Beatbox,,,,,,no_hits
+272,v0270,"Bella Union, Rooftop Bar",,,,,,rejected_geo
+273,v0271,Benvenuto Cafe,,,,,,rejected_geo
+274,v0272,Berlin,,,,,,no_hits
+275,v0273,Birdland Jazz Club,,,,,,rejected_geo
+276,v0274,Birria Catrina,,,,,,no_hits
+277,v0275,Bistango,,,,,,no_hits
+278,v0276,Bite,,,,,,rejected_similarity
+279,v0277,Black Cat LES,,,,,,rejected_geo
+280,v0278,BRANDOR COFFEE,,,,,,rejected_locality
+281,v0279,Brandy Library,,,,,,rejected_geo
+282,v0280,Breakfast by Salt's Cure,,,,,,no_hits
+283,v0281,Broken Shaker,Broken Shaker New York,70551,broken-shaker-new-york,30,100.0,matched
+284,v0282,Brooklyn Bridge,,,,,,no_hits
+285,v0283,Butler Bakeshop & Espresso Bar,,,,,,rejected_geo
+286,v0284,Butter Smashburgers,,,,,,rejected_geo
+287,v0285,By the Way Bakery,,,,,,no_hits
+288,v0286,Bánh Anh Em,,,,,,no_hits
+289,v0287,C&B,,,,,,no_hits
+290,v0288,CAFE 2BY2,,,,,,rejected_geo
+291,v0289,Cafe Ambrosia New York,,,,,,rejected_similarity
+292,v0290,Cafe Fiorello,,,,,,no_hits
+293,v0291,Caffe Paradiso,,,,,,rejected_geo
+294,v0292,Cahoots Underground,,,,,,no_hits
+295,v0293,Canoe,,,,,,no_hits
+296,v0294,Cantina Mercatto,,,,,,no_hits
+297,v0295,Canto West Village,Canto West Village,55598,canto-west-village,10,100.0,matched
+298,v0296,Carbone New York,Carbone,6194,carbone,1,100.0,matched
+299,v0297,Casa Magazines,,,,,,rejected_geo
+300,v0298,Casa Morales,,,,,,no_hits
+301,v0299,Castell Rooftop Lounge,,,,,,rejected_geo
+302,v0300,Central Park,,,,,,no_hits
+303,v0301,Chad Senzel,,,,,,no_hits
+304,v0302,Chapel Bar,,,,,,rejected_geo
+305,v0303,Chelsea Art Gallery District,,,,,,rejected_geo
+306,v0304,Chopt,,,,,,no_hits
+307,v0305,Chotto Matte Toronto,,,,,,rejected_locality
+308,v0306,Cipriani Downtown,Cipriani Downtown,35674,cipriani-downtown,15,100.0,matched
+309,v0307,citizenM New York Bowery hotel,,,,,,rejected_geo
+310,v0308,City Papery,,,,,,no_hits
+311,v0309,CKTL & Co.,,,,,,no_hits
+312,v0310,Climax Books,,,,,,no_hits
+313,v0311,Comal,Comal,89806,comal-ny,22,100.0,matched
+314,v0312,common hours,,,,,,no_hits
+315,v0313,Common Things,,,,,,no_hits
+316,v0314,Cooper's Craft & Cocktails,,,,,,rejected_geo
+317,v0315,Coppelia,,,,,,no_hits
+318,v0316,Creature's Rooftop,,,,,,no_hits
+319,v0317,Cubbyhole,,,,,,no_hits
+320,v0318,Culture Espresso,,,,,,no_hits
+321,v0319,Daily Provisions,,,,,,rejected_geo
+322,v0320,Daily Ritual Cafe,,,,,,rejected_locality
+323,v0321,Dana Foley NYC,,,,,,rejected_geo
+324,v0322,Dante Aperitivo Bar,Dante Aperitivo,89648,dante-aperitivo,22,100.0,matched
+325,v0323,Daphne,,,,,,no_hits
+326,v0324,Darjeeling Express,,,,,,no_hits
+327,v0325,Dashwood Books,,,,,,no_hits
+328,v0326,David Zwirner,,,,,,no_hits
+329,v0327,Dear Irving on Hudson Rooftop Bar,Dear Irving on Hudson,4570,dear-irving-on-hudson,6,100.0,matched
+330,v0328,Death & Co East Village,Death & Co East Village,95247,death-and-co-east-village,15,100.0,matched
+331,v0329,Delta Charlie,,,,,,rejected_geo
+332,v0330,Deluxx Fluxx,,,,,,no_hits
+333,v0331,Dimes,Dimes,4043,dimes,3,100.0,matched
+334,v0332,Din Tai Fung,,,,,,rejected_geo
+335,v0333,Dineen Coffee Co.,,,,,,no_hits
+336,v0334,Don Don Korean BBQ,,,,,,rejected_geo
+337,v0335,Dons Bogam,Dons Bogam,3010,dons-bogam,16,100.0,matched
+338,v0336,Draught 55,,,,,,no_hits
+339,v0337,DUO NYC,,,,,,rejected_geo
+340,v0338,Duomo51,Duomo51 Italian Restaurant & Rooftop,71615,duomo51-italian-restaurant-and-rooftop,39,100.0,matched
+341,v0339,Eat Offbeat,,,,,,rejected_similarity
+342,v0340,Eataly,,,,,,no_hits
+343,v0341,Edith Machinist,,,,,,no_hits
+344,v0342,Edith’s Sandwich Counter,,,,,,no_hits
+345,v0343,Effy's Cafe,,,,,,no_hits
+346,v0344,El Pacho Coffee Roasters,,,,,,no_hits
+347,v0345,El Rey Mezcal Bar,,,,,,rejected_geo
+348,v0346,El Trompo,,,,,,rejected_locality
+349,v0347,Embriago Coffee,,,,,,rejected_geo
+350,v0348,Emily,,,,,,no_hits
+351,v0349,ENDING SOON,,,,,,no_hits
+352,v0350,Entwine Cocktail Bar,Entwine,46778,entwine,11,100.0,matched
+353,v0351,Equinox Hotel New York,,,,,,rejected_similarity
+354,v0352,Exile Vintage,,,,,,no_hits
+355,v0353,Fast Times,,,,,,rejected_geo
+356,v0354,Fedora,Fedora,89090,fedora,20,100.0,matched
+357,v0355,Fellini Coffee Meatpacking,,,,,,rejected_similarity
+358,v0356,Fellini Cucina,Fellini Cucina,87210,fellini-restaurant,16,100.0,matched
+359,v0357,Fig. 19,,,,,,rejected_geo
+360,v0358,Fishs Eddy,,,,,,no_hits
+361,v0359,Five Senses (Koreatown),,,,,,rejected_similarity
+362,v0360,Flamingo Vintage Kensington,,,,,,rejected_locality
+363,v0361,Flute Bar,,,,,,no_hits
+364,v0362,From Lucie,,,,,,no_hits
+365,v0363,Fudao Noodle House,,,,,,no_hits
+366,v0364,Funny Face Bakery,,,,,,rejected_geo
+367,v0365,Furnish Green,,,,,,no_hits
+368,v0366,George Bang Bang,George Bang Bang,73869,george-bang-bang,1,100.0,matched
+369,v0367,Glace NY,,,,,,no_hits
+370,v0368,Global Table,,,,,,rejected_geo
+371,v0369,GOLDEN WUISH (THE DUCKHOUSE),,,,,,rejected_similarity
+372,v0370,Goldstruck Coffee,,,,,,no_hits
+373,v0371,Gopchang Story BBQ - Manhattan,Gopchang Story BBQ,90702,gopchang-story-bbq,26,100.0,matched
+374,v0372,Gotan,,,,,,no_hits
+375,v0373,Grandma’s Dumpling House,,,,,,rejected_similarity
+376,v0374,Grant and Garbo,,,,,,no_hits
+377,v0375,Green Kitchen 70th Street,Green Kitchen - 70th Street,73116,green-kitchen-70th-street,41,100.0,matched
+378,v0376,Greenwich Letterpress,,,,,,rejected_similarity
+379,v0377,Gunbae,,,,,,no_hits
+380,v0378,Gyu-Kaku Japanese BBQ,,,,,,rejected_geo
+381,v0379,Hale Coffee Company,,,,,,no_hits
+382,v0380,Hamburger America,,,,,,rejected_geo
+383,v0381,Han Dynasty,Han Dynasty - East Village,68862,han-dynasty-east-village,4,100.0,matched
+384,v0382,Hauser & Wirth,,,,,,no_hits
+385,v0383,Haven,,,,,,no_hits
+386,v0384,Haven Rooftop,,,,,,rejected_geo
+387,v0385,Henrietta Hudson,,,,,,rejected_geo
+388,v0386,Her Name is Han,,,,,,rejected_geo
+389,v0387,Hi-Note,,,,,,no_hits
+390,v0388,Hide Rooftop,,,,,,rejected_geo
+391,v0389,Highwater Rooftop,,,,,,rejected_geo
+392,v0390,HiLot,,,,,,no_hits
+393,v0391,Home Sweet Home,,,,,,no_hits
+394,v0392,Honeybrains,,,,,,no_hits
+395,v0393,Houseman,Houseman,5470,houseman,9,100.0,matched
+396,v0394,Housing Works Bookstore,,,,,,no_hits
+397,v0395,Houston Hall,Houston Hall,68481,houston-hall,11,100.0,matched
+398,v0396,HOWOO,HOWOO,86696,howoo-ny,27,100.0,matched
+399,v0397,Humble Donkey,,,,,,no_hits
+400,v0398,Huuma,,,,,,no_hits
+401,v0399,HYUN,HYUN,9694,hyun,10,100.0,matched
+402,v0400,Iguana New York,,,,,,rejected_similarity
+403,v0401,IndiCo Coffee Co.,,,,,,rejected_geo
+404,v0402,Jacked Up Coffee,,,,,,no_hits
+405,v0403,Jadis,,,,,,no_hits
+406,v0404,Jazz At Lincoln Center,,,,,,rejected_geo
+407,v0405,Jeju Noodle Bar,Jeju Noodle Bar,1543,jeju-noodle-bar,1,100.0,matched
+408,v0406,JG Melon,,,,,,no_hits
+409,v0407,Jimmy's Coffee,,,,,,no_hits
+410,v0408,JOEY King St,,,,,,no_hits
+411,v0409,John Devoy’s Bar & Kitchen,,,,,,rejected_geo
+412,v0410,Jongro BBQ,Jongro BBQ,80115,jongro-bbq,10,100.0,matched
+413,v0411,JuDam NYC,,,,,,rejected_geo
+414,v0412,Juicy Dumpling,,,,,,no_hits
+415,v0413,Justine's on Hudson,Justine's on Hudson,70863,justines-on-hudson,35,100.0,matched
+416,v0414,Kabawa,,,,,,rejected_similarity
+417,v0415,KABIN,KABIN,81395,kabin,36,100.0,matched
+418,v0416,KENKA,,,,,,no_hits
+419,v0417,Kenn's Broome Street Bar,,,,,,rejected_geo
+420,v0418,Kim Vietnamese Restaurant,,,,,,no_hits
+421,v0419,King,King,646,king,0,100.0,matched
+422,v0420,King of Kensington,,,,,,rejected_locality
+423,v0421,King Taps First Canadian Place,,,,,,no_hits
+424,v0422,KINTO STORE New York,,,,,,rejected_geo
+425,v0423,Komune,,,,,,no_hits
+426,v0424,Korin,,,,,,no_hits
+427,v0425,Koya Japanese Restaurant Soho,,,,,,no_hits
+428,v0426,Kricket Soho,,,,,,no_hits
+429,v0427,Krispy Kreme Café,,,,,,no_hits
+430,v0428,L Train Vintage,,,,,,rejected_geo
+431,v0429,La Caverna,,,,,,rejected_similarity
+432,v0430,La Chilaca Taqueria,,,,,,no_hits
+433,v0431,La Esquina Brasserie,La Esquina - Soho Brasserie,65772,la-esquina-soho,5,100.0,matched
+434,v0432,La Linea,,,,,,rejected_geo
+435,v0433,Lady Wong Patisserie East Village,,,,,,rejected_geo
+436,v0434,Lara Koleji,,,,,,no_hits
+437,v0435,Laylak Lebanese Cuisine Toronto,,,,,,rejected_locality
+438,v0436,Leader Trading/OSARA NEW YORK,,,,,,rejected_geo
+439,v0437,Left Bank Books,,,,,,rejected_geo
+440,v0438,LIBRARY BAR,,,,,,no_hits
+441,v0439,Lil' Frankie's,Lil' Frankie's,10413,lil-frankies,5,100.0,matched
+442,v0440,Lilli and Loo,,,,,,no_hits
+443,v0441,Lina Stores Soho - Italian Restaurant,,,,,,no_hits
+444,v0442,Little Canal,,,,,,no_hits
+445,v0443,Little Cupcake Bakeshop,,,,,,rejected_geo
+446,v0444,Little Ruby's East Village,,,,,,rejected_similarity
+447,v0445,Little Ruby's West Village,,,,,,rejected_geo
+448,v0446,Locanda Verde Tribeca,,,,,,rejected_geo
+449,v0447,LOS TACOS No.1,,,,,,no_hits
+450,v0448,Lost boys vintage,,,,,,no_hits
+451,v0449,lost gen vintage,,,,,,no_hits
+452,v0450,Lot28,,,,,,no_hits
+453,v0451,LOUIX LOUIS,,,,,,no_hits
+454,v0452,LPR,,,,,,no_hits
+455,v0453,Lucia Pizza Of SoHo,,,,,,rejected_geo
+456,v0454,Luckin Coffee,,,,,,rejected_geo
+457,v0455,Ludlow Coffee Supply,,,,,,rejected_geo
+458,v0456,Luke's,,,,,,no_hits
+459,v0457,Lê Phin,,,,,,no_hits
+460,v0458,Mace,Mace,3065,mace,6,100.0,matched
+461,v0459,Makari Japanese Antiques and Fine Art,,,,,,rejected_geo
+462,v0460,Malaparte,Malaparte,52426,malaparte,48,100.0,matched
+463,v0461,maman,,,,,,no_hits
+464,v0462,Mamo,,,,,,rejected_similarity
+465,v0463,Mangetsu Speakeasy,,,,,,no_hits
+466,v0464,Marjorie's,,,,,,no_hits
+467,v0465,Maryam Nassir Zadeh,,,,,,no_hits
+468,v0466,Master Pot,,,,,,no_hits
+469,v0467,Matcha 108,,,,,,no_hits
+470,v0468,McNally Jackson Books SoHo,,,,,,rejected_geo
+471,v0469,mika's direction,,,,,,no_hits
+472,v0470,Milkweed Studios,,,,,,no_hits
+473,v0471,Miriam And Micah Vintage,,,,,,no_hits
+474,v0472,miss KOREA BBQ,,,,,,rejected_similarity
+475,v0473,Mister Paradise,Mister Paradise,51561,mister-paradise,7,100.0,matched
+476,v0474,Modern Bread and Bagel,,,,,,no_hits
+477,v0475,Modus Ristorante,,,,,,no_hits
+478,v0476,MoMA Design Store,,,,,,no_hits
+479,v0477,Moonburger,,,,,,no_hits
+480,v0478,Mos Mos Coffee,,,,,,no_hits
+481,v0479,Mossop's Social House,,,,,,rejected_locality
+482,v0480,Moxy NYC Chelsea,,,,,,rejected_geo
+483,v0481,MUD,,,,,,rejected_similarity
+484,v0482,Music For A While,,,,,,no_hits
+485,v0483,Mxdin,,,,,,no_hits
+486,v0484,mộc mạc,,,,,,rejected_similarity
+487,v0485,Nalata Nalata,,,,,,rejected_geo
+488,v0486,Nami Nori West Village,,,,,,rejected_geo
+489,v0487,Nancy Whiskey Pub,,,,,,rejected_geo
+490,v0488,NBetween,N'Between,82343,nbetween,25,94.11764705882354,matched
+491,v0489,NEO COFFEE BAR PATH,,,,,,no_hits
+492,v0490,New Wonjo,New Wonjo,10305,new-wonjo,16,100.0,matched
+493,v0491,Nice Matin,Nice Matin,60367,nice-matin,25,100.0,matched
+494,v0492,niconeco zakkaya,,,,,,no_hits
+495,v0493,Nine Cases,Nine Cases,85111,nine-cases,3,100.0,matched
+496,v0494,Not As Bitter,,,,,,rejected_geo
+497,v0495,November 19 Shop,,,,,,rejected_geo
+498,v0496,NUBIANI - Koreatown,NUBIANI (Koreatown),60933,nubiani,1,89.47368421052632,matched
+499,v0497,Nublu,,,,,,no_hits
+500,v0498,Oi bozu,,,,,,no_hits
+501,v0499,OLIO E PIÙ,,,,,,no_hits
+502,v0500,Opium Cocktail Bar - Soho,,,,,,no_hits
+503,v0501,Orsay,Orsay Restaurant,73553,orsay-restaurant,7,100.0,matched
+504,v0502,Pace Gallery,,,,,,no_hits
+505,v0503,Patisserie Vanessa,,,,,,no_hits
+506,v0504,Peacefood - Union Square,,,,,,rejected_similarity
+507,v0505,Peasant,Peasant,50826,peasant-nyc,3,100.0,matched
+508,v0506,Pete's Tavern,Pete's Tavern,53268,petes-tavern,9,100.0,matched
+509,v0507,Phở Hưng Restaurant,,,,,,no_hits
+510,v0508,Pi Bakerie,,,,,,no_hits
+511,v0509,Piccola Cucina Estiatorio,,,,,,rejected_geo
+512,v0510,Piccola Cucina Osteria Siciliana,,,,,,rejected_geo
+513,v0511,PICO DE GALLO,,,,,,no_hits
+514,v0512,Pier 57,,,,,,no_hits
+515,v0513,Pigeon Espresso Bar,,,,,,no_hits
+516,v0514,Pilot Coffee Roasters,,,,,,no_hits
+517,v0515,Pisillo Italian Panini,,,,,,rejected_geo
+518,v0516,Playa Cabana Wellington,,,,,,no_hits
+519,v0517,PONGAL,,,,,,no_hits
+520,v0518,Public Arts,,,,,,no_hits
+521,v0519,Raines Law Room Chelsea,Raines Law Room,5886,raines-law-room,3,100.0,matched
+522,v0520,Raku,Raku Midtown,79982,raku-midtown,18,100.0,matched
+523,v0521,Raoul's,Raoul's,7241,raoulsrestaurant,14,100.0,matched
+524,v0522,Ray’s,,,,,,rejected_geo
+525,v0523,Remedy Place Flatiron,,,,,,rejected_geo
+526,v0524,Rescue Spa,,,,,,no_hits
+527,v0525,Restaurant 20 Victoria,,,,,,no_hits
+528,v0526,Rex,,,,,,no_hits
+529,v0527,Roasting Plant Coffee,,,,,,rejected_similarity
+530,v0528,Roey's,Roey's,2524,roeys,2,100.0,matched
+531,v0529,Rogue,,,,,,no_hits
+532,v0530,Romeos,,,,,,no_hits
+533,v0531,Rory's Rooftop,Rory’s Rooftop,91610,rorys-rooftop,24,92.85714285714286,matched
+534,v0532,Rosa Mexicano,,,,,,rejected_similarity
+535,v0533,Rosa Mexicano,,,,,,rejected_geo
+536,v0534,Rosehill Rooftop,Rosehill Rooftop,91999,rosehill-rooftop,55,100.0,matched
+537,v0535,Rosemary Home,,,,,,no_hits
+538,v0536,S&P Lunch,,,,,,no_hits
+539,v0537,Sabor,,,,,,no_hits
+540,v0538,Sadelle's New York,Sadelle's,29967,sadelles,2,100.0,matched
+541,v0539,Saigon Lotus,,,,,,no_hits
+542,v0540,Same Same Wine Bar,Same Same Wine Bar,93443,same-same-wine-bar-ny,44,100.0,matched
+543,v0541,SAMMARCO,,,,,,no_hits
+544,v0542,San Cafe,,,,,,rejected_geo
+545,v0543,Sant Ambroeus Lafayette,,,,,,rejected_geo
+546,v0544,Sartiano's,Sartiano's,70560,sartianos,13,100.0,matched
+547,v0545,Sawada Coffee,,,,,,rejected_geo
+548,v0546,Screaming Mimis Vintage,,,,,,rejected_geo
+549,v0547,Sen Saigon,,,,,,rejected_geo
+550,v0548,Sentir Vegan Mexican Restaurant,Sentir,79212,sentir,18,100.0,matched
+551,v0549,Seven Lives Tacos y Mariscos,,,,,,no_hits
+552,v0550,Sfoglia,,,,,,rejected_geo
+553,v0551,Shibui Spa,,,,,,no_hits
+554,v0552,Shopsin's,,,,,,no_hits
+555,v0553,SHŌSH,SHŌSH,83803,shosh,13,100.0,matched
+556,v0554,Simpl Cafe,,,,,,no_hits
+557,v0555,Sleepy Pete's,,,,,,no_hits
+558,v0556,Smiley Coffee,,,,,,rejected_geo
+559,v0557,Smoke Jazz & Supper Club,,,,,,rejected_geo
+560,v0558,Smør,Smør,58326,smor,12,100.0,matched
+561,v0559,Soho Diner,Soho Diner,6790,soho-diner,5,100.0,matched
+562,v0560,Sora,,,,,,no_hits
+563,v0561,Sorate,,,,,,no_hits
+564,v0562,Space Vintage,,,,,,no_hits
+565,v0563,Speedboat Bar,,,,,,no_hits
+566,v0564,Spicy Moon Bowery,Spicy Moon at Bowery,72710,spicy-moon-at-bowery,4,100.0,matched
+567,v0565,Spot Dessert Bar East Village,,,,,,rejected_geo
+568,v0566,Sullivan Street Bakery,,,,,,no_hits
+569,v0567,Sunday Morning,,,,,,no_hits
+570,v0568,Sundays Pasta Lab,,,,,,no_hits
+571,v0569,Sunnys Chinese,,,,,,no_hits
+572,v0570,Super Burrito,,,,,,no_hits
+573,v0571,Superbueno,,,,,,rejected_similarity
+574,v0572,Supernova,,,,,,no_hits
+575,v0573,Sushi Lab Rooftop,,,,,,rejected_geo
+576,v0574,Sushi W - UWS,Sushi W - UWS,58367,sushi-w-llc,9,100.0,matched
+577,v0575,Swatow Restaurant,,,,,,no_hits
+578,v0576,Sweet Linda,Sweet Linda,87640,sweet-linda,49,100.0,matched
+579,v0577,Sweet Pickle Books,,,,,,no_hits
+580,v0578,sweetgreen,,,,,,no_hits
+581,v0579,Swift Soho,,,,,,no_hits
+582,v0580,Tacos 101 and Fruta Libre,,,,,,no_hits
+583,v0581,Taishoken NYC,Taishoken NYC - Ramen and Dipping Ramen Bar,82789,taishoken,17,100.0,matched
+584,v0582,Takoyaki6ix,,,,,,no_hits
+585,v0583,"TAP Brazilian Café – 100% Gluten-Free, Tapioca Sandwiches & Açaí, Upper West Side – NYC",,,,,,rejected_geo
+586,v0584,Tawny,,,,,,no_hits
+587,v0585,Temple Court,,,,,,rejected_geo
+588,v0586,Tenement Museum,,,,,,no_hits
+589,v0587,Teruko,Teruko,88488,teruko,23,100.0,matched
+590,v0588,Thai Villa,,,,,,rejected_geo
+591,v0589,Thayer,,,,,,no_hits
+592,v0590,The Bowery Electric,,,,,,rejected_geo
+593,v0591,The brick room,,,,,,no_hits
+594,v0592,The Brick Room (一期一会),,,,,,no_hits
+595,v0593,The C Cafe & Wine,,,,,,rejected_geo
+596,v0594,The Clock Coffee Shop,,,,,,no_hits
+597,v0595,The Domino Room,The Domino Room,92474,the-domino-room,25,100.0,matched
+598,v0596,The Drama Book Shop,,,,,,no_hits
+599,v0597,The East Pole,,,,,,rejected_similarity
+600,v0598,The Folly,,,,,,no_hits
+601,v0599,The Garret,The Garret West,50733,the-garret-west,4,100.0,matched
+602,v0600,The Grey Dog - Chelsea,,,,,,rejected_similarity
+603,v0601,The Little Scarlet Door,,,,,,no_hits
+604,v0602,The Mandarin,,,,,,no_hits
+605,v0603,The Marlton Hotel,Chez Nous at The Marlton Hotel,69427,Chez-Nous-at-The-Marlton-Hotel,3,100.0,matched
+606,v0604,The New York Earth Room,,,,,,rejected_geo
+607,v0605,The Noodle Inn,,,,,,no_hits
+608,v0606,The Pastry Box,,,,,,no_hits
+609,v0607,The Penny Farthing,The Penny Farthing,55711,the-penny-farthing,6,100.0,matched
+610,v0608,the Press Lounge,,,,,,rejected_geo
+611,v0609,The Rhymers' Club,The Rhymers' Club,83045,the-rhymers-club,26,100.0,matched
+612,v0610,The Smith,,,,,,no_hits
+613,v0611,"The Spa at Mandarin Oriental, New York",,,,,,rejected_similarity
+614,v0612,The Spaniard,The Spaniard,1435,the-spaniard,10,100.0,matched
+615,v0613,The Vintage Twin,,,,,,rejected_geo
+616,v0614,THE WELL New York,,,,,,rejected_geo
+617,v0615,THISBOWL,,,,,,no_hits
+618,v0616,Three Dots Coffee Lab,,,,,,no_hits
+619,v0617,Three Sheets Soho,,,,,,no_hits
+620,v0618,Times Square,Havana Central - Times Square,73203,havana-central-times-square,133,100.0,matched
+621,v0619,Toad Hall,,,,,,rejected_geo
+622,v0620,Togyushi,Togyushi,92553,togyushi,21,100.0,matched
+623,v0621,Tokio 7,,,,,,no_hits
+624,v0622,TOKUYAMATCHA & ONIGIRAZU BAR- E 6th St.,,,,,,rejected_geo
+625,v0623,Tokyo Joe NYC,,,,,,rejected_geo
+626,v0624,Trisha's,,,,,,no_hits
+627,v0625,Turks & Frogs,,,,,,no_hits
+628,v0626,Two Boots Pizza Upper West Side,,,,,,rejected_geo
+629,v0627,Two Hands,Two Hands Noho,8630,two-hands-noho,3,100.0,matched
+630,v0628,Ugly Delicious Toronto,,,,,,rejected_locality
+631,v0629,Uncle Lou 快樂人,,,,,,no_hits
+632,v0630,Uncle Vintage,,,,,,no_hits
+633,v0631,Under the Counter,,,,,,no_hits
+634,v0632,upstate craft beer & oyster bar,,,,,,rejected_similarity
+635,v0633,Urban Catwalk,,,,,,no_hits
+636,v0634,Urban Vegan Kitchen,Urban Vegan Kitchen,4908,urban-vegan-kitchen,0,100.0,matched
+637,v0635,Urbana Cafe and Gallery,,,,,,no_hits
+638,v0636,Uva,Uva Next Door,50830,uva-next-door,8,100.0,matched
+639,v0637,Uva Next Door,Uva Next Door,50830,uva-next-door,5,100.0,matched
+640,v0638,Vatan,,,,,,no_hits
+641,v0639,Vereda Central Coffee Roasters,,,,,,no_hits
+642,v0640,Waiting on a Friend,,,,,,no_hits
+643,v0641,Waverly Diner,,,,,,no_hits
+644,v0642,White Horse Tavern,,,,,,rejected_geo
+645,v0643,White Trash,,,,,,no_hits
+646,v0644,Wild Cherry,,,,,,rejected_geo
+647,v0645,William White Emporium,,,,,,rejected_geo
+648,v0646,Williamsburg Pizza,,,,,,no_hits
+649,v0647,Wu Wei Coffee,,,,,,no_hits
+650,v0648,yakuni,,,,,,no_hits
+651,v0649,Yamada,Yamada,77405,yamada,16,100.0,matched
+652,v0650,Yin Ji Chang Fen 銀記腸粉 (Downtown),,,,,,no_hits
+653,v0651,Yoon Haeundae Galbi,Yoon Haeundae Galbi,49338,yoon-haeundae-galbi,14,100.0,matched
+654,v0652,Yu & Me Books,,,,,,no_hits
+655,v0653,Yves,Yves,785,yves,5,100.0,matched
+656,v0654,Zen Kyoto,,,,,,no_hits
+657,v0655,Remi43 Flower & Coffee,,,,,,no_hits
+658,v0656,Serendipity 3 - Upper East Side,Serendipity 3,41007,serendipity-3,1,100.0,matched
+659,v0657,AIRE Ancient Baths New York · Upper East Side,,,,,,rejected_geo
+660,v0658,Festivál Cafe,,,,,,rejected_geo
+661,v0659,Sandbar Rooftop,,,,,,no_hits
+662,v0660,Statue of Liberty,,,,,,no_hits
+663,v0661,Sutton Bar Room,,,,,,rejected_geo
+664,v0662,Variety Coffee Roasters,,,,,,rejected_geo
+665,v0663,Via Carota,,2567,via-carota,,,already_has_resy_id
+666,v0664,Don Angie,,,,,,rejected_geo
+667,v0665,Margon,,,,,,no_hits
+668,v0666,Saigon Vietnamese Sandwich Deli,,,,,,rejected_geo
+669,v0667,Tasty Hand - Pulled Noodles,,,,,,no_hits
+670,v0668,Blue Ribbon Brasserie,,,,,,no_hits
+671,v0669,Empanada Mama LES,,,,,,rejected_geo
+672,v0670,Wah Fung No. 1,,,,,,rejected_geo
+673,v0671,L’industrie Pizzeria - West Village,,,,,,rejected_geo
+674,v0672,Joe's Pizza,,,,,,rejected_geo
+675,v0673,El Castillo De Jagua Restaurant,,,,,,no_hits
+676,v0674,Dominick's,,,,,,no_hits
+677,v0675,Le Veau d'Or,,,,,,rejected_geo
+678,v0676,Le Bernardin,,1387,le-bernardin,,,already_has_resy_id
+679,v0677,Penny,,79460,penny,,,already_has_resy_id
+680,v0678,Cho Dang Gol,,,,,,rejected_geo
+681,v0679,Smithereens,Smithereens,84732,smithereens,18,100.0,matched
+682,v0680,Tatiana by Kwame Onwuachi,,,,,,rejected_similarity
+683,v0681,Carnitas Ramirez,,,,,,no_hits
+684,v0682,Semma,,,,,,no_hits
+685,v0683,Bridges,Bridges,83681,bridges,17,100.0,matched
+686,v0684,Cervo's,Cervo’s,1385,cervos,1,85.71428571428571,matched
+687,v0685,Borgo,Borgo,84290,borgo,19,100.0,matched
+688,v0686,Mei Lai Wah,,,,,,rejected_similarity
+689,v0687,Tonii's Fresh Rice Noodle,,,,,,no_hits
+690,v0688,Kong Sihk Tong,,,,,,rejected_similarity
+691,v0689,Sanmiwago,,,,,,no_hits
+692,v0690,Fish Cheeks,Fish Cheeks NoHo,693,fish-cheeks,10,100.0,matched
+693,v0691,Eel Bar,Eel Bar,82951,eel-bar,18,100.0,matched
+694,v0692,Barrio Chino,,4347,barrio-chino,,,already_has_resy_id
+695,v0693,Noodle Village,,,,,,rejected_geo
+696,v0694,"Xi'an Famous Foods 西安名吃, Chinatown",,,,,,rejected_similarity
+697,v0695,Chang Lai,,,,,,rejected_similarity
+698,v0696,Double Crispy Bakery,,,,,,rejected_geo
+699,v0697,Barbounia,,,,,,no_hits
+700,v0698,schmuck.,schmuck.,84430,schmuck-nyc,20,100.0,matched
+701,v0699,Jeremy's,,,,,,no_hits
+702,v0700,Chez Zou,Chez Zou,59618,chez-zou,140,100.0,matched
+703,v0701,Yawning Cobra,Yawning Cobra,83804,yawning-cobra,20,100.0,matched
+704,v0702,Amor y Amargo,,,,,,rejected_geo
+705,v0703,Bar Belly,Bar Belly,1210,bar-belly,18,100.0,matched
+706,v0704,LELABAR,,44872,lelabar,,,already_has_resy_id
+707,v0705,Quique Crudo,Quique Crudo,83129,quique-crudo,5,100.0,matched
+708,v0706,Briciola Pizza Bar,,,,,,rejected_geo
+709,v0707,Sake Bar Decibel,,42686,sake-bar-decibel,,,already_has_resy_id
+710,v0708,Osteria Carlina Tribeca,,67719,osteria-carlina-tribeca,,,already_has_resy_id
+711,v0709,Artesano,Artesano,72993,artesano,1,100.0,matched
+712,v0710,Katana Kitten,,,,,,no_hits
+713,v0711,ELIS WINE BAR & RESTAURANT,,,,,,no_hits
+714,v0712,ARIARI,ARIARI,65520,ariari,2,100.0,matched
+715,v0713,Flex Mussels,Flex Mussels - UES,3616,flex-mussels-ues,5,100.0,matched
+716,v0714,Soothr,,,,,,no_hits
+717,v0715,Jungle Bird,,39604,junglebird,,,already_has_resy_id
+718,v0716,LumLum,LumLum,66372,lumlum,6,100.0,matched
+719,v0717,Sogno Toscano Market & Wine Bar,,,,,,rejected_geo
+720,v0718,Wayan,Wayan NYC,4599,wayan,0,100.0,matched
+721,v0719,Le Petit Village,Le Petit Village,86235,le-petit-village,26,100.0,matched
+722,v0720,St Tropez West Village,St Tropez West Village,1892,st-tropez,0,100.0,matched
+723,v0721,Eleven Madison Park,Eleven Madison Park,70928,eleven-madison-park,21,100.0,matched
+724,v0722,Torrisi,Torrisi,64593,torrisi,5,100.0,matched
+725,v0723,Bibliotheque,,69589,bibliotheque,,,already_has_resy_id
+726,v0724,Double Chicken Please,The Coop at Double Chicken Please,42534,double-chicken-please,21,100.0,matched
+727,v0725,The Musket Room,The Musket Room,3630,the-musket-room,5,100.0,matched
+728,v0726,Osamil,Osamil,5399,osamil,6,100.0,matched
+729,v0727,Cafe Cluny,,,,,,rejected_geo
+730,v0728,Fellini Coffee - Upper West,,,,,,rejected_similarity
+731,v0729,Bar Italia,,73006,bar-italia,,,already_has_resy_id
+732,v0730,Sant Ambroeus West Village,Sant Ambroeus - West Village,62930,sant-ambroeus-west-village,20,100.0,matched
+733,v0731,12 Chairs Cafe,12 Chairs Cafe Brooklyn,4956,12-chairs-cafe,16,100.0,matched
+734,v0732,konban NYC,,,,,,rejected_geo
+735,v0733,Nobody Told Me,,,,,,no_hits
+736,v0734,Bin 71,,,,,,rejected_geo
+737,v0735,Pepe Giallo,Pepe Giallo,50277,pepe-giallo,12,100.0,matched
+738,v0736,Bocca di Bacco Chelsea,Bocca di Bacco - Chelsea,66690,bocca-di-bacco-chelsea,6,100.0,matched
+739,v0737,CLASS on 38th,CLASS on 38th,78258,class-on-38th,19,100.0,matched
+740,v0738,OKDONGSIK New York,OKDONGSIK,66350,okdongsik,3,100.0,matched
+741,v0739,Mermaid Oyster Bar,,,,,,rejected_similarity
+742,v0740,Dante West Village,Dante West Village,9675,dante-west-village,8,100.0,matched
+743,v0741,Buddakan,Buddakan - New York,82221,buddakan-new-york,129,100.0,matched
+744,v0742,Boucherie West Village,Boucherie West Village,90333,boucherie-west-village,19,100.0,matched
+745,v0743,Madame Bonté Wine Bar,Madame Bonté Wine Bar,85534,madame-bonte-wine-bar,25,100.0,matched
+746,v0744,Vanguard Wine Bar (Midtown West),,,,,,rejected_similarity
+747,v0745,Aria Hell's Kitchen,Aria Hell's Kitchen,889,aria-hells-kitchen-nyc,1,100.0,matched
+748,v0746,La Pecora Bianca UWS,,,,,,rejected_geo
+749,v0747,Berimbau Brazilian Kitchen - West Village,Berimbau Brazilian Table - West Village,37288,berimbau-brazilian-table,7,91.66666666666667,matched
+750,v0748,Aldo Sohm Wine Bar,,1388,aldo-sohm-wine-bar,,,already_has_resy_id
+751,v0749,La Compagnie Centre,"La Compagnie, Centre St",5664,la-compagnie-centre-st,3,90.47619047619048,matched
+752,v0750,Experimental Cocktail Club,Experimental Cocktail Club,81638,experimental-cocktail-club,23,100.0,matched
+753,v0751,San Sabino,,,,,,rejected_geo
+754,v0752,Petite Boucherie,,,,,,rejected_geo
+755,v0753,Ama Raw Bar,Ama Raw Bar - West Village,55270,ama-rawbar-west-village,4,100.0,matched
+756,v0754,Beefbar,Beefbar New York,82039,beefbar-new-york,19,100.0,matched
+757,v0755,Clemente Bar,Clemente Bar and Studio,84216,clemente-bar,17,100.0,matched
+758,v0756,Marsanne,Marsanne,80289,marsanne,21,100.0,matched
+759,v0757,Tea Dealers & Ceramics,,,,,,no_hits
+760,v0758,SAPPEISAN,,,,,,no_hits
+761,v0759,Bar Nena,,,,,,rejected_similarity
+762,v0760,Tokyo Record Bar,,,,,,rejected_geo
+763,v0761,Bar Bonobo,Bar Bonobo,79847,bar-bonobo,20,100.0,matched
+764,v0762,Agency of Record,Agency of Record,74120,agency-of-record,7,100.0,matched
+765,v0763,Codino,,,,,,no_hits
+766,v0764,StEight,,,,,,no_hits
+767,v0765,CARTA Wine Bar,,84201,carta-wine-bar-new-york,,,already_has_resy_id
+768,v0766,Palermo,Palermo Argentinian Bistro,95148,palermo-argentinian-bistro,26,100.0,matched
+769,v0767,Sabor Argentino,,,,,,no_hits
+770,v0768,Le Chêne,,,,,,rejected_geo
+771,v0769,Kazumi Omakase,Kazumi Omakase,76732,kazumi-omakase,21,100.0,matched
+772,v0770,Nerea,Nerea,83416,nerea,21,100.0,matched
+773,v0771,La Ripaille,,88503,la-ripaille,,,already_has_resy_id
+774,v0772,Aquihito,,,,,,no_hits
+775,v0773,Nōksu,,73578,noksu,,,already_has_resy_id
+776,v0774,Le Vin Coeur,,,,,,no_hits
+777,v0775,Bartolo,,,,,,no_hits
+778,v0776,Olle,Olle,67606,olle,3,100.0,matched
+779,v0777,ZOI,,,,,,rejected_similarity
+780,v0778,Brigadeiro Bakery,,,,,,no_hits
+781,v0779,Monsieur Bistro,Monsieur Bistro Restaurant UES,85469,monsieur-bistro,20,100.0,matched
+782,v0780,HOJOKBAN,,,,,,rejected_similarity
+783,v0781,Samwoojung,,72866,samwoojung,,,already_has_resy_id
+784,v0782,Spiga,,,,,,no_hits
+785,v0783,Tiny Dancer Coffee,,,,,,no_hits
+786,v0784,aRoqa,,,,,,no_hits
+787,v0785,The Standard Grill,,52869,the-standard-grill,,,already_has_resy_id
+788,v0786,Aubi & Ramsa,,,,,,no_hits
+789,v0787,Arthur and Sons,,,,,,rejected_similarity
+790,v0788,Ci Siamo,Ci Siamo,54724,ci-siamo,7,100.0,matched
+791,v0789,Bar Orai,Bar Orai,60411,bar-orai,15,100.0,matched
+792,v0790,Secchu Yokota,,,,,,rejected_similarity
+793,v0791,Papa San,Papa San,86597,papa-san,46,100.0,matched
+794,v0792,La Compagnie Flatiron,La Compagnie Wine Bar Flatiron,81626,la-compagnie-wine-bar-flatiron,9,100.0,matched
+795,v0793,Lei,Lei,89991,lei,47,100.0,matched
+796,v0794,Raf's,Raf's,65679,rafs,1,100.0,matched
+797,v0795,Lord's,,65228,lords,,,already_has_resy_id
+798,v0796,Claud,,62659,claud,,,already_has_resy_id
+799,v0797,Manhatta,Manhatta,2801,manhatta,27,100.0,matched
+800,v0798,Kafana,,,,,,rejected_similarity
+801,v0799,Chateau Royale,The Dining Room at Chateau Royale,87486,chateau-royale,20,100.0,matched
+802,v0800,El Quijote,El Quijote,58825,el-quijote,15,100.0,matched
+803,v0801,Saint Urban,Saint Urban,6150,saint-urban-wine-bar,0,100.0,matched
+804,v0802,Minetta Tavern,Minetta Tavern,9846,minetta-tavern,3,100.0,matched
+805,v0803,"One If By Land, Two If By Sea",,,,,,rejected_geo
+806,v0804,C. Di Palo Wine Bar,,,,,,rejected_geo
+807,v0805,The Waverly Inn,The Waverly Inn,58422,the-waverly-inn,86,100.0,matched
+808,v0806,Palma,,,,,,no_hits
+809,v0807,Le Coucou,,8303,le-coucou,,,already_has_resy_id
+810,v0808,Gaonnuri,,91893,gaonnuri-restaurant,,,already_has_resy_id
+811,v0809,Sidecar at PJ Clarke's,Sidecar at PJ Clarke's,65126,sidecar-pj-clarkes,14,100.0,matched
+812,v0810,Cecchi's,Cecchi's,65784,cecchis,8,100.0,matched
+813,v0811,Naks,,,,,,no_hits
+814,v0812,Shukette,Shukette,8579,shukette,1,100.0,matched
+815,v0813,Golden Diner,Golden Diner,9520,golden-diner,10,100.0,matched
+816,v0814,Lucia Alimentari,Lucia Alimentari,82787,lucia-alimentari,21,100.0,matched
+817,v0815,Yellow Rose,Yellow Rose,53048,yellow-rose,8,100.0,matched
+818,v0816,Ichibantei,Ichibantei,73225,ichibantei,14,100.0,matched
+819,v0817,Rosie's,Rosie’s,725,rosies,13,85.71428571428571,matched
+820,v0818,da Toscano,,,,,,no_hits
+821,v0819,NAKAJI,NAKAJI,10163,nakaji,16,100.0,matched
+822,v0820,Luthun,Luthun,6369,luthun,8,100.0,matched
+823,v0821,Crevette,Crevette,86907,crevette,24,100.0,matched
+824,v0822,Kiko,Kiko,81313,kiko,22,100.0,matched
+825,v0823,Saint Tuesday,Saint Tuesday,60484,saint-tuesday,48,100.0,matched
+826,v0824,Little Branch,,,,,,rejected_geo
+827,v0825,Ophelia,,,,,,no_hits
+828,v0826,Overstory,,53052,overstory,,,already_has_resy_id
+829,v0827,The Portrait Bar,The Portrait Bar,74363,the-portrait-bar,38,100.0,matched
+830,v0828,Bemelmans Bar,Bemelmans Bar,85500,bemelmans-bar,11,100.0,matched
+831,v0829,Angel's Share,,,,,,no_hits
+832,v0830,Buvette,Buvette NYC,4241,buvette-nyc,9,100.0,matched
+833,v0831,Le Rock,,60459,le-rock,,,already_has_resy_id
+834,v0832,Daniel,Restaurant Daniel,29947,daniel,12,100.0,matched
+835,v0833,Valerie,,,,,,no_hits
+836,v0834,The Belfry,The Belfry,1513,1513,1,100.0,matched
+837,v0835,The Up & Up,,8550,the-up-and-up,,,already_has_resy_id
+838,v0836,Paradise Lost,,,,,,rejected_geo
+839,v0837,Ampersand,,,,,,no_hits
+840,v0838,Hard to Explain,,,,,,no_hits
+841,v0839,Monkey Bar,Monkey Bar,60058,monkey-bar-nyc,89,100.0,matched
+842,v0840,Dear Irving on Broadway,Dear Irving on Broadway,84687,dear-irving-on-broadway,21,100.0,matched
+843,v0841,Nothing Really Matters,Nothing Really Matters,65218,nothing-really-matters,3,100.0,matched
+844,v0842,Little Ned,,,,,,rejected_geo
+845,v0843,The Metropolitan Museum of Art,,,,,,no_hits
+846,v0844,Museum of Modern Art (MoMA),,,,,,rejected_similarity
+847,v0845,Whitney Museum of American Art,,,,,,rejected_geo
+848,v0846,Solomon R. Guggenheim Museum,,,,,,no_hits
+849,v0847,The Frick Collection,Westmoreland at The Frick Collection,89863,westmoreland-at-the-frick,31,100.0,matched
+850,v0848,New Museum,,,,,,rejected_geo
+851,v0849,Neue Galerie,,,,,,no_hits
+852,v0850,The Morgan Library & Museum,,,,,,rejected_geo
+853,v0851,El Museo del Barrio,,,,,,no_hits
+854,v0852,"Cooper Hewitt, Smithsonian Design Museum",,,,,,no_hits
+855,v0853,The Shed,,,,,,no_hits
+856,v0854,Dia Chelsea,,,,,,rejected_geo
+857,v0855,Hill Art Foundation,,,,,,no_hits
+858,v0856,Brant Foundation,,,,,,no_hits
+859,v0857,Museum of Arts and Design,,,,,,no_hits
+860,v0858,American Folk Art Museum,,,,,,rejected_geo
+861,v0859,Asia Society,,,,,,no_hits
+862,v0860,Japan Society,,,,,,no_hits
+863,v0861,Americas Society,,,,,,rejected_geo
+864,v0862,Korea Society,,,,,,rejected_geo
+865,v0863,International Center of Photography,,,,,,rejected_geo
+866,v0864,Aperture Foundation,,,,,,no_hits
+867,v0865,Drawing Center,,,,,,rejected_geo
+868,v0866,Museum at FIT,,,,,,no_hits
+869,v0867,Poster House,,,,,,no_hits
+870,v0868,Leslie-Lohman Museum of Art,,,,,,no_hits
+871,v0869,Museum of American Illustration,,,,,,rejected_geo
+872,v0870,Bard Graduate Center,,,,,,rejected_geo
+873,v0871,Nicholas Roerich Museum,,,,,,no_hits
+874,v0872,Center for Architecture,,,,,,no_hits
+875,v0873,Chaim Gross Studio Museum,,,,,,no_hits
+876,v0874,Metrograph,The Commissary at Metrograph,57502,the-commissary-at-metrograph,5,100.0,matched
+877,v0875,Film Forum,,,,,,no_hits
+878,v0876,IFC Center,,,,,,no_hits
+879,v0877,Angelika Film Center,,,,,,no_hits
+880,v0878,Village Vanguard,,,,,,rejected_geo
+881,v0879,Smalls Jazz Club,,,,,,rejected_geo
+882,v0880,Dizzy's Club,,,,,,no_hits
+883,v0881,Smoke Jazz Club,,,,,,no_hits
+884,v0882,Blue Note,,,,,,rejected_geo
+885,v0883,Bowery Ballroom,,,,,,rejected_geo
+886,v0884,Mercury Lounge,,,,,,rejected_geo
+887,v0885,Comedy Cellar,,,,,,rejected_locality
+888,v0886,Caveat,,,,,,no_hits
+889,v0887,UCB Theatre NY,,,,,,no_hits
+890,v0888,New York Comedy Club,,,,,,rejected_geo
+891,v0889,The Public Theater,,,,,,rejected_similarity
+892,v0890,Lincoln Center,,,,,,rejected_similarity
+893,v0891,Aire Ancient Baths,,,,,,no_hits
+894,v0892,Russian & Turkish Baths,,,,,,rejected_geo
+895,v0893,Little Island,,,,,,no_hits
+896,v0894,The High Line,,,,,,no_hits
+897,v0895,The Strand,,,,,,no_hits
+898,v0896,McNally Jackson,,,,,,rejected_geo
+899,v0897,Three Lives & Company,,,,,,no_hits
+900,v0898,Rizzoli Bookstore,,,,,,no_hits
+901,v0899,Housing Works Bookstore Cafe,,,,,,rejected_geo
+902,v0900,Printed Matter,,,,,,rejected_geo
+903,v0901,Russ & Daughters,,,,,,rejected_geo
+904,v0902,Apollo Bagels,,,,,,no_hits
+905,v0903,Ess-a-Bagel,,,,,,no_hits
+906,v0904,Tompkins Square Bagels,,,,,,no_hits
+907,v0905,Absolute Bagels,,,,,,no_hits
+908,v0906,Katz's Delicatessen,,,,,,no_hits
+909,v0907,2nd Ave Deli,,,,,,rejected_geo
+910,v0908,Sarge's Deli,,,,,,no_hits
+911,v0909,Nom Wah Tea Parlor,Nom Wah Tea Parlor,483,nom-wah-tea-parlor,8,100.0,matched
+912,v0910,Golden Unicorn,,,,,,rejected_geo
+913,v0911,Tim Ho Wan,,,,,,rejected_geo
+914,v0912,Essex Market,,,,,,rejected_geo
+915,v0913,Urban Hawker,,,,,,no_hits
+916,v0914,Chelsea Market,,,,,,rejected_similarity
+917,v0915,Morgenstern's Finest Ice Cream,,,,,,no_hits
+918,v0916,Van Leeuwen (Downing St),,,,,,rejected_similarity
+919,v0917,Il Laboratorio del Gelato,,,,,,rejected_geo
+920,v0918,L'Arte del Gelato,,,,,,rejected_geo
+921,v0919,Caffè Panna,,,,,,rejected_similarity
+922,v0920,Levain Bakery (UWS),,,,,,rejected_geo
+923,v0921,Supermoon Bakehouse,,,,,,no_hits
+924,v0922,Lysée,,64549,lysee,,,already_has_resy_id
+925,v0923,Librae Bakery,,,,,,rejected_geo
+926,v0924,Mah-Ze-Dahr Bakery,,,,,,rejected_geo
+927,v0925,Dominique Ansel Bakery,,,,,,rejected_geo
+928,v0926,Ladurée Soho,Ladurée Soho,84832,laduree-soho,18,100.0,matched
+929,v0927,Setsugekka,,,,,,no_hits
+930,v0928,Lady M Confections (Midtown),,,,,,rejected_similarity
+931,v0929,Magnolia Bakery (West Village),,,,,,rejected_geo
+932,v0930,Breads Bakery (Union Square),,,,,,rejected_geo
+933,v0931,Kreuther Handcrafted Chocolate,,,,,,rejected_similarity
+934,v0932,Taiyaki NYC,,,,,,rejected_similarity
+935,v0933,Spot Dessert Bar,,,,,,rejected_geo
+936,v0934,Bourke Street Bakery,,,,,,rejected_geo
+937,v0935,Aux Merveilleux de Fred,,,,,,rejected_geo
+938,v0936,Li-Lac Chocolates (West Village),,,,,,rejected_geo
+939,v0937,Pasticceria Rocco,,,,,,no_hits
+940,v0938,Molly's Cupcakes,,,,,,no_hits
+941,v0939,Claude Bakery,,,,,,no_hits
+942,v0940,Fabrique Bakery,,,,,,no_hits
+943,v0941,Veniero's Pasticceria & Caffè,,,,,,rejected_geo
+944,v0942,Abraço,,,,,,no_hits
+945,v0943,Davey's Ice Cream,,,,,,rejected_locality
+946,v0944,La Cabra Bakery,,,,,,rejected_geo
+947,v0945,LÀ LÁ Bakeshop,,,,,,rejected_geo
+948,v0946,Red Gate Bakery,,,,,,rejected_geo
+949,v0947,Hani's Bakery + Café,,,,,,rejected_geo
+950,v0948,Lafayette Grand Café & Bakery,Lafayette Grand Café & Bakery,52613,lafayette-grand-cafe-and-bakery,105,100.0,matched
+951,v0949,Levain Bakery (NoHo),,,,,,rejected_similarity
+952,v0950,The Dessert Bar at Patisserie Chanson,,,,,,rejected_geo
+953,v0951,Eataly NYC Flatiron (La Gelateria),,,,,,rejected_geo
+954,v0952,Maman (Flatiron / NoMad),,,,,,rejected_geo
+955,v0953,Dough Doughnuts (Flatiron),,,,,,rejected_geo
+956,v0954,Salswee,,,,,,no_hits
+957,v0955,Cucina Alba,Cucina Alba,64842,cucina-alba,66,100.0,matched
+958,v0956,Maderas Cafe,,,,,,rejected_geo
+959,v0957,Rolo’s,,,,,,rejected_similarity
+960,v0958,Sans Bakery,,,,,,no_hits
+961,v0959,143 Social,,,,,,rejected_locality
+962,v0960,Between the Bagel NY,,,,,,no_hits
+963,v0961,Bohemian Hall & Beer Garden,,,,,,rejected_geo
+964,v0962,Château le Woof,,,,,,no_hits
+965,v0963,Coba Pizzeria,,,,,,no_hits
+966,v0964,GanBlaze,,,,,,no_hits
+967,v0965,IBN Hamido Seafood,,,,,,no_hits
+968,v0966,Lichen,,,,,,no_hits
+969,v0967,Little Flower Cafe,,,,,,no_hits
+970,v0968,MOGMOG,,,,,,no_hits
+971,v0969,O2 K-BBQ,,,,,,no_hits
+972,v0970,PYO Chai,,,,,,no_hits
+973,v0971,Record Room,Record Room,71749,record-room,76,100.0,matched
+974,v0972,Salty Lunch Lady's Little Luncheonette,,,,,,no_hits
+975,v0973,The Miami Beach EDITION,,,,,,rejected_locality
+976,v0974,Topos Bookstore Cafe,,,,,,no_hits
+977,v0975,Verse,,,,,,no_hits
+978,v0976,Xin Fa Bakery,,,,,,rejected_geo
+979,v0977,Attaboy,,,,,,no_hits
+980,v0978,Jack's Wife Freda,Jack's Wife Freda - Soho,59168,jacks-wife-freda-soho,2,100.0,matched
+981,v0979,Shu Jiao Fu Zhou,,,,,,no_hits
+982,v0980,L&B Spumoni Gardens,,,,,,no_hits
+983,v0981,Brennan & Carr,,,,,,no_hits
+984,v0982,Roll N Roaster,,,,,,no_hits
+985,v0983,Birria-Landia,,,,,,no_hits
+986,v0984,Taqueria Coatzingo,,,,,,no_hits
+987,v0985,"Sal, Kris & Charlie's Deli",,,,,,no_hits
+988,v0986,Henan Feng Wei,,,,,,no_hits
+989,v0987,New Park Pizza,,,,,,no_hits
+990,v0988,Astoria Seafood,,,,,,no_hits
+991,v0989,Louie & Ernie's Pizza,,,,,,no_hits
+992,v0990,Lee's Tavern,,,,,,no_hits
+993,v0991,Thai Diner,Thai Diner,49453,thai-diner,5,100.0,matched
+994,v0992,Mắm,Mắm,80206,mam,20,100.0,matched
+995,v0993,Torrisi,Torrisi,64593,torrisi,5,100.0,matched
+996,v0994,Cocina Consuelo,,,,,,no_hits
+997,v0995,Ha's Snack Bar,,85855,has-snack-bar,,,already_has_resy_id
+998,v0996,Trinciti Roti Shop & Restaurant,,,,,,no_hits
+999,v0997,Bolivian Llama Party,,,,,,no_hits
+1000,v0998,Lechonera La Piraña,,,,,,no_hits
+1001,v0999,Shaw-nae’s House,,86596,shaw-naes-house,,,already_has_resy_id
+1002,v1000,Taverna Kyclades Astoria,,,,,,rejected_geo
+1003,v1001,Ramro,,91404,ramro,,,already_has_resy_id
+1004,v1002,Dar Lbahja,,,,,,no_hits
+1005,v1003,Little Flower Cafe,,,,,,no_hits
+1006,v1004,Abuqir,,,,,,no_hits
+1007,v1005,Sami's Kabab House,,,,,,no_hits
+1008,v1006,Sorriso Italian Salumeria,,,,,,no_hits
+1009,v1007,Between the Bagel NY,,,,,,no_hits
+1010,v1008,Milkflower,,,,,,no_hits
+1011,v1009,District Saigon,,,,,,no_hits
+1012,v1010,Ruta Oaxaca Mexican Cuisine,,,,,,rejected_geo
+1013,v1011,KAL,,,,,,no_hits
+1014,v1012,New World Mall Food Court,,,,,,rejected_geo
+1015,v1013,Joe’s Steam Rice Roll,,,,,,no_hits
+1016,v1014,Nan Xiang Soup Dumplings - Flushing,,,,,,rejected_similarity
+1017,v1015,Xing Fu Tang Flushing,,,,,,rejected_geo
+1018,v1016,Seafood City,,,,,,no_hits
+1019,v1017,The Original Crab Shanty,,,,,,no_hits
+1020,v1018,City Island Lobster House,,,,,,no_hits
+1021,v1019,Johnny's Reef,,,,,,no_hits
+1022,v1020,Hellbender,Hellbender,82385,hellbender,24,100.0,matched
+1023,v1021,Wayla,,5192,wayla,,,already_has_resy_id
+1024,v1022,Potluck Club,,,,,,rejected_similarity
+1025,v1023,Shanghai You Garden,,,,,,no_hits
+1026,v1024,White Bear,,,,,,no_hits
+1027,v1025,Mountain House Flushing 川山甲,Szechuan Mountain House Flushing,92882,szechuan-mountain-house-flushing,14,92.0,matched
+1028,v1026,Nurlan Uyghur Restaurant,,,,,,no_hits
+1029,v1027,Eight Jane,,,,,,no_hits
+1030,v1028,PanBao66 六六生煎王,,,,,,no_hits
+1031,v1029,Balzem,Balzem,49699,balzem,3,100.0,matched
+1032,v1030,Bar B,,,,,,rejected_geo
+1033,v1031,COQODAQ,COQODAQ,76033,coqodaq,18,100.0,matched
+1034,v1032,Atoboy,,,,,,rejected_similarity
+1035,v1033,Port Sa’id,,,,,,rejected_geo
+1036,v1034,Tartina,,,,,,no_hits
+1037,v1035,Keens Steakhouse,Keens Steakhouse,3413,keens-steakhouse,14,100.0,matched
+1038,v1036,VITE vinosteria,,,,,,no_hits
+1039,v1037,Bar Primi Penn District,Bar Primi Penn District,80337,bar-primi-penn-district,17,100.0,matched
+1040,v1038,Nogari,Nogari,94494,nogari,30,100.0,matched
+1041,v1039,Gao's BBQ & Crab,,,,,,no_hits
+1042,v1040,Alley 41,,,,,,no_hits
+1043,v1041,Il Buco,il Buco,675,il-buco,0,85.71428571428571,matched
+1044,v1042,R40,,,,,,no_hits
+1045,v1043,56709,56709,72800,56709,11,100.0,matched
+1046,v1044,Maisonetta,Maisonetta,71399,maisonetta,19,100.0,matched
+1047,v1045,Takumen,,,,,,rejected_locality
+1048,v1046,Tournesol,Tournesol Restaurant,76770,tournesol-restaurant,21,100.0,matched
+1049,v1047,Popina,Popina NYC,1340,popina-nyc,21,100.0,matched
+1050,v1048,Forsythia,Forsythia,27809,forsythia,0,100.0,matched
+1051,v1049,Tobalá,Tobalá,65397,tobala,6,100.0,matched
+1052,v1050,Angel Indian Restaurant,Angel Indian Restaurant,91940,angel-indian-restaurant-ny,64,100.0,matched
+1053,v1051,The Met Cloisters,,,,,,no_hits
+1054,v1052,Bronx Museum of the Arts,,,,,,no_hits
+1055,v1053,MoMA PS1,,,,,,no_hits
+1056,v1054,Noguchi Museum,,,,,,no_hits
+1057,v1055,Studio Museum in Harlem,,,,,,rejected_geo
+1058,v1056,Hispanic Society Museum & Library,,,,,,no_hits
+1059,v1057,China Institute,,,,,,no_hits
+1060,v1058,SculptureCenter,,,,,,no_hits
+1061,v1059,Socrates Sculpture Park,,,,,,no_hits
+1062,v1060,Skyscraper Museum,,,,,,no_hits
+1063,v1061,Jacques Marchais Museum of Tibetan Art,,,,,,no_hits
+1064,v1062,Queens Museum,,,,,,no_hits
+1065,v1063,Museum of the Moving Image,,,,,,no_hits
+1066,v1064,Alamo Drafthouse Lower Manhattan,,,,,,rejected_similarity
+1067,v1065,World Spa,,,,,,no_hits
+1068,v1066,Governors Island,,,,,,no_hits
+1069,v1067,The New York Botanical Garden,,,,,,no_hits
+1070,v1068,Fort Tryon Park,,,,,,rejected_geo
+1071,v1069,Rice to Riches,,,,,,no_hits
+1072,v1070,Maman (Nolita),,,,,,rejected_similarity
+1073,v1071,Cannelle Patisserie,,,,,,no_hits
+1074,v1072,Martha's Country Bakery,,,,,,no_hits
+1075,v1073,Artuso Pastry Shop,,,,,,no_hits
+1076,v1074,Lips Cafe,,,,,,no_hits
+1077,v1075,Land to Sea,,,,,,no_hits
+1078,v1076,As you like,,,,,,no_hits
+1079,v1077,Carousel,,,,,,no_hits
+1080,v1078,Devoción,,,,,,no_hits
+1081,v1079,Have & Meyer,,,,,,no_hits
+1082,v1080,SEY Coffee,,,,,,no_hits
+1083,v1081,The Four Horsemen,The Four Horsemen,2492,the-four-horsemen,0,100.0,matched
+1084,v1082,Cafe MSMN,,,,,,no_hits
+1085,v1083,Jupiter Disco,,,,,,no_hits
+1086,v1084,Mood Ring,,,,,,no_hits
+1087,v1085,PPL,,,,,,no_hits
+1088,v1086,ACRE,,,,,,no_hits
+1089,v1087,Black Mountain Wine House,,,,,,no_hits
+1090,v1088,Mr. Melo,,,,,,no_hits
+1091,v1089,Twins Lounge,,,,,,no_hits
+1092,v1090,usagi,,,,,,no_hits
+1093,v1091,Win Son Bakery,,,,,,rejected_similarity
+1094,v1092,% Arabica,,,,,,no_hits
+1095,v1093,BABA on Withers,BABA,52700,baba-ny,1,100.0,matched
+1096,v1094,Bossa Nova Civic Club,,,,,,no_hits
+1097,v1095,Cherry on Top,,,,,,no_hits
+1098,v1096,Clementine Bakery,,,,,,no_hits
+1099,v1097,Eavesdrop,Eavesdrop,58369,eavesdrop,4,100.0,matched
+1100,v1098,Elsewhere,,,,,,no_hits
+1101,v1099,House of Yes,,,,,,no_hits
+1102,v1100,KIJITORA mini,,,,,,no_hits
+1103,v1101,Larry's Ca Phe,,,,,,no_hits
+1104,v1102,Lovebirds Wine Bar + Bistro,Lovebirds Wine Bar & Bistro,79813,lovebirds-wine-bar-and-bistro,16,96.29629629629629,matched
+1105,v1103,MISIPASTA,,,,,,rejected_similarity
+1106,v1104,Nook,,,,,,no_hits
+1107,v1105,Partners Coffee — Cafe & Roastery,,,,,,rejected_geo
+1108,v1106,"RHYTHM ZERO, GREENPOINT",,,,,,rejected_similarity
+1109,v1107,Rite Of Passage,,,,,,rejected_geo
+1110,v1108,Sunday In Brooklyn,Sunday in Brooklyn,756,sunday-in-brooklyn,8,94.44444444444444,matched
+1111,v1109,Vaux Vintage,,,,,,no_hits
+1112,v1110,Vinegar Hill House,Vinegar Hill House,5456,vinegar-hill-house,2,100.0,matched
+1113,v1111,With Others,With Others,89468,with-others,16,100.0,matched
+1114,v1112,10 ft Single by Stella Dallas,,,,,,no_hits
+1115,v1113,Artists & Fleas Market Williamsburg,,,,,,rejected_geo
+1116,v1114,Aurora Brooklyn,,,,,,rejected_geo
+1117,v1115,Awoke Vintage Brooklyn,,,,,,rejected_geo
+1118,v1116,Brooklyn Ball Factory,,,,,,no_hits
+1119,v1117,Cafe Balearica,Cafe Balearica,88983,cafe-balearica,15,100.0,matched
+1120,v1118,Frog,,,,,,no_hits
+1121,v1119,Kettl Tea - Greenpoint,Kettl Tea - Greenpoint,93210,kettl-tea-greenpoint,20,100.0,matched
+1122,v1120,La Cabra,,,,,,rejected_geo
+1123,v1121,Lion's Milk,,,,,,no_hits
+1124,v1122,Loaf on Paper by niconeco zakkaya,,,,,,no_hits
+1125,v1123,Malin Landaeus,,,,,,no_hits
+1126,v1124,Maru Coffee,,,,,,no_hits
+1127,v1125,Molasses Books,,,,,,no_hits
+1128,v1126,Ornithology Jazz Club,,,,,,no_hits
+1129,v1127,Qahwah House Coffee,,,,,,no_hits
+1130,v1128,Radio Star,,,,,,no_hits
+1131,v1129,Seven Wonders Collective (Williamsburg),,,,,,rejected_geo
+1132,v1130,SORBARA’S,,,,,,no_hits
+1133,v1131,St. Mazie Bar & Supper Club,,,,,,rejected_geo
+1134,v1132,The Red Pavilion,,,,,,no_hits
+1135,v1133,Time Out Market New York,,,,,,rejected_geo
+1136,v1134,Urban Jungle,,,,,,no_hits
+1137,v1135,Amarcord Vintage Fashion,,,,,,rejected_geo
+1138,v1136,Anaïs,,,,,,no_hits
+1139,v1137,Ask For Janice,Ask For Janice,74296,ask-for-janice,15,100.0,matched
+1140,v1138,Bar Blondeau,Bar Blondeau,1054,barblondeau,63,100.0,matched
+1141,v1139,Bar Rêve,Bar Rêve,92812,bar-reve,19,100.0,matched
+1142,v1140,Barely Disfigured,,,,,,no_hits
+1143,v1141,Bedford Vintage,,,,,,rejected_geo
+1144,v1142,Black Spring Books,,,,,,no_hits
+1145,v1143,Cafe Alula,,,,,,no_hits
+1146,v1144,Ceremonia Bakeshop,,,,,,no_hits
+1147,v1145,Copper Mug Coffee,,,,,,no_hits
+1148,v1146,Dead Letter No. 9,,,,,,no_hits
+1149,v1147,Desert Island,,,,,,no_hits
+1150,v1148,Dobbin St Vintage Co-op,,,,,,rejected_geo
+1151,v1149,DOLORES,,,,,,no_hits
+1152,v1150,Doris,,,,,,no_hits
+1153,v1151,Esse Taco,,,,,,no_hits
+1154,v1152,Foster Sundry,,,,,,no_hits
+1155,v1153,Frankies 457 Spuntino,,,,,,no_hits
+1156,v1154,Fresh Kills Bar,,,,,,rejected_geo
+1157,v1155,Front General Store,,,,,,no_hits
+1158,v1156,Good Room,,,,,,rejected_geo
+1159,v1157,Grand Street Local,,,,,,rejected_geo
+1160,v1158,Happy Zoe Vegan Bakery,,,,,,no_hits
+1161,v1159,Hide & Seek,,,,,,no_hits
+1162,v1160,Honeycomb Hi-Fi Lounge,,,,,,no_hits
+1163,v1161,Hotel Delmano,,,,,,no_hits
+1164,v1162,Juliette Restaurant,,,,,,rejected_similarity
+1165,v1163,Karasu,,,,,,rejected_geo
+1166,v1164,Kellogg’s Diner,Kellogg's Diner,84546,kelloggs-diner,22,93.33333333333333,matched
+1167,v1165,KIJITORA,,,,,,no_hits
+1168,v1166,KIJITORA East,,,,,,rejected_geo
+1169,v1167,L Train Vintage,,,,,,no_hits
+1170,v1168,Liz's Book Bar,,,,,,rejected_geo
+1171,v1169,McNally Jackson Books Williamsburg,,,,,,rejected_geo
+1172,v1170,MIDNIGHTS,,,,,,no_hits
+1173,v1171,Milk & Roses,,,,,,no_hits
+1174,v1172,Montague Diner,Montague Diner,79987,montague-diner,18,100.0,matched
+1175,v1173,"Mya Coffee, Bakery and Wine Bar",,,,,,rejected_geo
+1176,v1174,Nenes Deli Taqueria,,,,,,no_hits
+1177,v1175,Pinkerton Wine Bar,,,,,,rejected_geo
+1178,v1176,Place des Fêtes,Place des Fêtes,59848,place-des-fetes,20,100.0,matched
+1179,v1177,Pokito,,,,,,no_hits
+1180,v1178,Quimby's Bookstore NYC,,,,,,no_hits
+1181,v1179,Radio Bakery,,,,,,no_hits
+1182,v1180,Rhodora Wine Bar,Rhodora Wine Bar,917,rhodora,10,100.0,matched
+1183,v1181,Saint Street Cakes,,,,,,no_hits
+1184,v1182,Shelsky's Of Brooklyn Appetizing and Delicatessen,,,,,,rejected_similarity
+1185,v1183,Sixteen Mill Bakeshop,,,,,,rejected_geo
+1186,v1184,Spoonbill & Sugartown Books,,,,,,no_hits
+1187,v1185,Stella Dallas Living,,,,,,no_hits
+1188,v1186,The Butcher's Daughter,,,,,,no_hits
+1189,v1187,The Center for Fiction,,,,,,no_hits
+1190,v1188,Yours Sincerely,,,,,,no_hits
+1191,v1189,& Sons Buttery,,,,,,no_hits
+1192,v1190,8-Bit Bites,,,,,,no_hits
+1193,v1191,Again Vintage (home to SUBLIME Coffee & Plant Potions),,,,,,no_hits
+1194,v1192,Alita Cafe,,,,,,no_hits
+1195,v1193,Ample Hills Creamery,,,,,,no_hits
+1196,v1194,Antidote,Antidote,60192,antidote,20,100.0,matched
+1197,v1195,Archestratus Books + Foods,,,,,,no_hits
+1198,v1196,Ba Xuyên,,,,,,no_hits
+1199,v1197,Baby Blues Luncheonette,,,,,,no_hits
+1200,v1198,BAR GOTO NIBAN,,,,,,rejected_similarity
+1201,v1199,Barcade,,,,,,no_hits
+1202,v1200,Beacon's Closet,,,,,,no_hits
+1203,v1201,BEEPUBLIC,,,,,,no_hits
+1204,v1202,Berry Home,,,,,,rejected_similarity
+1205,v1203,Big Night,,,,,,no_hits
+1206,v1204,Birds of a Feather,Birds of a Feather,63241,birds-of-a-feather,4,100.0,matched
+1207,v1205,Black Brick Coffee,,,,,,no_hits
+1208,v1206,Black Oak on Fifth,Black Oak on Fifth,72989,black-oak-on-fifth,6,100.0,matched
+1209,v1207,Blue Brown Cafe,,,,,,rejected_geo
+1210,v1208,Books Are Magic,,,,,,no_hits
+1211,v1209,Books Are Magic,,,,,,no_hits
+1212,v1210,Botani Cafe,,,,,,no_hits
+1213,v1211,Breakfast by Salt's Cure,,,,,,no_hits
+1214,v1212,Bricolage,Bricolage,5352,bricolage,6,100.0,matched
+1215,v1213,Brooklyn Kura,,,,,,rejected_geo
+1216,v1214,Brooklyn Social,,,,,,rejected_geo
+1217,v1215,Brooklyn Vintage Company,,,,,,rejected_geo
+1218,v1216,Bunna Cafe,,,,,,no_hits
+1219,v1217,Bushwick Taco Company,,,,,,no_hits
+1220,v1218,ByClio Bakery,,,,,,no_hits
+1221,v1219,Cafe Luluc,,,,,,rejected_geo
+1222,v1220,Cafe Mogador,Cafe Mogador - Williamsburg,30073,cafe-mogador-williamsburg,5,100.0,matched
+1223,v1221,Cafe Susanne,,,,,,rejected_geo
+1224,v1222,Campbell and Co - Williamsburg,,,,,,rejected_geo
+1225,v1223,Casa Maya,,,,,,no_hits
+1226,v1224,Cecconi's,,,,,,no_hits
+1227,v1225,Ciao Ciao Disco,,,,,,no_hits
+1228,v1226,Cinnamon Girl,,,,,,no_hits
+1229,v1227,Clark's,,,,,,no_hits
+1230,v1228,Close Friends,,,,,,no_hits
+1231,v1229,Colonia Verde,Colonia Verde,4626,colonia-verde,133,100.0,matched
+1232,v1230,Community Bookstore,,,,,,no_hits
+1233,v1231,Corto,,,,,,no_hits
+1234,v1232,Dae,,,,,,no_hits
+1235,v1233,Dayglow,,,,,,no_hits
+1236,v1234,dear friend books,,,,,,no_hits
+1237,v1235,Devoción,,,,,,no_hits
+1238,v1236,Diamond Lil,,,,,,no_hits
+1239,v1237,Dilly Dally,,,,,,no_hits
+1240,v1238,Din Soup Dumplings 鼎泰轩,,,,,,rejected_geo
+1241,v1239,Dobbin St. Vintage Co-op Corner Shop,,,,,,rejected_geo
+1242,v1240,Driggs Mercantile,,,,,,no_hits
+1243,v1241,DUMBO Manhattan Bridge View,,,,,,rejected_geo
+1244,v1242,Dynaco,,,,,,no_hits
+1245,v1243,Dépanneur,,,,,,no_hits
+1246,v1244,Ebreo Vintage,,,,,,no_hits
+1247,v1245,Edy's Grocer,,,,,,no_hits
+1248,v1246,El Regalo de Juquila,,,,,,no_hits
+1249,v1247,Electric Beets,,,,,,no_hits
+1250,v1248,Enso Cafe,,,,,,rejected_similarity
+1251,v1249,Entre Nous,Entre Nous,85389,entre-nous-ny,17,100.0,matched
+1252,v1250,Everybody Eats,,,,,,no_hits
+1253,v1251,Eyval,Eyval,59419,eyval,8,100.0,matched
+1254,v1252,Flower Cat,,,,,,no_hits
+1255,v1253,Friends and Lovers,,,,,,no_hits
+1256,v1254,Frita Batidos Brooklyn,,,,,,rejected_geo
+1257,v1255,Gertie,Gertie,94484,gertie,29,100.0,matched
+1258,v1256,GG's Social Trade & Treasure Club,,,,,,no_hits
+1259,v1257,Gordo's Cantina,Gordo's Cantina,96502,gordos-cantina,12,100.0,matched
+1260,v1258,Gran Torino,,,,,,no_hits
+1261,v1259,Greenlight Bookstore (Fulton Street),,,,,,no_hits
+1262,v1260,Grimaldi's Pizzeria,,,,,,no_hits
+1263,v1261,Guevara's,,,,,,no_hits
+1264,v1262,Haenyeo,Haenyeo,4951,haenyeo,3,100.0,matched
+1265,v1263,"Hainan Chicken House, 海南鸡记",,,,,,no_hits
+1266,v1264,Hala Coffee & Kitchen,,,,,,no_hits
+1267,v1265,HEADREST COFFEE,,,,,,no_hits
+1268,v1266,Human Relations,,,,,,no_hits
+1269,v1267,Hungry Ghost Coffee,,,,,,no_hits
+1270,v1268,Ilegal Taqueria,,,,,,no_hits
+1271,v1269,ippudo V Brookyln,Ippudo V Brooklyn,96706,ippudo-v-brooklyn,95,88.23529411764706,matched
+1272,v1270,Jajaja Mexicana,,,,,,rejected_geo
+1273,v1271,Kinhfolk,,,,,,no_hits
+1274,v1272,Koi Omakase,,,,,,rejected_similarity
+1275,v1273,Kokomo Restaurant & Lounge,,,,,,rejected_geo
+1276,v1274,L Train Vintage,,,,,,no_hits
+1277,v1275,L Train Vintage,,,,,,no_hits
+1278,v1276,L'imprimerie,,,,,,no_hits
+1279,v1277,La Bicyclette Bakery,,,,,,no_hits
+1280,v1278,La Cantine,,,,,,rejected_geo
+1281,v1279,La Loncheria,,,,,,no_hits
+1282,v1280,LaRina Pastificio & Vino,LaRina Pastificio & Vino,611,larina,6,100.0,matched
+1283,v1281,Laser Wolf Brooklyn,Laser Wolf Brooklyn,58848,laser-wolf-brooklyn,43,100.0,matched
+1284,v1282,leaves,,,,,,rejected_geo
+1285,v1283,Lilia,Lilia,418,lilia,39,100.0,matched
+1286,v1284,Limosneros,,,,,,no_hits
+1287,v1285,LINC ORIGINAL MAKERS NEW YORK,,,,,,rejected_similarity
+1288,v1286,Lincoln Station,,,,,,no_hits
+1289,v1287,Little Fino,Little Fino,89337,little-fino,51,100.0,matched
+1290,v1288,Little Grenjai,Little Grenjai,73137,little-grenjai,9,100.0,matched
+1291,v1289,Lot45,,,,,,no_hits
+1292,v1290,"Louis Valentino, Jr. Park and Pier",,,,,,no_hits
+1293,v1291,Loveless Coffees,,,,,,no_hits
+1294,v1292,Luana's Tavern,Luana's Tavern,40827,luanas-tavern,8,100.0,matched
+1295,v1293,LuAnne's Wild Ginger,,,,,,no_hits
+1296,v1294,LunÀtico,,,,,,no_hits
+1297,v1295,Maimoun,,,,,,rejected_geo
+1298,v1296,McNally Jackson Books Downtown Brooklyn,,,,,,rejected_geo
+1299,v1297,MEILI Rooftop,MEILI,86949,meili,19,100.0,matched
+1300,v1298,Miski Cafe,,,,,,no_hits
+1301,v1299,Mixtape Bushwick,,,,,,rejected_geo
+1302,v1300,Mociun Fine Jewelry & Home,,,,,,rejected_geo
+1303,v1301,Monger's Palate,,,,,,no_hits
+1304,v1302,Nako,,,,,,no_hits
+1305,v1303,Nenes Taqueria,,,,,,no_hits
+1306,v1304,Next Stop Vegan,Next Stop Vegan,92186,next-stop-vegan,23,100.0,matched
+1307,v1305,Nomia,,,,,,no_hits
+1308,v1306,Oxomoco,Oxomoco,2601,oxomoco,0,100.0,matched
+1309,v1307,Pally,,,,,,no_hits
+1310,v1308,Palmetto,,,,,,no_hits
+1311,v1309,Plaza Ortega,,,,,,no_hits
+1312,v1310,Plus de Vin,,,,,,no_hits
+1313,v1311,Prospect Butcher Co.,,,,,,rejected_geo
+1314,v1312,Prospect Park,,,,,,no_hits
+1315,v1313,Raggedy Threads,,,,,,no_hits
+1316,v1314,Ramen DANBO Park Slope,,,,,,rejected_geo
+1317,v1315,"RHYTHM ZERO, WILLIAMSBURG",,,,,,rejected_similarity
+1318,v1316,Rocka Rolla,,,,,,no_hits
+1319,v1317,Rodeo,,,,,,no_hits
+1320,v1318,Rugged Road & Co.,,,,,,rejected_geo
+1321,v1319,Saint Eves Cocktail Bar,,,,,,rejected_geo
+1322,v1320,Saint Michel Cafe,,,,,,no_hits
+1323,v1321,Salt Lizard,,,,,,rejected_similarity
+1324,v1322,Saturn Road,,,,,,no_hits
+1325,v1323,Sawa,Sawa,80525,sawa,19,100.0,matched
+1326,v1324,Selune Annex,Selune,89992,selune,30,100.0,matched
+1327,v1325,Selva,,,,,,no_hits
+1328,v1326,senti senti,,,,,,no_hits
+1329,v1327,Seven Wonders Collective (Greenpoint),,,,,,no_hits
+1330,v1328,Simply Nova,,,,,,no_hits
+1331,v1329,Sips,,,,,,no_hits
+1332,v1330,Sobre Masa,,,,,,rejected_similarity
+1333,v1331,Sofreh,Sofreh,27154,sofreh,1,100.0,matched
+1334,v1332,Stonefruit Espresso + Kitchen,,,,,,no_hits
+1335,v1333,Studio Dem,,,,,,no_hits
+1336,v1334,Sunset Park,,,,,,no_hits
+1337,v1335,Taku Sando,,,,,,no_hits
+1338,v1336,TALEA Beer Co - Williamsburg,,,,,,rejected_geo
+1339,v1337,TANGERINE,,,,,,no_hits
+1340,v1338,Taqueria Al Pastor,,,,,,no_hits
+1341,v1339,Taqueria El Chato,,,,,,rejected_similarity
+1342,v1340,The Little Bookshop,,,,,,no_hits
+1343,v1341,The Lot Radio,,,,,,no_hits
+1344,v1342,The Meat Hook,,,,,,rejected_similarity
+1345,v1343,The Ripped Bodice,,,,,,no_hits
+1346,v1344,The Sultan Room,,,,,,no_hits
+1347,v1345,The Ten Bells Brooklyn,,,,,,rejected_geo
+1348,v1346,The West Brooklyn,,,,,,rejected_geo
+1349,v1347,The Word Is Change,,,,,,no_hits
+1350,v1348,Theodora,Theodora,73589,theodora,5,100.0,matched
+1351,v1349,three legged cat,,,,,,no_hits
+1352,v1350,Tico's Cafetería,,,,,,no_hits
+1353,v1351,Til Death,,,,,,no_hits
+1354,v1352,Tired Thrift,,,,,,no_hits
+1355,v1353,Tooker Alley,,,,,,no_hits
+1356,v1354,Tortilleria Mexicana Los Hermanos,,,,,,rejected_geo
+1357,v1355,Troost,,,,,,no_hits
+1358,v1356,Two Boots Park Slope,,,,,,rejected_geo
+1359,v1357,Two Hands,Two Hands Williamsburg,42913,42913,7,100.0,matched
+1360,v1358,Unearth Vintage,,,,,,no_hits
+1361,v1359,Unnameable Books,,,,,,no_hits
+1362,v1360,Velma Vintage,,,,,,no_hits
+1363,v1361,Venus in Tokyo,,,,,,no_hits
+1364,v1362,WARUDE,,,,,,no_hits
+1365,v1363,White Noise Coffee - Coffee Shop & Roastery,,,,,,rejected_geo
+1366,v1364,Wild Park Slope,Wild Park Slope,87967,wild-park-slope,20,100.0,matched
+1367,v1365,WINNER,,,,,,rejected_similarity
+1368,v1366,WORD,,,,,,no_hits
+1369,v1367,Yafa Cafe,,,,,,no_hits
+1370,v1368,Yemen Café & Restaurant,,,,,,rejected_geo
+1371,v1369,Westlight,,,,,,no_hits
+1372,v1370,Defonte's Sandwich Shop,,,,,,no_hits
+1373,v1371,Taqueria Ramirez,,,,,,no_hits
+1374,v1372,Lucali,Lucali NY,54876,lucali-ny,87,100.0,matched
+1375,v1373,The Munchies,,,,,,no_hits
+1376,v1374,Fini Pizza,,,,,,rejected_geo
+1377,v1375,Fedoroff's Roast Pork,,,,,,rejected_similarity
+1378,v1376,Kilo Bravo,,,,,,no_hits
+1379,v1377,Tacos El Bronco,,,,,,no_hits
+1380,v1378,Bong,Bong,86413,bong,21,100.0,matched
+1381,v1379,Red Hook Tavern,,6377,red-hook-tavern,,,already_has_resy_id
+1382,v1380,A&A Bake Doubles and Roti,,,,,,no_hits
+1383,v1381,The Fly,,5644,the-fly,,,already_has_resy_id
+1384,v1382,Joloff,,,,,,no_hits
+1385,v1383,Hart's,,,,,,rejected_similarity
+1386,v1384,Bunny,,,,,,no_hits
+1387,v1385,Chilo's,,,,,,no_hits
+1388,v1386,Ursula Brooklyn,Ursula Brooklyn,75275,ursula-brooklyn,9,100.0,matched
+1389,v1387,Laziza,,85252,laziza,,,already_has_resy_id
+1390,v1388,Olmo,Olmo,92132,olmo,2,100.0,matched
+1391,v1389,Guacuco Bed-Stuy,,,,,,no_hits
+1392,v1390,Cheeni,Cheeni,93182,cheeni,40,100.0,matched
+1393,v1391,Culpeppers,,,,,,no_hits
+1394,v1392,Gloria's,,,,,,no_hits
+1395,v1393,Hometown Bar-B-Que,,,,,,rejected_geo
+1396,v1394,Cafe Mado,Cafe Mado,81909,cafe-mado,20,100.0,matched
+1397,v1395,Confidant,Confidant,94838,confidant,21,100.0,matched
+1398,v1396,Lucky Rabbit Noodles,,,,,,no_hits
+1399,v1397,Bark Barbecue,,,,,,rejected_geo
+1400,v1398,Juliana’s,,,,,,no_hits
+1401,v1399,Celestine,Celestine,1616,celestine-restaurant,17,100.0,matched
+1402,v1400,Il Leone,Il Leone,93792,il-leone,20,100.0,matched
+1403,v1401,Ace's Pizza,Ace's Pizza Williamsburg,64012,aces-pizza,19,100.0,matched
+1404,v1402,Paulie Gee's Slice Shop,,,,,,no_hits
+1405,v1403,Speedy Romeo,Speedy Romeo - Brooklyn,469,speedy-romeo-bk,2,100.0,matched
+1406,v1404,The Snail,The Snail,87376,the-snail,19,100.0,matched
+1407,v1405,Strange Delight,Strange Delight,93264,strange-delight,0,100.0,matched
+1408,v1406,Miss Ada,Miss Ada,1246,miss-ada,2,100.0,matched
+1409,v1407,Three Decker Diner,,,,,,no_hits
+1410,v1408,Breakfast by Salt's Cure,,,,,,no_hits
+1411,v1409,Misi,Misi,3015,misi,25,100.0,matched
+1412,v1410,Rosticceria Evelina,Rosticceria Evelina,77889,rosticceria-evelina,22,100.0,matched
+1413,v1411,Hungry Thirsty,Hungry Thirsty,89465,hungry-thirsty,41,100.0,matched
+1414,v1412,Agi's Counter,,59469,agis-counter,,,already_has_resy_id
+1415,v1413,Wenwen,,,,,,no_hits
+1416,v1414,Pitt's,,,,,,no_hits
+1417,v1415,Sauced,,,,,,no_hits
+1418,v1416,Maison Premiere,Maison Premiere,51628,maison-premiere,1,100.0,matched
+1419,v1417,Ingas Bar,Inga's Bar,59402,ingas-bar,25,94.73684210526315,matched
+1420,v1418,Huda,Huda,73930,huda,2,100.0,matched
+1421,v1419,Sailor,,,,,,no_hits
+1422,v1420,Al Di La,,,,,,rejected_similarity
+1423,v1421,The River Cafe,,,,,,no_hits
+1424,v1422,El Pingüino,El Pingüino,58513,el-pinguino,94,100.0,matched
+1425,v1423,Tørst,Tørst,37836,torst,4,100.0,matched
+1426,v1424,Public Records,Public Records,5914,public-records,11,100.0,matched
+1427,v1425,Rule of Thirds,Rule of Thirds,6012,rule-of-thirds,17,100.0,matched
+1428,v1426,Masalawala & Sons,,,,,,no_hits
+1429,v1427,Ammazzacaffè,Ammazzacaffè,60283,ammazzacaffe,15,100.0,matched
+1430,v1428,Fausto,Fausto,1866,fausto,4,100.0,matched
+1431,v1429,Bonafini,Bonafini,3982,3982,5,100.0,matched
+1432,v1430,Le Crocodile,Le Crocodile,8302,le-crocodile,16,100.0,matched
+1433,v1431,Claro,,,,,,no_hits
+1434,v1432,Saint Julivert Fisherie,Saint Julivert Fisherie,54714,saint-julivert-fisherie,5,100.0,matched
+1435,v1433,KRU Brooklyn,KRU Brooklyn,63994,kru,2,100.0,matched
+1436,v1434,gertrude's,,71935,gertrudes,,,already_has_resy_id
+1437,v1435,June Wine Bar,June Wine Bar,1016,june-wine-bar,1,100.0,matched
+1438,v1436,Deux Chats,Deux Chats,62570,deux-chats,22,100.0,matched
+1439,v1437,Leo,Leo,34822,leo-nyc,11,100.0,matched
+1440,v1438,L'Apéro by L'Appartement 4F,L'Apéro by L'Appartement 4F,82457,lappartement-4f,21,100.0,matched
+1441,v1439,Layla,Layla,73484,layla,1,100.0,matched
+1442,v1440,Brooklyn Museum,,,,,,no_hits
+1443,v1441,Nitehawk Cinema Williamsburg,,,,,,rejected_geo
+1444,v1442,Music Hall of Williamsburg,,,,,,rejected_geo
+1445,v1443,Baby's All Right,,,,,,no_hits
+1446,v1444,Brooklyn Steel,,,,,,no_hits
+1447,v1445,BAM (Brooklyn Academy of Music),,,,,,rejected_geo
+1448,v1446,St. Ann's Warehouse,,,,,,no_hits
+1449,v1447,Bathhouse Williamsburg,,,,,,rejected_similarity
+1450,v1448,Brooklyn Bridge Park,Harriet’s Rooftop & Lounge at 1 Hotel Brooklyn Bridge,68048,harriets-rooftop-and-lounge,36,85.71428571428571,matched
+1451,v1449,Domino Park,,,,,,no_hits
+1452,v1450,Brooklyn Botanic Garden,,,,,,rejected_geo
+1453,v1451,Time Out Market Dumbo,,,,,,rejected_geo
+1454,v1452,L'Appartement 4F,L'Apéro by L'Appartement 4F,82457,lappartement-4f,21,100.0,matched
+1455,v1453,Burrow,,,,,,no_hits
+1456,v1454,Fan-Fan Doughnuts,,,,,,no_hits
+1457,v1455,Ovenly,,,,,,no_hits
+1458,v1456,Bakeri,,,,,,no_hits
+1459,v1457,Four & Twenty Blackbirds,,,,,,no_hits
+1460,v1458,One Girl Cookies,,,,,,no_hits
