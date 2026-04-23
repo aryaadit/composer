@@ -120,7 +120,11 @@ export function dateToDayColumn(isoDate: string): DayColumn {
 
 /**
  * Returns effective time blocks for a venue on a specific day.
- * Per-day blocks take precedence; falls back to global time_blocks.
+ *
+ * Hybrid rule:
+ * - If ANY per-day column is populated, trust per-day data.
+ *   Empty per-day for the requested day = venue closed that day.
+ * - If ALL 7 per-day columns are empty, fall back to global time_blocks.
  */
 interface VenueBlocks {
   time_blocks: string[];
@@ -133,12 +137,25 @@ interface VenueBlocks {
   sun_blocks: string[];
 }
 
+const ALL_DAY_COLUMNS: DayColumn[] = [
+  "mon_blocks", "tue_blocks", "wed_blocks", "thu_blocks",
+  "fri_blocks", "sat_blocks", "sun_blocks",
+];
+
 export function effectiveBlocksForDay(
   venue: VenueBlocks,
   dayColumn: DayColumn
 ): string[] {
-  const perDay = venue[dayColumn];
-  if (perDay && perDay.length > 0) return perDay;
+  const hasAnyPerDayData = ALL_DAY_COLUMNS.some(
+    (col) => venue[col]?.length > 0
+  );
+
+  if (hasAnyPerDayData) {
+    // Trust per-day. Empty for this day = closed.
+    return venue[dayColumn] ?? [];
+  }
+
+  // No per-day data at all — fall back to global.
   return venue.time_blocks ?? [];
 }
 
