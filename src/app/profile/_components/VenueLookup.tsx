@@ -6,6 +6,7 @@
 
 import { useState } from "react";
 import type { Venue } from "@/types";
+import { getVenueHeroImageUrl } from "@/lib/venues/images";
 
 interface LookupResult {
   query: string;
@@ -123,29 +124,52 @@ function VenueCard({
       setTimeout(() => setSyncState("idle"), 3000);
     }
   };
-  const fields: [string, string][] = [
-    ["Neighborhood", venue.neighborhood],
-    ["Category", venue.category ?? "—"],
-    ["Price Tier", String(venue.price_tier)],
-    ["Vibe Tags", venue.vibe_tags?.join(", ") || "—"],
-    ["Occasion Tags", venue.occasion_tags?.join(", ") || "—"],
-    ["Stop Roles", venue.stop_roles?.join(", ") || "—"],
-    ["Duration", venue.duration_hours ? `${venue.duration_hours}h` : "—"],
-    ["Hours", venue.hours || "—"],
-    ["Outdoor", venue.outdoor_seating || "—"],
-    ["Active", venue.active ? "yes" : "no"],
-    ["Quality", String(venue.quality_score)],
-    ["Boost", String(venue.curation_boost)],
-    ["Awards", venue.awards || "—"],
-    ["Signature", venue.signature_order || "—"],
-    ["Last Verified", venue.last_verified || "—"],
-  ];
+  const heroUrl = getVenueHeroImageUrl(venue.image_keys ?? []);
+
+  const SKIP_KEYS = new Set([
+    "id", "venue_id", "name", "google_place_id", "latitude", "longitude",
+    "created_at", "updated_at", "image_keys",
+  ]);
+
+  const fields: [string, string][] = [];
+  for (const [key, val] of Object.entries(venue)) {
+    if (SKIP_KEYS.has(key)) continue;
+    if (val == null) continue;
+    if (typeof val === "string" && val.trim() === "") continue;
+    if (Array.isArray(val) && val.length === 0) continue;
+
+    const label = key
+      .replace(/_/g, " ")
+      .replace(/\b\w/g, (c) => c.toUpperCase());
+
+    let display: string;
+    if (typeof val === "boolean") {
+      display = val ? "yes" : "no";
+    } else if (Array.isArray(val)) {
+      display = val.join(", ");
+    } else if (typeof val === "number") {
+      display = String(val);
+    } else {
+      display = String(val);
+    }
+
+    fields.push([label, display]);
+  }
 
   return (
     <div className="border border-border rounded-md p-3">
       <div className="flex items-center justify-between mb-2">
-        <div className="font-sans text-sm font-medium text-charcoal">
-          {venue.name}
+        <div className="flex items-center gap-2">
+          {heroUrl && (
+            <img
+              src={heroUrl}
+              alt={venue.name}
+              className="w-10 h-10 rounded object-cover flex-shrink-0"
+            />
+          )}
+          <div className="font-sans text-sm font-medium text-charcoal">
+            {venue.name}
+          </div>
         </div>
         <button
           type="button"
