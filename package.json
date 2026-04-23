@@ -9,7 +9,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "eslint",
-    "generate-configs": "python3 scripts/generate-configs.py"
+    "generate-configs": "python3 scripts/generate-configs.py",
+    "prepare": "husky"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
@@ -33,6 +34,7 @@
     "dotenv": "^17.4.2",
     "eslint": "^9",
     "eslint-config-next": "16.2.3",
+    "husky": "^9.1.7",
     "string-similarity": "^4.0.4",
     "tailwindcss": "^4",
     "typescript": "^5",
