@@ -15,6 +15,7 @@ interface StopCardProps {
   stop: ItineraryStop;
   index: number;
   onSwap?: () => void;
+  onRemove?: () => void;
   onVenueTap?: () => void;
   isSwapping?: boolean;
   swapError?: string | null;
@@ -35,6 +36,7 @@ export function StopCard({
   stop,
   index,
   onSwap,
+  onRemove,
   onVenueTap,
   isSwapping = false,
   swapError,
@@ -148,10 +150,18 @@ export function StopCard({
                   Swap
                 </button>
               )}
+              {onRemove && (
+                <button
+                  onClick={onRemove}
+                  className="text-muted hover:text-charcoal transition-colors"
+                >
+                  Remove
+                </button>
+              )}
             </div>
 
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted shrink-0 pt-0.5">
-              <StopStatusBadge status={statusKind} />
+              {statusKind === "fixed" && <StopStatusBadge status="fixed" />}
               {bookAhead && <span>Book ahead</span>}
               {cashOnly && <span>Cash only</span>}
             </div>

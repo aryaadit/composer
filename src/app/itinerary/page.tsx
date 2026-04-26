@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import type {
   ItineraryResponse,
@@ -88,17 +88,25 @@ function ItineraryContent() {
   }, [searchParams, fetchItinerary]);
 
   // ── Regenerate ──────────────────────────────────────────────
+  // Track the last 3 shown itineraries' venue IDs so Regenerate
+  // cycles through at least 3 distinct plans before repeating.
+  const regenHistoryRef = useRef<string[][]>([]);
+
   const handleRegenerate = async () => {
     if (!itinerary) return;
     setRegenerating(true);
     setRegenError(false);
     try {
-      // Exclude venues from saved plans + the current plan's venues so
-      // Regenerate can't return the plan the user is looking at.
-      const recentIds = user?.id ? await getRecentVenueIds(user.id) : [];
       const currentIds = itinerary.stops.map((s) => s.venue.id);
+      regenHistoryRef.current = [
+        ...regenHistoryRef.current.slice(-2),
+        currentIds,
+      ];
+
+      const recentIds = user?.id ? await getRecentVenueIds(user.id) : [];
+      const historyIds = regenHistoryRef.current.flat();
       const excludeVenueIds = Array.from(
-        new Set([...recentIds, ...currentIds])
+        new Set([...recentIds, ...historyIds])
       );
       const data = await fetchItinerary(itinerary.inputs, excludeVenueIds);
       updateItinerary(data);
@@ -108,6 +116,42 @@ function ItineraryContent() {
     }
     setRegenerating(false);
   };
+
+  // ── Remove stop ──────────────────────────────────────────────
+  const handleRemoveStop = useCallback(
+    (index: number) => {
+      if (!itinerary || itinerary.stops.length <= 1) return;
+      const nextStops = itinerary.stops.filter((_, i) => i !== index);
+      const nextWalks = [];
+      for (let i = 0; i < nextStops.length - 1; i++) {
+        const existing = itinerary.walks.find(
+          (w) =>
+            w.from === nextStops[i].venue.name &&
+            w.to === nextStops[i + 1].venue.name
+        );
+        if (existing) {
+          nextWalks.push(existing);
+        } else {
+          // Recompute — the two stops weren't adjacent before.
+          const from = nextStops[i].venue;
+          const to = nextStops[i + 1].venue;
+          nextWalks.push({
+            from: from.name,
+            to: to.name,
+            distance_km: 0,
+            walk_minutes: 0,
+          });
+        }
+      }
+      const next: ItineraryResponse = {
+        ...itinerary,
+        stops: nextStops,
+        walks: nextWalks,
+      };
+      updateItinerary(next);
+    },
+    [itinerary, updateItinerary]
+  );
 
   // ── Add stop ────────────────────────────────────────────────
   const [addingStop, setAddingStop] = useState(false);
@@ -172,6 +216,13 @@ function ItineraryContent() {
         <Header showBack backHref="/" />
       </div>
       <CompositionHeader header={itinerary.header} />
+      {itinerary.chain_partial && itinerary.chain_message && (
+        <div className="w-full max-w-lg mx-auto mb-4 px-4 py-3 rounded-xl border border-border bg-burgundy-tint">
+          <p className="font-sans text-sm text-charcoal">
+            {itinerary.chain_message}
+          </p>
+        </div>
+      )}
       {regenerating ? (
         <div className="w-full max-w-lg py-16">
           <StepLoading />
@@ -186,6 +237,7 @@ function ItineraryContent() {
           onAddStop={handleAddStop}
           isAddingStop={addingStop}
           onSwapStop={handleSwap}
+          onRemoveStop={handleRemoveStop}
           swappingIndex={swappingIndex}
           swapError={swapError}
         />

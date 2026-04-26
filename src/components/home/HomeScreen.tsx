@@ -94,7 +94,7 @@ export function HomeScreen({ userName }: HomeScreenProps) {
           className="group block w-full py-5 px-5 rounded-full bg-burgundy text-cream hover:bg-burgundy-light transition-colors text-center"
         >
           <span className="font-sans text-sm font-medium tracking-wide">
-            New date plan →
+            New plan →
           </span>
         </Link>
       </div>

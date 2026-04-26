@@ -54,13 +54,7 @@ export function StopAvailabilitySection({
   const { status, slots, bookingUrlBase } = availability;
 
   if (status === "walk_in") {
-    return (
-      <div className="mt-3">
-        <span className="inline-block px-3 py-1 text-xs font-sans rounded-full border border-border text-muted">
-          Walk-in only
-        </span>
-      </div>
-    );
+    return null;
   }
 
   if (status === "unconfirmed") {

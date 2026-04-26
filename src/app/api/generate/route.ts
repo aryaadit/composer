@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getSupabase } from "@/lib/supabase";
 import { getServerSupabase } from "@/lib/supabase/server";
 import { fetchWeather } from "@/lib/weather";
-import { composeItinerary, ROLE_AVG_DURATION_MIN } from "@/lib/composer";
+import { ROLE_AVG_DURATION_MIN } from "@/lib/composer";
 import { generateCopy } from "@/lib/claude";
 import { walkTimeMinutes, walkDistanceKm, buildGoogleMapsUrl } from "@/lib/geo";
 import { buildWalkMapUrl } from "@/lib/mapbox";
@@ -13,7 +13,7 @@ import {
   dateToDayColumn,
   venueOpenForBlock,
 } from "@/lib/itinerary/time-blocks";
-import { enrichWithAvailability } from "@/lib/itinerary/availability-enrichment";
+import { composeWithChainValidation } from "@/lib/itinerary/compose-with-chain";
 import type {
   GenerateRequestBody,
   QuestionnaireAnswers,
@@ -222,8 +222,19 @@ export async function POST(request: Request) {
         v.business_status !== "CLOSED_TEMPORARILY"
     );
 
-    // Plan the stop mix from the time window, then score + assemble stops
-    const composed = composeItinerary(venues, inputs, weather);
+    // Compose with temporal chain validation. This:
+    //   1. Scores candidates per role
+    //   2. Batch-fetches Resy availability for top candidates
+    //   3. Solves a temporal chain (forward-check + backtrack)
+    //   4. Returns pre-validated stops with availability attached
+    const composed = await composeWithChainValidation(
+      venues,
+      inputs,
+      weather,
+      body.timeBlock,
+      inputs.day,
+      2,
+    );
 
     if (composed.stops.length === 0) {
       return NextResponse.json(
@@ -232,50 +243,45 @@ export async function POST(request: Request) {
       );
     }
 
+    const stops = composed.stops;
+
+    // Compute walks between chain-validated stops.
     const allWalks: WalkSegment[] = [];
-    for (let i = 0; i < composed.stops.length - 1; i++) {
-      const from = composed.stops[i].venue;
-      const to = composed.stops[i + 1].venue;
+    for (let i = 0; i < stops.length - 1; i++) {
+      const from = stops[i].venue;
+      const to = stops[i + 1].venue;
       allWalks.push({
         from: from.name,
         to: to.name,
         distance_km: walkDistanceKm(
-          from.latitude,
-          from.longitude,
-          to.latitude,
-          to.longitude
+          from.latitude, from.longitude,
+          to.latitude, to.longitude
         ),
         walk_minutes: walkTimeMinutes(
-          from.latitude,
-          from.longitude,
-          to.latitude,
-          to.longitude
+          from.latitude, from.longitude,
+          to.latitude, to.longitude
         ),
       });
     }
 
-    const { stops, walks, truncated } = applyEndTimeBuffer(
-      composed.stops,
+    const { stops: finalStops, walks, truncated } = applyEndTimeBuffer(
+      stops,
       allWalks,
       inputs.startTime,
       inputs.endTime
     );
 
-    const maps_url = buildGoogleMapsUrl(stops.map((s) => s.venue));
+    const maps_url = buildGoogleMapsUrl(finalStops.map((s) => s.venue));
 
-    // Enrich each walk with a Mapbox static image URL in parallel with copy
-    // generation. Failures resolve to null and render text-only in the UI.
     const [copy, mapUrls] = await Promise.all([
-      generateCopy(stops, inputs, weather, prefs?.name ?? undefined),
+      generateCopy(finalStops, inputs, weather, prefs?.name ?? undefined),
       Promise.all(
         walks.map((_, i) => {
-          const from = stops[i].venue;
-          const to = stops[i + 1].venue;
+          const from = finalStops[i].venue;
+          const to = finalStops[i + 1].venue;
           return buildWalkMapUrl(
-            from.latitude,
-            from.longitude,
-            to.latitude,
-            to.longitude
+            from.latitude, from.longitude,
+            to.latitude, to.longitude
           );
         })
       ),
@@ -285,12 +291,12 @@ export async function POST(request: Request) {
       walks[i].map_url = mapUrls[i];
     }
 
-    for (const stop of stops) {
+    for (const stop of finalStops) {
       const aiNote = copy.venue_notes[stop.venue.name];
       if (aiNote) stop.curation_note = aiNote;
     }
 
-    const totalRange = calculateTotalSpend(stops.map((s) => s.venue.price_tier ?? 2));
+    const totalRange = calculateTotalSpend(finalStops.map((s) => s.venue.price_tier ?? 2));
     const walking = computeWalkingMeta(walks, weather);
 
     const response: ItineraryResponse = {
@@ -302,27 +308,18 @@ export async function POST(request: Request) {
         estimated_total: totalRange,
         weather,
       },
-      stops,
+      stops: finalStops,
       walks,
       walking,
       truncated_for_end_time: truncated,
       maps_url,
       inputs,
+      ...(composed.isPartial
+        ? { chain_partial: true, chain_message: composed.partialMessage }
+        : {}),
     };
 
-    // Enrich stops with live Resy availability, filtered to the
-    // user's time block. candidatePool = undefined for now — swap will
-    // skip and mark no_slots_in_block. Phase 3a-3 can pass the broader
-    // pool if we refactor composeItinerary to expose it.
-    const enriched = await enrichWithAvailability(
-      response,
-      inputs.day,
-      2, // default party size — Phase 3a-3 will thread this from the client
-      body.timeBlock,
-      undefined
-    );
-
-    return NextResponse.json(enriched);
+    return NextResponse.json(response);
   } catch (error) {
     console.error("Generation error:", error);
     return NextResponse.json(

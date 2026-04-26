@@ -244,6 +244,10 @@ export interface ItineraryResponse {
   truncated_for_end_time: boolean;
   maps_url: string;
   inputs: QuestionnaireAnswers;
+  // Set when the chain solver couldn't fill all roles. UI should
+  // surface the message and offer "extend window" or "keep 2 stops."
+  chain_partial?: boolean;
+  chain_message?: string;
 }
 
 // Row shape of the `composer_saved_itineraries` table.
