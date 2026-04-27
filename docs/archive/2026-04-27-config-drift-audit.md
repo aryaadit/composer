@@ -1,3 +1,5 @@
+> **Archived 2026-04-27.** This audit captured the pre-fix state of generated config drift. Issues identified here were resolved in commits landing the 25-group neighborhood taxonomy and live-sheet generator. Kept for historical reference.
+
 # Generated Config Drift Audit
 
 **Date:** 2026-04-27

@@ -1,3 +1,5 @@
+> **Archived 2026-04-27.** This audit captured the pre-fix state of neighborhood picker drift. Issues identified here were resolved in commits landing the 25-group neighborhood taxonomy and shared NeighborhoodPicker refactor. Kept for historical reference.
+
 # Neighborhood Picker Audit
 
 **Date:** 2026-04-27

@@ -19,6 +19,7 @@ import {
   sameArray,
 } from "./FieldPrimitives";
 import { SinglePillSelectField } from "./SinglePillSelectField";
+import { NeighborhoodPicker } from "@/components/shared/NeighborhoodPicker";
 import type { ComposerUser } from "@/types";
 
 interface Props {
@@ -190,12 +191,6 @@ function HoodsField({ profile, userId, onSaved }: FieldProps) {
   const f = useFieldEditor<string[]>(cleanHoods, userId, onSaved);
   const canSave = !sameArray(f.draft, cleanHoods);
 
-  const toggle = (id: string) => {
-    f.setDraft((prev) =>
-      prev.includes(id) ? prev.filter((h) => h !== id) : [...prev, id]
-    );
-  };
-
   const displayLabel =
     cleanHoods.length === 0
       ? "Not set"
@@ -211,18 +206,12 @@ function HoodsField({ profile, userId, onSaved }: FieldProps) {
     >
       {f.editing ? (
         <>
-          <div className="flex flex-wrap gap-2">
-            {FAVORITE_HOODS.map((hood) => (
-              <button
-                key={hood.id}
-                type="button"
-                onClick={() => toggle(hood.id)}
-                className={pillClass(f.draft.includes(hood.id))}
-              >
-                {hood.name}
-              </button>
-            ))}
-          </div>
+          <NeighborhoodPicker
+            selected={f.draft}
+            onChange={f.setDraft}
+            groupByBorough={false}
+            animated={false}
+          />
           <EditActions
             onSave={() => void f.save("favorite_hoods", f.draft)}
             onCancel={f.cancel}
