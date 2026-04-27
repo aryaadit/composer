@@ -98,10 +98,13 @@ export function ItineraryView({
               <StopCard
                 stop={stop}
                 index={i}
+                date={date}
+                partySize={partySize}
                 onSwap={onSwapStop ? () => onSwapStop(i) : undefined}
                 onVenueTap={() => setDetailIndex(i)}
                 isSwapping={swappingIndex === i}
                 swapError={swapError?.index === i ? swapError.message : null}
+                hasSelectedSlot={!!selectedSlots[stop.venue.id]}
               />
               {stop.availability && (
                 <div className="px-0 pb-6">

@@ -252,7 +252,7 @@ export function pickRecommendedSlots(
   slots: AvailabilitySlot[],
   role: StopRole,
   block: TimeBlock,
-  count = 8
+  count = 4
 ): AvailabilitySlot[] {
   if (slots.length <= count) return slots;
 

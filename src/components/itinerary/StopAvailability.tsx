@@ -4,7 +4,7 @@
 // has_slots, walk_in, unconfirmed, no_slots_in_block.
 
 import { useState } from "react";
-import { SlotChip } from "./SlotChip";
+import { SlotChip, dedupeSlots } from "./SlotChip";
 import {
   pickRecommendedSlots,
   formatSlotTimeForDisplay,
@@ -53,15 +53,8 @@ export function StopAvailabilitySection({
 }: StopAvailabilityProps) {
   const { status, slots, bookingUrlBase } = availability;
 
-  if (status === "walk_in") {
-    return (
-      <div className="mt-3">
-        <span className="inline-block px-3 py-1 text-xs font-sans rounded-full border border-border text-muted">
-          Walk-in only
-        </span>
-      </div>
-    );
-  }
+  // Walk-in status is now shown in StopCard's meta line — no separate badge
+  if (status === "walk_in") return null;
 
   if (status === "unconfirmed") {
     const name = PLATFORM_NAMES[platform ?? ""] ?? "the venue";
@@ -148,9 +141,10 @@ function HasSlotsView({
   onSelectSlot: (slot: AvailabilitySlot | null) => void;
 }) {
   const [showAll, setShowAll] = useState(false);
-  const recommended = pickRecommendedSlots(slots, role, timeBlock);
-  const displayed = showAll ? slots : recommended;
-  const hasMore = slots.length > recommended.length;
+  const deduped = dedupeSlots(slots);
+  const recommended = pickRecommendedSlots(deduped, role, timeBlock);
+  const displayed = showAll ? deduped : recommended;
+  const hasMore = deduped.length > recommended.length;
 
   const handleSelect = (slot: AvailabilitySlot) => {
     if (selectedSlot?.token === slot.token) {
@@ -160,10 +154,9 @@ function HasSlotsView({
     }
   };
 
-  // Build booking URL — slot-specific deep-link if we have a selection,
-  // fallback to venue page otherwise.
-  let bookingHref = bookingUrlBase;
-  let buttonText = "See times on Resy";
+  // Build slot-specific deep-link only when user has selected a time
+  let bookingHref: string | null = null;
+  let buttonText = "";
 
   if (selectedSlot && venueSlug && venueResyId) {
     try {
@@ -180,7 +173,7 @@ function HasSlotsView({
       // Graceful fallback — malformed token, use venue page URL
       console.error("[StopAvailability] Failed to build slot URL:", err);
       bookingHref = bookingUrlBase;
-      buttonText = "See times on Resy";
+      buttonText = "Book on Resy";
     }
   }
 
@@ -205,7 +198,7 @@ function HasSlotsView({
           onClick={() => setShowAll(true)}
           className="font-sans text-xs text-burgundy hover:underline transition-colors"
         >
-          Show more times ({slots.length - recommended.length} more)
+          Show more times ({deduped.length - recommended.length} more)
         </button>
       )}
       {bookingHref && (
