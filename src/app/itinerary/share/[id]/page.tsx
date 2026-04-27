@@ -75,7 +75,7 @@ export default function SharedItineraryPage({
       <div className="w-full max-w-lg mx-auto mb-6">
         <Header />
       </div>
-      <CompositionHeader header={itinerary.header} />
+      <CompositionHeader header={itinerary.header} inputs={itinerary.inputs} />
       <ItineraryView stops={itinerary.stops} walks={itinerary.walks} />
 
       {/* Minimal footer — Maps link + CTA to make their own */}

@@ -140,7 +140,7 @@ export default function SavedItineraryPage({
         <Header showBack backHref="/" />
       </div>
 
-      <CompositionHeader header={itinerary.header} />
+      <CompositionHeader header={itinerary.header} inputs={itinerary.inputs} />
       <ItineraryView stops={itinerary.stops} walks={itinerary.walks} />
       <ActionBar
         itinerary={itinerary}

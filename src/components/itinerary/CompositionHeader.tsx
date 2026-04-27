@@ -4,25 +4,65 @@ import { motion } from "motion/react";
 import { ItineraryResponse } from "@/types";
 import { occasionLabel } from "@/config/occasions";
 import { vibeLabel } from "@/config/vibes";
+import { neighborhoodLabel } from "@/config/neighborhoods";
+import { getBlockMetadata } from "@/lib/itinerary/time-blocks";
+import type { TimeBlock } from "@/lib/itinerary/time-blocks";
+
+function formatItineraryDate(isoDate: string): string {
+  // Parse as local date (avoid UTC shift by splitting the ISO string)
+  const [year, month, day] = isoDate.split("-").map(Number);
+  const d = new Date(year, month - 1, day);
+  return d.toLocaleDateString("en-US", {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+  });
+}
+
+interface CompositionHeaderProps {
+  header: ItineraryResponse["header"];
+  inputs?: ItineraryResponse["inputs"];
+  partySize?: number;
+}
 
 export function CompositionHeader({
   header,
-}: {
-  header: ItineraryResponse["header"];
-}) {
-  const weatherNote = header.weather
+  inputs,
+  partySize = 2,
+}: CompositionHeaderProps) {
+  // Utility row 1: date · time block · party size
+  const utilityParts: string[] = [];
+  if (inputs?.day) {
+    utilityParts.push(formatItineraryDate(inputs.day));
+  }
+  if (inputs?.timeBlock) {
+    utilityParts.push(getBlockMetadata(inputs.timeBlock as TimeBlock).label);
+  }
+  if (partySize > 2) {
+    utilityParts.push(`Party of ${partySize}`);
+  }
+  const utilityLine = utilityParts.join(" · ");
+
+  // Utility row 2: neighborhoods
+  const neighborhoodLine =
+    inputs?.neighborhoods && inputs.neighborhoods.length > 0
+      ? inputs.neighborhoods.map(neighborhoodLabel).join(", ")
+      : null;
+
+  // Atmosphere row: occasion · vibe · budget · weather
+  const weatherText = header.weather
     ? header.weather.is_bad_weather
-      ? `${header.weather.description}. Keeping you indoors.`
+      ? header.weather.description
       : `${header.weather.temp_f}°F, ${header.weather.description}`
     : null;
 
-  const metaLine = [
+  const atmosphereParts = [
     occasionLabel(header.occasion_tag),
     vibeLabel(header.vibe_tag),
-    `${header.estimated_total} total`,
-  ]
-    .filter(Boolean)
-    .join(" · ");
+    header.estimated_total.replace(/ total$/i, ""),
+    weatherText,
+  ].filter(Boolean);
+  const atmosphereLine = atmosphereParts.join(" · ");
 
   return (
     <motion.div
@@ -36,13 +76,24 @@ export function CompositionHeader({
       </h1>
       <p className="font-sans text-sm text-warm-gray mb-3">{header.subtitle}</p>
 
-      <p className="font-sans text-xs tracking-wide uppercase text-muted">
-        {metaLine}
-      </p>
-
-      {weatherNote && (
-        <p className="font-sans text-xs text-muted mt-2">{weatherNote}</p>
+      {/* Utility rows — when/where/how many */}
+      {utilityLine && (
+        <p className="font-sans text-sm text-muted">{utilityLine}</p>
       )}
+      {neighborhoodLine && (
+        <p className="font-sans text-sm text-muted mt-0.5">
+          {neighborhoodLine}
+        </p>
+      )}
+
+      {/* Atmosphere row — feel/budget/weather */}
+      <p
+        className={`font-sans text-xs tracking-wide uppercase text-muted ${
+          utilityLine || neighborhoodLine ? "mt-3" : ""
+        }`}
+      >
+        {atmosphereLine}
+      </p>
     </motion.div>
   );
 }

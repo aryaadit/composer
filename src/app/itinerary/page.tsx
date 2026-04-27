@@ -171,7 +171,7 @@ function ItineraryContent() {
       <div className="w-full max-w-lg mx-auto mb-6">
         <Header showBack backHref="/" />
       </div>
-      <CompositionHeader header={itinerary.header} />
+      <CompositionHeader header={itinerary.header} inputs={itinerary.inputs} />
       {regenerating ? (
         <div className="w-full max-w-lg py-16">
           <StepLoading />

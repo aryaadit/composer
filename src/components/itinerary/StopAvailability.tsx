@@ -140,11 +140,25 @@ function HasSlotsView({
   selectedSlot: AvailabilitySlot | null;
   onSelectSlot: (slot: AvailabilitySlot | null) => void;
 }) {
-  const [showAll, setShowAll] = useState(false);
+  const [expanded, setExpanded] = useState(false);
   const deduped = dedupeSlots(slots);
   const recommended = pickRecommendedSlots(deduped, role, timeBlock);
-  const displayed = showAll ? deduped : recommended;
   const hasMore = deduped.length > recommended.length;
+
+  // When collapsed, ensure the selected slot stays visible even if it falls
+  // outside the default 4. Swap it into the visible set.
+  const displayed = (() => {
+    if (expanded) return deduped;
+    if (!selectedSlot) return recommended;
+    const selectedInRecommended = recommended.some(
+      (s) => s.token === selectedSlot.token
+    );
+    if (selectedInRecommended) return recommended;
+    // Replace last recommended with the selected slot
+    const patched = [...recommended];
+    patched[patched.length - 1] = selectedSlot;
+    return patched;
+  })();
 
   const handleSelect = (slot: AvailabilitySlot) => {
     if (selectedSlot?.token === slot.token) {
@@ -192,13 +206,15 @@ function HasSlotsView({
           />
         ))}
       </div>
-      {hasMore && !showAll && (
+      {hasMore && (
         <button
           type="button"
-          onClick={() => setShowAll(true)}
+          onClick={() => setExpanded(!expanded)}
           className="font-sans text-xs text-burgundy hover:underline transition-colors"
         >
-          Show more times ({deduped.length - recommended.length} more)
+          {expanded
+            ? "Show fewer times"
+            : `Show more times (${deduped.length - recommended.length} more)`}
         </button>
       )}
       {bookingHref && (
