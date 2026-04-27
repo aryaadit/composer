@@ -385,37 +385,32 @@ chore(venues): add 12 new West Village venues to seed
 When you add, edit, or remove venues in the Google Sheet:
 
 ```bash
-# 1. Export the sheet as xlsx to the repo
-#    File → Download → .xlsx → save to docs/composer_venue_sheet_curated.xlsx
+# 1. Sync venues from the live sheet to Supabase
+#    Use the admin sync button on the profile page, or run:
+python3 scripts/import_venues_v2.py --execute
 
-# 2. Regenerate scoring configs (if you changed any reference tab —
-#    Vibe Tags, Neighborhood Groups, Stop Roles, Budget Tiers, etc.)
-npm run generate-configs
-
-# 3. Generate the import SQL from the Venues tab
-python3 scripts/import_venues.py --out /tmp/import.sql
-
-# 4. Apply to Supabase (replace the connection string with yours)
-#    Or pipe the SQL through the Supabase SQL editor.
-psql "$DATABASE_URL" < /tmp/import.sql
-
-# 5. Verify
+# 2. Verify
 #    Hit /api/health or generate an itinerary to confirm.
 ```
 
-The import is idempotent — re-running upserts via the `(LOWER(name), neighborhood)` unique index. Existing rows update; new rows insert; nothing deletes (set `active = false` in the sheet to hide a venue).
+The import is idempotent — upserts via the `venue_id` unique index. Existing rows update; new rows insert; nothing deletes (set `active = false` in the sheet to hide a venue).
 
-### Updating Scoring Configs Only
+### Updating Scoring Configs
 
-If you changed a reference tab (e.g. added a vibe tag, tweaked neighborhood groups) but didn't touch venue data:
+`generate-configs` reads directly from the live Google Sheet (Master Reference tab). No xlsx export needed.
 
 ```bash
-npm run generate-configs   # regenerates src/config/generated/*.ts
-npx tsc --noEmit           # verify types still pass
-# Commit the generated files + deploy
+# 1. Edit the appropriate column in the Master Reference tab
+# 2. Regenerate configs
+npm run generate-configs
+
+# 3. Verify types
+npx tsc --noEmit
+
+# 4. Commit the updated src/config/generated/*.ts files + deploy
 ```
 
-No import needed — the generated configs are committed to git and take effect on the next deploy.
+Neighborhood group definitions (which slugs map to which UI groups) are maintained as constants in `scripts/generate-configs.py`, not derived from the sheet. To change how neighborhoods are grouped in the questionnaire, edit the `NEIGHBORHOOD_GROUPS` list in that script and re-run.
 
 ---
 
