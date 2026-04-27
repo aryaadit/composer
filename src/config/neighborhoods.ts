@@ -62,15 +62,16 @@ export function neighborhoodLabel(slug: string): string {
 // before scoring. Adding/editing groups = edit the sheet's
 // "Neighborhood Groups" tab.
 
-export type Borough = "manhattan" | "brooklyn" | "outer";
+export type Borough = "manhattan" | "brooklyn" | "queens" | "outer";
 
 export const BOROUGH_LABELS: Record<Borough, string> = {
   manhattan: "Manhattan",
   brooklyn: "Brooklyn",
+  queens: "Queens",
   outer: "Outer Boroughs",
 };
 
-export const BOROUGH_ORDER: readonly Borough[] = ["manhattan", "brooklyn", "outer"];
+export const BOROUGH_ORDER: readonly Borough[] = ["manhattan", "brooklyn", "queens", "outer"];
 
 // Convert the generated Record to the ordered array the UI iterates.
 export const NEIGHBORHOOD_GROUPS = Object.entries(GEN_GROUPS).map(

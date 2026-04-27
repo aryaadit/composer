@@ -1,6 +1,6 @@
 // AUTO-GENERATED — DO NOT EDIT
 // Source: Google Sheet 139gp-s2sBbEZbi4-6mrsMlhKykpoGWvuQdboMaAt20o
-// Generated: 2026-04-27T07:03:42.792432+00:00
+// Generated: 2026-04-27T07:22:41.113581+00:00
 
 export interface NeighborhoodGroup {
   label: string;
@@ -29,20 +29,45 @@ export const NEIGHBORHOOD_GROUPS: Record<string, NeighborhoodGroup> = {
     borough: "Manhattan",
     slugs: ["soho_nolita", "nolita", "noho", "tribeca", "little_italy", "hudson_square"],
   },
-  chelsea_flatiron: {
-    label: "Chelsea / Flatiron",
+  chelsea: {
+    label: "Chelsea",
     borough: "Manhattan",
-    slugs: ["chelsea", "flatiron", "nomad", "gramercy", "murray_hill"],
+    slugs: ["chelsea"],
   },
-  midtown_hk: {
-    label: "Midtown / Hell's Kitchen",
+  flatiron_nomad: {
+    label: "Flatiron / NoMad",
     borough: "Manhattan",
-    slugs: ["midtown", "midtown_west", "midtown_east", "koreatown"],
+    slugs: ["flatiron", "nomad"],
   },
-  chinatown_fidi: {
-    label: "Chinatown / FiDi",
+  gramercy_murray_hill: {
+    label: "Gramercy / Murray Hill",
     borough: "Manhattan",
-    slugs: ["chinatown", "fidi", "battery_park_city", "lower_manhattan"],
+    slugs: ["gramercy", "murray_hill", "gramercy_kips_bay"],
+  },
+  midtown_west: {
+    label: "Hell's Kitchen / Midtown West",
+    borough: "Manhattan",
+    slugs: ["midtown_west"],
+  },
+  midtown_east: {
+    label: "Midtown East",
+    borough: "Manhattan",
+    slugs: ["midtown_east"],
+  },
+  koreatown: {
+    label: "Koreatown",
+    borough: "Manhattan",
+    slugs: ["koreatown"],
+  },
+  chinatown: {
+    label: "Chinatown",
+    borough: "Manhattan",
+    slugs: ["chinatown"],
+  },
+  fidi_lower_manhattan: {
+    label: "FiDi / Lower Manhattan",
+    borough: "Manhattan",
+    slugs: ["fidi", "lower_manhattan", "battery_park_city"],
   },
   upper_west_side: {
     label: "Upper West Side",
@@ -62,17 +87,52 @@ export const NEIGHBORHOOD_GROUPS: Record<string, NeighborhoodGroup> = {
   williamsburg_greenpoint: {
     label: "Williamsburg / Greenpoint",
     borough: "Brooklyn",
-    slugs: ["williamsburg", "greenpoint", "east_williamsburg", "bushwick"],
+    slugs: ["williamsburg", "greenpoint"],
   },
-  brooklyn: {
-    label: "DUMBO / Brooklyn",
+  east_williamsburg_bushwick: {
+    label: "East Williamsburg / Bushwick",
     borough: "Brooklyn",
-    slugs: ["dumbo", "brooklyn_heights", "fort_greene", "clinton_hill", "cobble_hill", "carroll_gardens", "gowanus", "red_hook", "park_slope", "prospect_heights", "prospect_lefferts", "crown_heights", "bed_stuy", "sunset_park", "columbia_waterfront"],
+    slugs: ["east_williamsburg", "bushwick"],
   },
-  outer_boroughs: {
-    label: "Queens / Bronx / SI",
+  dumbo_brooklyn_heights: {
+    label: "DUMBO / Brooklyn Heights",
+    borough: "Brooklyn",
+    slugs: ["dumbo", "brooklyn_heights", "cobble_hill", "carroll_gardens"],
+  },
+  fort_greene_clinton_hill: {
+    label: "Fort Greene / Clinton Hill",
+    borough: "Brooklyn",
+    slugs: ["fort_greene", "clinton_hill"],
+  },
+  park_slope_prospect: {
+    label: "Park Slope / Prospect",
+    borough: "Brooklyn",
+    slugs: ["park_slope", "prospect_heights", "prospect_lefferts", "gowanus"],
+  },
+  bed_stuy_crown_heights: {
+    label: "Bed-Stuy / Crown Heights",
+    borough: "Brooklyn",
+    slugs: ["bed_stuy", "crown_heights"],
+  },
+  south_brooklyn: {
+    label: "South Brooklyn",
+    borough: "Brooklyn",
+    slugs: ["red_hook", "sunset_park", "columbia_waterfront", "sheepshead_bay", "gravesend"],
+  },
+  astoria_lic: {
+    label: "Astoria / LIC",
+    borough: "Queens",
+    slugs: ["astoria", "long_island_city", "sunnyside"],
+  },
+  queens: {
+    label: "Queens",
+    borough: "Queens",
+    slugs: ["flushing", "jackson_heights", "ridgewood", "howard_beach", "south_ozone_park", "queens"],
+  },
+  bronx_si: {
+    label: "Bronx / Staten Island",
     borough: "Outer",
-    slugs: ["astoria", "long_island_city", "sunnyside", "jackson_heights", "flushing", "ridgewood", "howard_beach", "south_ozone_park", "arthur_avenue", "bronx", "bronx_fordham", "bronx_concourse", "mott_haven", "staten_island", "stapleton_heights", "city_island", "nyc", "queens"],
+    slugs: ["bronx", "bronx_fordham", "bronx_concourse", "mott_haven", "arthur_avenue", "city_island", "staten_island", "stapleton_heights"],
   },
 };
 

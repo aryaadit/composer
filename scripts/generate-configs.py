@@ -121,6 +121,7 @@ def split_csv(s: str) -> list[str]:
 # ═══════════════════════════════════════════════════════════════════════
 
 NEIGHBORHOOD_GROUPS = [
+    # Manhattan
     {
         "id": "west_village",
         "label": "West Village",
@@ -146,22 +147,52 @@ NEIGHBORHOOD_GROUPS = [
         "slugs": ["soho_nolita", "nolita", "noho", "tribeca", "little_italy", "hudson_square"],
     },
     {
-        "id": "chelsea_flatiron",
-        "label": "Chelsea / Flatiron",
+        "id": "chelsea",
+        "label": "Chelsea",
         "borough": "Manhattan",
-        "slugs": ["chelsea", "flatiron", "nomad", "gramercy", "murray_hill"],
+        "slugs": ["chelsea"],
     },
     {
-        "id": "midtown_hk",
-        "label": "Midtown / Hell's Kitchen",
+        "id": "flatiron_nomad",
+        "label": "Flatiron / NoMad",
         "borough": "Manhattan",
-        "slugs": ["midtown", "midtown_west", "midtown_east", "koreatown"],
+        "slugs": ["flatiron", "nomad"],
     },
     {
-        "id": "chinatown_fidi",
-        "label": "Chinatown / FiDi",
+        "id": "gramercy_murray_hill",
+        "label": "Gramercy / Murray Hill",
         "borough": "Manhattan",
-        "slugs": ["chinatown", "fidi", "battery_park_city", "lower_manhattan"],
+        "slugs": ["gramercy", "murray_hill", "gramercy_kips_bay"],
+    },
+    {
+        "id": "midtown_west",
+        "label": "Hell's Kitchen / Midtown West",
+        "borough": "Manhattan",
+        "slugs": ["midtown_west"],
+    },
+    {
+        "id": "midtown_east",
+        "label": "Midtown East",
+        "borough": "Manhattan",
+        "slugs": ["midtown_east"],
+    },
+    {
+        "id": "koreatown",
+        "label": "Koreatown",
+        "borough": "Manhattan",
+        "slugs": ["koreatown"],
+    },
+    {
+        "id": "chinatown",
+        "label": "Chinatown",
+        "borough": "Manhattan",
+        "slugs": ["chinatown"],
+    },
+    {
+        "id": "fidi_lower_manhattan",
+        "label": "FiDi / Lower Manhattan",
+        "borough": "Manhattan",
+        "slugs": ["fidi", "lower_manhattan", "battery_park_city"],
     },
     {
         "id": "upper_west_side",
@@ -181,23 +212,67 @@ NEIGHBORHOOD_GROUPS = [
         "borough": "Manhattan",
         "slugs": ["harlem", "washington_heights"],
     },
+    # Brooklyn
     {
         "id": "williamsburg_greenpoint",
         "label": "Williamsburg / Greenpoint",
         "borough": "Brooklyn",
-        "slugs": ["williamsburg", "greenpoint", "east_williamsburg", "bushwick"],
+        "slugs": ["williamsburg", "greenpoint"],
     },
     {
-        "id": "brooklyn",
-        "label": "DUMBO / Brooklyn",
+        "id": "east_williamsburg_bushwick",
+        "label": "East Williamsburg / Bushwick",
         "borough": "Brooklyn",
-        "slugs": ["dumbo", "brooklyn_heights", "fort_greene", "clinton_hill", "cobble_hill", "carroll_gardens", "gowanus", "red_hook", "park_slope", "prospect_heights", "prospect_lefferts", "crown_heights", "bed_stuy", "sunset_park", "columbia_waterfront"],
+        "slugs": ["east_williamsburg", "bushwick"],
     },
     {
-        "id": "outer_boroughs",
-        "label": "Queens / Bronx / SI",
+        "id": "dumbo_brooklyn_heights",
+        "label": "DUMBO / Brooklyn Heights",
+        "borough": "Brooklyn",
+        "slugs": ["dumbo", "brooklyn_heights", "cobble_hill", "carroll_gardens"],
+    },
+    {
+        "id": "fort_greene_clinton_hill",
+        "label": "Fort Greene / Clinton Hill",
+        "borough": "Brooklyn",
+        "slugs": ["fort_greene", "clinton_hill"],
+    },
+    {
+        "id": "park_slope_prospect",
+        "label": "Park Slope / Prospect",
+        "borough": "Brooklyn",
+        "slugs": ["park_slope", "prospect_heights", "prospect_lefferts", "gowanus"],
+    },
+    {
+        "id": "bed_stuy_crown_heights",
+        "label": "Bed-Stuy / Crown Heights",
+        "borough": "Brooklyn",
+        "slugs": ["bed_stuy", "crown_heights"],
+    },
+    {
+        "id": "south_brooklyn",
+        "label": "South Brooklyn",
+        "borough": "Brooklyn",
+        "slugs": ["red_hook", "sunset_park", "columbia_waterfront", "sheepshead_bay", "gravesend"],
+    },
+    # Outer
+    {
+        "id": "astoria_lic",
+        "label": "Astoria / LIC",
+        "borough": "Queens",
+        "slugs": ["astoria", "long_island_city", "sunnyside"],
+    },
+    {
+        "id": "queens",
+        "label": "Queens",
+        "borough": "Queens",
+        "slugs": ["flushing", "jackson_heights", "ridgewood", "howard_beach", "south_ozone_park", "queens"],
+    },
+    {
+        "id": "bronx_si",
+        "label": "Bronx / Staten Island",
         "borough": "Outer",
-        "slugs": ["astoria", "long_island_city", "sunnyside", "jackson_heights", "flushing", "ridgewood", "howard_beach", "south_ozone_park", "arthur_avenue", "bronx", "bronx_fordham", "bronx_concourse", "mott_haven", "staten_island", "stapleton_heights", "city_island", "nyc", "queens"],
+        "slugs": ["bronx", "bronx_fordham", "bronx_concourse", "mott_haven", "arthur_avenue", "city_island", "staten_island", "stapleton_heights"],
     },
 ]
 
