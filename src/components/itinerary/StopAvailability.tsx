@@ -218,14 +218,16 @@ function HasSlotsView({
         </button>
       )}
       {bookingHref && (
-        <a
-          href={bookingHref}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-block mt-1 px-5 py-2.5 rounded-full bg-burgundy text-cream font-sans text-sm font-medium hover:bg-burgundy-light transition-colors"
-        >
-          {buttonText}
-        </a>
+        <div className="pt-1">
+          <a
+            href={bookingHref}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-block px-5 py-2.5 rounded-full bg-burgundy text-cream font-sans text-sm font-medium hover:bg-burgundy-light transition-colors"
+          >
+            {buttonText}
+          </a>
+        </div>
       )}
     </div>
   );

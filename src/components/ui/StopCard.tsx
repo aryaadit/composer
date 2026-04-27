@@ -20,7 +20,6 @@ interface StopCardProps {
   onVenueTap?: () => void;
   isSwapping?: boolean;
   swapError?: string | null;
-  hasSelectedSlot?: boolean;
 }
 
 function SwapSkeleton() {
@@ -57,7 +56,6 @@ export function StopCard({
   onVenueTap,
   isSwapping = false,
   swapError,
-  hasSelectedSlot = false,
 }: StopCardProps) {
   const v = stop.venue;
   const activeNote = stop.curation_note;
@@ -68,9 +66,7 @@ export function StopCard({
     !!bookingPlatform
   );
 
-  // Hide inline reserve link when user has selected a time (CTA moves to availability section)
-  const showInlineReserve =
-    !hasSelectedSlot && !!bookingPlatform && !!v.reservation_url;
+  const showInlineReserve = !!bookingPlatform && !!v.reservation_url;
 
   // Build a date-aware reservation URL.
   // Prefer canonical slug URL; for Resy venues without a slug, append

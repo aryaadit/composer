@@ -104,7 +104,6 @@ export function ItineraryView({
                 onVenueTap={() => setDetailIndex(i)}
                 isSwapping={swappingIndex === i}
                 swapError={swapError?.index === i ? swapError.message : null}
-                hasSelectedSlot={!!selectedSlots[stop.venue.id]}
               />
               {stop.availability && (
                 <div className="px-0 pb-6">
