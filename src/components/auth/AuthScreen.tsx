@@ -42,7 +42,7 @@ const CODE_LENGTH = 6;
 const RESEND_COOLDOWN_S = 60;
 
 export function AuthScreen() {
-  const [authMode, setAuthMode] = useState<AuthMode>("phone");
+  const [authMode, setAuthMode] = useState<AuthMode>("email");
   const [view, setView] = useState<View>("phone");
   const [phone, setPhone] = useState("");
   const [submitting, setSubmitting] = useState(false);
