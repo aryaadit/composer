@@ -21,9 +21,7 @@ const LABEL_OVERRIDES: Record<string, string> = {
   dumbo: "DUMBO",
   upper_west_side: "Upper West Side",
   upper_east_side: "Upper East Side",
-  midtown_hells_kitchen: "Midtown / Hell's Kitchen",
   gramercy_kips_bay: "Gramercy / Kips Bay",
-  flatbush_plg: "Flatbush / PLG",
   long_island_city: "Long Island City",
 };
 
