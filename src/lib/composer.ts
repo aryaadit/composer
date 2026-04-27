@@ -1,3 +1,5 @@
+// Tuning constants live in src/config/algorithm.ts — adjust there, not here.
+
 import {
   Venue,
   QuestionnaireAnswers,
@@ -7,30 +9,13 @@ import {
 } from "@/types";
 import { pickBestForRole } from "@/lib/scoring";
 import { spendEstimate } from "@/config/budgets";
+import { ALGORITHM } from "@/config/algorithm";
 
 export type StopPattern = StopRole[];
 
-// ─── Duration model ───────────────────────────────────────────────────
-// Rough per-role duration used by `planStopMix` to pick a stop count. The
-// planner runs BEFORE venue selection, so we can't use per-venue
-// duration_hours here — that fidelity kicks in post-composition when
-// the API route computes actual arrival times.
-export const ROLE_AVG_DURATION_MIN: Record<StopRole, number> = {
-  opener: 60,   // bar or cafe
-  main: 120,    // restaurant
-  closer: 60,   // nightcap / dessert / bar
-};
-
-// Conservative walk estimate between stops. Venues pass proximity filtering
-// in scoring (MAX_WALK_KM_NORMAL = 1.5km ≈ 18min), but the typical case is
-// shorter because the composer anchors each stop to Main.
-const AVG_WALK_BETWEEN_STOPS_MIN = 10;
-
-// Tolerance on the "does this template fit the window" check. Without slack,
-// a 2h49m window would fall back to 2 stops when a 3-stop plan is only
-// 1 minute over — leaving 80 min of dead time. Reid's itinerary engine
-// uses the same 15-min slack for the same reason.
-const BUDGET_SLACK_MIN = 15;
+// Re-export so route.ts can reference role durations for end-time buffering.
+export const ROLE_AVG_DURATION_MIN: Record<StopRole, number> =
+  ALGORITHM.composition.roleDurationMin as Record<StopRole, number>;
 
 // Stop templates ranked largest → smallest. `planStopMix` returns the
 // first one whose budget fits the user's window (+ slack). Minimum of
@@ -46,7 +31,7 @@ function templateBudgetMin(pattern: StopPattern): number {
     (sum, role) => sum + ROLE_AVG_DURATION_MIN[role],
     0
   );
-  const walks = Math.max(0, pattern.length - 1) * AVG_WALK_BETWEEN_STOPS_MIN;
+  const walks = Math.max(0, pattern.length - 1) * ALGORITHM.composition.avgWalkBetweenStopsMin;
   return durations + walks;
 }
 
@@ -70,7 +55,7 @@ export function windowMinutes(start: string, end: string): number {
 export function planStopMix(answers: QuestionnaireAnswers): StopPattern {
   const window = windowMinutes(answers.startTime, answers.endTime);
   for (const template of STOP_TEMPLATES) {
-    if (templateBudgetMin(template) <= window + BUDGET_SLACK_MIN) {
+    if (templateBudgetMin(template) <= window + ALGORITHM.composition.budgetSlackMin) {
       return template;
     }
   }
@@ -89,10 +74,12 @@ export function composeItinerary(
   venues: Venue[],
   answers: QuestionnaireAnswers,
   weather: WeatherInfo | null,
-  jitter: number = 10
+  jitter: number = ALGORITHM.jitter.magnitude,
+  random: () => number = Math.random
 ): { stops: ItineraryStop[]; pattern: StopPattern } {
   const pattern = planStopMix(answers);
   const usedIds = new Set<string>();
+  const usedCategories = new Set<string>();
 
   // 1. Pick the Main first — it anchors geographic clustering for all others.
   const { best: main } = pickBestForRole(
@@ -102,10 +89,13 @@ export function composeItinerary(
     weather,
     usedIds,
     null,
-    jitter
+    jitter,
+    random,
+    usedCategories
   );
   if (!main) return { stops: [], pattern };
   usedIds.add(main.id);
+  if (main.category) usedCategories.add(main.category);
 
   // 2. Place stops in pattern order. The Main fills its declared slot; every
   //    other slot is picked anchored to Main, in left-to-right order.
@@ -128,10 +118,13 @@ export function composeItinerary(
       weather,
       usedIds,
       main,
-      jitter
+      jitter,
+      random,
+      usedCategories
     );
     if (!best) continue;
     usedIds.add(best.id);
+    if (best.category) usedCategories.add(best.category);
     const planB = scored.find((v) => v.id !== best.id) ?? null;
     positioned[i] = makeStop(role, best, best.curation_note ?? "", false, planB);
   }

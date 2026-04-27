@@ -6,7 +6,7 @@ import { composeItinerary, ROLE_AVG_DURATION_MIN } from "@/lib/composer";
 import { generateCopy } from "@/lib/claude";
 import { walkTimeMinutes, walkDistanceKm, buildGoogleMapsUrl } from "@/lib/geo";
 import { buildWalkMapUrl } from "@/lib/mapbox";
-import { calculateTotalSpend } from "@/config/budgets";
+import { calculateTotalSpend, BUDGET_TIER_MAP, widenBudgetTiers } from "@/config/budgets";
 import { ALCOHOL_VIBE_TAGS } from "@/config/vibes";
 import {
   resolveTimeWindow,
@@ -14,6 +14,7 @@ import {
   venueOpenForBlock,
 } from "@/lib/itinerary/time-blocks";
 import { enrichWithAvailability } from "@/lib/itinerary/availability-enrichment";
+import { computeRequestSeed, createSeededRandom } from "@/lib/itinerary/seed";
 import type {
   GenerateRequestBody,
   QuestionnaireAnswers,
@@ -25,18 +26,8 @@ import type {
   WeatherInfo,
 } from "@/types";
 
-// Don't let a new stop START within this many minutes of the user's endTime.
-// Reid's engine uses 30; the idea is "if the user said 10pm, don't kick off
-// a bar that would arrive at 9:55." The stop that's already running is
-// allowed to finish naturally, even if that lands past endTime.
-const LAST_START_BUFFER_MIN = 30;
-
-// Walk-quality caps used only to compute the `any_over_cap` summary flag on
-// the response. These are soft thresholds for UX ("this plan has a long
-// walk"), distinct from the hard proximity cap enforced in lib/scoring.ts
-// during venue selection.
-const WALK_SOFT_CAP_MIN = 15;
-const WALK_SOFT_CAP_MIN_BAD_WEATHER = 5;
+// Tuning constants live in src/config/algorithm.ts — adjust there, not here.
+import { ALGORITHM } from "@/config/algorithm";
 
 function parseHHMM(hhmm: string): number {
   const [h, m] = hhmm.split(":").map(Number);
@@ -46,7 +37,7 @@ function parseHHMM(hhmm: string): number {
 /**
  * Walk the composed stops computing actual arrival times from per-venue
  * duration_hours (converted to minutes, or role-average fallback). Drops any trailing
- * stop whose arrival lands within LAST_START_BUFFER_MIN of endTime — so a
+ * stop whose arrival lands within ALGORITHM.composition.lastStartBufferMin of endTime — so a
  * 7-10pm plan can't push a bar to 9:55.
  */
 function applyEndTimeBuffer(
@@ -60,7 +51,7 @@ function applyEndTimeBuffer(
   const startMin = parseHHMM(startTime);
   let endMin = parseHHMM(endTime);
   if (endMin <= startMin) endMin += 24 * 60; // wrap past midnight
-  const lastStartMin = endMin - LAST_START_BUFFER_MIN;
+  const lastStartMin = endMin - ALGORITHM.composition.lastStartBufferMin;
 
   const kept: ItineraryStop[] = [];
   let currentMin = startMin;
@@ -94,8 +85,8 @@ function computeWalkingMeta(
   weather: WeatherInfo | null
 ): WalkingMeta {
   const cap = weather?.is_bad_weather
-    ? WALK_SOFT_CAP_MIN_BAD_WEATHER
-    : WALK_SOFT_CAP_MIN;
+    ? ALGORITHM.distance.walkSoftCapMinBadWeather
+    : ALGORITHM.distance.walkSoftCapMin;
   if (walks.length === 0) {
     return { longest_walk_min: 0, total_walk_min: 0, any_over_cap: false, cap_min: cap };
   }
@@ -172,17 +163,16 @@ export async function POST(request: Request) {
       );
     }
 
-    const MIN_POOL_SIZE = 4;
     let venues = venueResult.data as Venue[];
 
     if (excludeVenueIds.length > 0) {
       const excludeSet = new Set(excludeVenueIds);
       const filtered = venues.filter((v) => !excludeSet.has(v.id));
-      if (filtered.length >= MIN_POOL_SIZE) {
+      if (filtered.length >= ALGORITHM.pools.minPoolSize) {
         venues = filtered;
       } else {
         console.warn(
-          `[generate] exclusion would collapse pool to ${filtered.length} venues (min ${MIN_POOL_SIZE}), falling back to unfiltered pool`
+          `[generate] exclusion would collapse pool to ${filtered.length} venues (min ${ALGORITHM.pools.minPoolSize}), falling back to unfiltered pool`
         );
       }
     }
@@ -222,8 +212,32 @@ export async function POST(request: Request) {
         v.business_status !== "CLOSED_TEMPORARILY"
     );
 
+    // Budget hard filter — keep venues in the user's price tier, widen by
+    // one tier if the pool drops below the threshold.
+    if (body.budget !== "no_preference") {
+      const allowedTiers = BUDGET_TIER_MAP[body.budget] ?? [1, 2, 3, 4];
+      let budgetFiltered = venues.filter(
+        (v) => v.price_tier != null && allowedTiers.includes(v.price_tier)
+      );
+      if (budgetFiltered.length < ALGORITHM.pools.minBudgetWideningThreshold) {
+        const widened = widenBudgetTiers(allowedTiers);
+        budgetFiltered = venues.filter(
+          (v) => v.price_tier != null && widened.includes(v.price_tier)
+        );
+        console.info(
+          `[generate] budget pool thin (${budgetFiltered.length} after widening from [${allowedTiers}] to [${widened}])`
+        );
+      }
+      venues = budgetFiltered;
+    }
+
+    // Seed jitter from request hash for deterministic itineraries.
+    const seed = computeRequestSeed(body);
+    const random = createSeededRandom(seed);
+    console.info(`[generate] seed=${seed} for ${body.occasion}/${body.vibe}/${body.budget}`);
+
     // Plan the stop mix from the time window, then score + assemble stops
-    const composed = composeItinerary(venues, inputs, weather);
+    const composed = composeItinerary(venues, inputs, weather, undefined, random);
 
     if (composed.stops.length === 0) {
       return NextResponse.json(

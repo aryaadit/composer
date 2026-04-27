@@ -1,3 +1,5 @@
+// Tuning constants live in src/config/algorithm.ts — adjust there, not here.
+
 import {
   Venue,
   ScoredVenue,
@@ -9,11 +11,7 @@ import {
 import { walkDistanceKm } from "@/lib/geo";
 import { BUDGET_TIER_MAP } from "@/config/budgets";
 import { VIBE_VENUE_TAGS } from "@/config/vibes";
-
-// Walking distance caps. Bad weather collapses the cap to keep the user
-// from getting drenched between stops.
-const MAX_WALK_KM_NORMAL = 1.5; // ~20 min walk
-const MAX_WALK_KM_BAD_WEATHER = 0.4; // ~5 min walk
+import { ALGORITHM } from "@/config/algorithm";
 
 // ─── Role expansion ────────────────────────────────────────────────────
 // Generated from the Stop Roles sheet. Maps the 6 raw venue roles to
@@ -31,61 +29,66 @@ function venueMatchesRole(venue: Venue, role: StopRole): boolean {
 }
 
 function getMaxWalkKm(weather: WeatherInfo | null): number {
-  return weather?.is_bad_weather ? MAX_WALK_KM_BAD_WEATHER : MAX_WALK_KM_NORMAL;
+  return weather?.is_bad_weather
+    ? ALGORITHM.distance.maxWalkKmBadWeather
+    : ALGORITHM.distance.maxWalkKmNormal;
 }
 
 function scoreVenue(
   venue: Venue,
   answers: QuestionnaireAnswers,
   role: StopRole,
-  jitter: number
+  jitter: number,
+  random: () => number = Math.random
 ): number {
   let score = 0;
 
-  // Vibe match (35%) — exact canonical tag matching
+  const W = ALGORITHM.weights;
+
+  // Vibe match — exact canonical tag matching
   const vibeTags = VIBE_VENUE_TAGS[answers.vibe] ?? [];
   if (vibeTags.length === 0) {
-    score += 25; // "mix it up" gets decent base
+    score += W.vibeMixItUpBaseline;
   } else {
     const vibeSet = new Set(vibeTags);
     const matchCount = venue.vibe_tags.filter((t) => vibeSet.has(t)).length;
-    if (matchCount >= 2) score += 35;
-    else if (matchCount === 1) score += 25;
-    else score += 10;
+    if (matchCount >= 2) score += W.vibeMatch2Plus;
+    else if (matchCount === 1) score += W.vibeMatch1;
+    else score += W.vibeMatch0;
   }
 
-  // Occasion match (15%)
+  // Occasion match
   if (venue.occasion_tags.includes(answers.occasion)) {
-    score += 15;
+    score += W.occasion;
   }
 
-  // Budget match (15%)
+  // Budget match
   const allowedTiers = BUDGET_TIER_MAP[answers.budget] ?? [1, 2, 3];
   if (allowedTiers.includes(venue.price_tier ?? 2)) {
-    score += 15;
+    score += W.budget;
   }
 
-  // Location — boost if venue is in one of the selected neighborhoods (10%).
+  // Location — boost if venue is in one of the selected neighborhoods.
   // Empty array = no neighborhood preference, everyone gets the boost.
   if (
     answers.neighborhoods.length === 0 ||
     answers.neighborhoods.includes(venue.neighborhood)
   ) {
-    score += 10;
+    score += W.neighborhood;
   }
 
-  // Time relevance (10%) — base for now; role-aware logic lives in composer.
+  // Time relevance — stub for now; role-aware logic lives in composer.
   void role;
-  score += 10;
+  score += W.timeRelevance;
 
-  // Quality score (10%)
-  score += (venue.quality_score / 10) * 10;
+  // Quality score
+  score += (venue.quality_score / 10) * W.qualityNormalize;
 
-  // Curation boost (5%)
-  score += venue.curation_boost * 5;
+  // Curation boost
+  score += venue.curation_boost * W.curationMultiplier;
 
   // Random jitter for variety on regenerate
-  score += Math.random() * jitter;
+  score += random() * jitter;
 
   return score;
 }
@@ -153,7 +156,9 @@ export function pickBestForRole(
   weather: WeatherInfo | null,
   usedIds: Set<string>,
   anchor: Venue | null,
-  jitter: number
+  jitter: number,
+  random: () => number = Math.random,
+  usedCategories: Set<string> = new Set()
 ): { best: ScoredVenue | null; scored: ScoredVenue[] } {
   const maxWalkKm = getMaxWalkKm(weather);
 
@@ -176,10 +181,13 @@ export function pickBestForRole(
     }
   }
 
-  const scored: ScoredVenue[] = candidates.map((v) => ({
-    ...v,
-    score: scoreVenue(v, answers, role, jitter),
-  }));
+  const scored: ScoredVenue[] = candidates.map((v) => {
+    let score = scoreVenue(v, answers, role, jitter, random);
+    if (v.category && usedCategories.has(v.category)) {
+      score -= ALGORITHM.penalties.categoryDuplicate;
+    }
+    return { ...v, score };
+  });
   scored.sort((a, b) => {
     const scoreDiff = b.score - a.score;
     if (Math.abs(scoreDiff) > 0.01) return scoreDiff;

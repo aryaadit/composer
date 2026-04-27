@@ -44,6 +44,22 @@ export const PRICE_TIER_RANGES: Record<number, readonly [number, number]> = {
 
 export const DEFAULT_PRICE_RANGE: readonly [number, number] = [30, 60];
 
+/**
+ * Widen a budget tier set by one step in each direction.
+ *   casual [1] → [1, 2]
+ *   nice_out [2] → [1, 2, 3]
+ *   splurge [3] → [2, 3, 4]
+ *   all_out [4] → [3, 4]
+ */
+export function widenBudgetTiers(tiers: readonly number[]): number[] {
+  if (tiers.length === 0) return [1, 2, 3, 4];
+  const min = Math.max(1, Math.min(...tiers) - 1);
+  const max = Math.min(4, Math.max(...tiers) + 1);
+  const widened: number[] = [];
+  for (let i = min; i <= max; i++) widened.push(i);
+  return widened;
+}
+
 function rangeForTier(tier: number): readonly [number, number] {
   return PRICE_TIER_RANGES[tier] ?? DEFAULT_PRICE_RANGE;
 }
