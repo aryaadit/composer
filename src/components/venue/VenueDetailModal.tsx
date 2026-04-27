@@ -10,16 +10,9 @@ import { neighborhoodLabel } from "@/config/neighborhoods";
 import { formatCategory } from "@/lib/format/category";
 import { getVenueImageUrls } from "@/lib/venues/images";
 
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
-
-
 interface VenueDetailModalProps {
   venue: Venue | null;
   onClose: () => void;
-}
-
-function photoUrl(path: string): string {
-  return `${SUPABASE_URL}/storage/v1/object/public/venue-photos/${path}`;
 }
 
 export function VenueDetailModal({ venue, onClose }: VenueDetailModalProps) {
@@ -245,10 +238,10 @@ function PhotoCarousel({ photos }: { photos: string[] }) {
         className="flex overflow-x-auto snap-x snap-mandatory no-scrollbar"
         onScroll={handleScroll}
       >
-        {photos.map((path, i) => (
+        {photos.map((url, i) => (
           <img
-            key={path}
-            src={photoUrl(path)}
+            key={url}
+            src={url}
             alt={`Photo ${i + 1}`}
             className="w-full h-56 object-cover snap-center shrink-0 md:h-64"
             loading={i === 0 ? "eager" : "lazy"}
