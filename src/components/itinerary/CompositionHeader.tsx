@@ -4,7 +4,7 @@ import { motion } from "motion/react";
 import { ItineraryResponse } from "@/types";
 import { occasionLabel } from "@/config/occasions";
 import { vibeLabel } from "@/config/vibes";
-import { neighborhoodLabel } from "@/config/neighborhoods";
+import { deriveGroupIds, NEIGHBORHOOD_GROUPS } from "@/config/neighborhoods";
 import { getBlockMetadata } from "@/lib/itinerary/time-blocks";
 import type { TimeBlock } from "@/lib/itinerary/time-blocks";
 
@@ -43,11 +43,16 @@ export function CompositionHeader({
   }
   const utilityLine = utilityParts.join(" · ");
 
-  // Utility row 2: neighborhoods
-  const neighborhoodLine =
-    inputs?.neighborhoods && inputs.neighborhoods.length > 0
-      ? inputs.neighborhoods.map(neighborhoodLabel).join(", ")
-      : null;
+  // Utility row 2: neighborhoods — show group labels, not expanded slugs
+  const neighborhoodLine = (() => {
+    if (!inputs?.neighborhoods || inputs.neighborhoods.length === 0) return null;
+    const groupIds = deriveGroupIds(inputs.neighborhoods);
+    if (groupIds.length === 0) return null;
+    const labels = groupIds.map(
+      (id) => NEIGHBORHOOD_GROUPS.find((g) => g.id === id)?.label ?? id
+    );
+    return Array.from(new Set(labels)).join(", ");
+  })();
 
   // Atmosphere row: occasion · vibe · budget · weather
   const weatherText = header.weather

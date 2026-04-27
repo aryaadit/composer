@@ -1,6 +1,6 @@
 // AUTO-GENERATED — DO NOT EDIT
-// Source: docs/composer_venue_sheet_curated.xlsx
-// Generated: 2026-04-17T05:44:28.631774+00:00
+// Source: Google Sheet 139gp-s2sBbEZbi4-6mrsMlhKykpoGWvuQdboMaAt20o
+// Generated: 2026-04-27T07:03:42.792432+00:00
 
 export const VIBE_VENUE_TAGS: Record<string, string[]> = {
   food_forward: ["food_forward", "tasting", "dinner", "bistro"],
@@ -18,6 +18,6 @@ export const VIBE_DISPLAY_LABELS: Record<string, string> = {
   mix_it_up: "Mix It Up",
 };
 
-export const SCORED_VIBE_TAGS: string[] = ["food_forward", "dinner", "tasting", "bistro", "cocktail_forward", "wine_bar", "speakeasy", "drinks", "activity", "comedy", "karaoke", "games", "bowling", "walk", "gallery", "bookstore", "market", "park"];
+export const SCORED_VIBE_TAGS: string[] = ["activity", "bistro", "bookstore", "bowling", "cocktail_forward", "comedy", "dinner", "drinks", "food_forward", "gallery", "games", "karaoke", "market", "park", "speakeasy", "tasting", "walk", "wine_bar"];
 
-export const CROSS_CUTTING_VIBE_TAGS: string[] = ["classic", "romantic", "conversation_friendly", "group_friendly", "late_night", "casual", "upscale", "outdoor", "iykyk", "lunch", "cash_only", "reliable"];
+export const CROSS_CUTTING_VIBE_TAGS: string[] = ["acclaimed", "cash_only", "casual", "classic", "conversation_friendly", "group_friendly", "iykyk", "late_night", "lunch", "outdoor", "reliable", "romantic", "upscale"];

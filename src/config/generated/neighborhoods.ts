@@ -1,6 +1,6 @@
 // AUTO-GENERATED — DO NOT EDIT
-// Source: docs/composer_venue_sheet_curated.xlsx
-// Generated: 2026-04-17T05:44:28.631774+00:00
+// Source: Google Sheet 139gp-s2sBbEZbi4-6mrsMlhKykpoGWvuQdboMaAt20o
+// Generated: 2026-04-27T07:03:42.792432+00:00
 
 export interface NeighborhoodGroup {
   label: string;
@@ -22,7 +22,7 @@ export const NEIGHBORHOOD_GROUPS: Record<string, NeighborhoodGroup> = {
   east_village_les: {
     label: "East Village / LES",
     borough: "Manhattan",
-    slugs: ["east_village", "lower_east_side", "east_village_les", "bowery"],
+    slugs: ["east_village", "lower_east_side", "bowery"],
   },
   soho_nolita_tribeca: {
     label: "SoHo / Nolita / Tribeca",
@@ -32,12 +32,12 @@ export const NEIGHBORHOOD_GROUPS: Record<string, NeighborhoodGroup> = {
   chelsea_flatiron: {
     label: "Chelsea / Flatiron",
     borough: "Manhattan",
-    slugs: ["chelsea", "flatiron", "nomad", "gramercy_kips_bay", "kips_bay", "murray_hill"],
+    slugs: ["chelsea", "flatiron", "nomad", "gramercy", "murray_hill"],
   },
   midtown_hk: {
     label: "Midtown / Hell's Kitchen",
     borough: "Manhattan",
-    slugs: ["midtown", "midtown_west", "midtown_east", "midtown_hells_kitchen", "koreatown"],
+    slugs: ["midtown", "midtown_west", "midtown_east", "koreatown"],
   },
   chinatown_fidi: {
     label: "Chinatown / FiDi",
@@ -55,25 +55,25 @@ export const NEIGHBORHOOD_GROUPS: Record<string, NeighborhoodGroup> = {
     slugs: ["upper_east_side"],
   },
   harlem_uptown: {
-    label: "Harlem / Washington Heights",
+    label: "Harlem / Uptown",
     borough: "Manhattan",
-    slugs: ["harlem", "west_harlem", "washington_heights"],
+    slugs: ["harlem", "washington_heights"],
   },
   williamsburg_greenpoint: {
     label: "Williamsburg / Greenpoint",
     borough: "Brooklyn",
-    slugs: ["williamsburg", "greenpoint", "east_williamsburg"],
+    slugs: ["williamsburg", "greenpoint", "east_williamsburg", "bushwick"],
   },
   brooklyn: {
     label: "DUMBO / Brooklyn",
     borough: "Brooklyn",
-    slugs: ["dumbo", "brooklyn_heights", "fort_greene", "clinton_hill", "cobble_hill", "carroll_gardens", "gowanus", "red_hook", "park_slope", "prospect_heights", "prospect_lefferts", "crown_heights", "bed_stuy", "flatbush_plg", "sunset_park", "gravesend", "sheepshead_bay", "columbia_waterfront"],
+    slugs: ["dumbo", "brooklyn_heights", "fort_greene", "clinton_hill", "cobble_hill", "carroll_gardens", "gowanus", "red_hook", "park_slope", "prospect_heights", "prospect_lefferts", "crown_heights", "bed_stuy", "sunset_park", "columbia_waterfront"],
   },
   outer_boroughs: {
     label: "Queens / Bronx / SI",
     borough: "Outer",
-    slugs: ["astoria", "long_island_city", "sunnyside", "jackson_heights", "flushing", "ridgewood", "howard_beach", "south_ozone_park", "arthur_avenue", "bronx", "bronx_fordham", "bronx_concourse", "mott_haven", "staten_island", "stapleton_heights", "city_island"],
+    slugs: ["astoria", "long_island_city", "sunnyside", "jackson_heights", "flushing", "ridgewood", "howard_beach", "south_ozone_park", "arthur_avenue", "bronx", "bronx_fordham", "bronx_concourse", "mott_haven", "staten_island", "stapleton_heights", "city_island", "nyc", "queens"],
   },
 };
 
-export const ALL_NEIGHBORHOODS: string[] = ["west_village", "greenwich_village", "east_village", "east_village_les", "lower_east_side", "soho_nolita", "nolita", "noho", "tribeca", "hudson_square", "chelsea", "flatiron", "nomad", "midtown", "midtown_west", "midtown_east", "chinatown", "fidi", "lower_manhattan", "little_italy", "bowery", "upper_west_side", "upper_east_side", "harlem", "west_harlem", "williamsburg", "greenpoint", "east_williamsburg", "dumbo", "brooklyn_heights", "cobble_hill", "carroll_gardens", "fort_greene", "clinton_hill", "park_slope", "gowanus", "bed_stuy", "crown_heights", "prospect_heights", "red_hook", "columbia_waterfront", "prospect_lefferts", "astoria", "long_island_city", "flushing", "jackson_heights", "ridgewood", "sunnyside", "city_island", "bronx", "bronx_fordham", "bronx_concourse", "arthur_avenue", "staten_island", "stapleton_heights", "gravesend", "sheepshead_bay", "flatbush_plg", "howard_beach", "south_ozone_park", "battery_park_city", "washington_heights", "murray_hill", "kips_bay", "gramercy_kips_bay", "koreatown", "mott_haven", "sunset_park", "nyc", "queens"];
+export const ALL_NEIGHBORHOODS: string[] = ["arthur_avenue", "astoria", "battery_park_city", "bed_stuy", "bowery", "bronx", "bronx_concourse", "bronx_fordham", "brooklyn_heights", "bushwick", "carroll_gardens", "chelsea", "chinatown", "city_island", "clinton_hill", "cobble_hill", "columbia_waterfront", "crown_heights", "dumbo", "east_village", "east_williamsburg", "fidi", "flatiron", "flushing", "fort_greene", "gowanus", "gramercy", "gramercy_kips_bay", "gravesend", "greenpoint", "greenwich_village", "harlem", "howard_beach", "hudson_square", "jackson_heights", "koreatown", "little_italy", "long_island_city", "lower_east_side", "lower_manhattan", "midtown", "midtown_east", "midtown_west", "mott_haven", "murray_hill", "noho", "nolita", "nomad", "nyc", "park_slope", "prospect_heights", "prospect_lefferts", "queens", "red_hook", "ridgewood", "sheepshead_bay", "soho_nolita", "south_ozone_park", "stapleton_heights", "staten_island", "sunnyside", "sunset_park", "tribeca", "upper_east_side", "upper_west_side", "washington_heights", "west_village", "williamsburg"];

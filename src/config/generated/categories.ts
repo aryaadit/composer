@@ -1,5 +1,5 @@
 // AUTO-GENERATED — DO NOT EDIT
-// Source: docs/composer_venue_sheet_curated.xlsx
-// Generated: 2026-04-17T05:44:28.631774+00:00
+// Source: Google Sheet 139gp-s2sBbEZbi4-6mrsMlhKykpoGWvuQdboMaAt20o
+// Generated: 2026-04-27T07:03:42.792432+00:00
 
-export const CATEGORIES = ["american", "argentinian", "bbq", "bolivian", "caribbean", "chinese", "cuban", "dim_sum", "dominican", "egyptian", "filipino", "fine_dining", "french", "greek", "halal", "indian", "italian", "japanese", "korean", "latin", "mediterranean", "mexican", "middle_eastern", "moroccan", "nepali", "nigerian", "peruvian", "seafood", "senegalese", "spanish", "steakhouse", "thai", "vietnamese", "diner", "bar", "rooftop_bar", "speakeasy", "wine_bar", "bagel_shop", "bakery", "cafe", "deli", "dessert", "ice_cream", "pizza", "sandwich", "bookstore", "cinema", "comedy_club", "food_hall", "jazz_club", "museum", "music_venue", "park", "spa_bathhouse", "theater"] as const;
+export const CATEGORIES = ["american", "argentinian", "bagel_shop", "bakery", "bar", "bbq", "bookstore", "cafe", "caribbean", "chinese", "cinema", "comedy_club", "cuban", "deli", "dessert", "dim_sum", "diner", "filipino", "fine_dining", "food_hall", "french", "greek", "halal", "ice_cream", "indian", "italian", "japanese", "jazz_club", "korean", "latin", "mediterranean", "mexican", "middle_eastern", "moroccan", "museum", "music_venue", "park", "peruvian", "pizza", "rooftop_bar", "sandwich", "seafood", "shopping", "spa_bathhouse", "spanish", "speakeasy", "steakhouse", "thai", "theater", "vegan", "vietnamese", "wine_bar"] as const;
