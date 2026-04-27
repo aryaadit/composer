@@ -72,11 +72,23 @@ export function StopCard({
   const showInlineReserve =
     !hasSelectedSlot && !!bookingPlatform && !!v.reservation_url;
 
-  // Build a date-aware Resy URL when possible, otherwise fall back to raw reservation_url
-  const reserveHref =
-    bookingPlatform?.id === "resy" && v.resy_slug && date
-      ? buildResyBookingUrl(v.resy_slug, date, partySize)
-      : v.reservation_url;
+  // Build a date-aware reservation URL.
+  // Prefer canonical slug URL; for Resy venues without a slug, append
+  // date/seats params to the raw reservation_url so Resy opens the right day.
+  const reserveHref = (() => {
+    if (!v.reservation_url) return null;
+    if (bookingPlatform?.id === "resy" && date) {
+      if (v.resy_slug) {
+        return buildResyBookingUrl(v.resy_slug, date, partySize);
+      }
+      // Append date + seats to raw Resy URL
+      const url = new URL(v.reservation_url);
+      url.searchParams.set("date", date);
+      url.searchParams.set("seats", String(partySize));
+      return url.toString();
+    }
+    return v.reservation_url;
+  })();
 
   return (
     <motion.div

@@ -76,7 +76,13 @@ export default function SharedItineraryPage({
         <Header />
       </div>
       <CompositionHeader header={itinerary.header} inputs={itinerary.inputs} />
-      <ItineraryView stops={itinerary.stops} walks={itinerary.walks} />
+      <ItineraryView
+        stops={itinerary.stops}
+        walks={itinerary.walks}
+        timeBlock={itinerary.inputs?.timeBlock}
+        date={itinerary.inputs?.day}
+        partySize={2}
+      />
 
       {/* Minimal footer — Maps link + CTA to make their own */}
       <div className="w-full max-w-lg mx-auto mt-10 pt-4 border-t border-border">
