@@ -182,8 +182,13 @@ function DietaryField({ profile, userId, onSaved }: FieldProps) {
 }
 
 function HoodsField({ profile, userId, onSaved }: FieldProps) {
-  const f = useFieldEditor<string[]>(profile.favorite_hoods, userId, onSaved);
-  const canSave = !sameArray(f.draft, profile.favorite_hoods);
+  // Filter out stale group IDs (from old taxonomy) so they don't silently
+  // persist into saves. Only valid FAVORITE_HOODS entries are kept.
+  const validIds = new Set(FAVORITE_HOODS.map((h) => h.id));
+  const cleanHoods = profile.favorite_hoods.filter((id) => validIds.has(id));
+
+  const f = useFieldEditor<string[]>(cleanHoods, userId, onSaved);
+  const canSave = !sameArray(f.draft, cleanHoods);
 
   const toggle = (id: string) => {
     f.setDraft((prev) =>
@@ -192,9 +197,9 @@ function HoodsField({ profile, userId, onSaved }: FieldProps) {
   };
 
   const displayLabel =
-    profile.favorite_hoods.length === 0
+    cleanHoods.length === 0
       ? "Not set"
-      : profile.favorite_hoods
+      : cleanHoods
           .map((id) => FAVORITE_HOODS.find((h) => h.id === id)?.name ?? id)
           .join(", ");
 
