@@ -270,6 +270,28 @@ export function pickRecommendedSlots(
   return picked;
 }
 
+// ─── Block coverage scoring ─────────────────────────────────
+
+/**
+ * Score a venue's time-block coverage for the user's selected block.
+ *
+ * Returns a 0–1 fraction (caller multiplies by weight).
+ *   1.0 = venue covers this block in both per-day AND global blocks
+ *   0.5 = venue covers this block in either per-day OR global (not both)
+ *   0.0 = venue does not cover this block
+ */
+export function blockCoverageFraction(
+  venue: VenueBlocks,
+  dayColumn: DayColumn,
+  timeBlock: TimeBlock
+): number {
+  const inGlobal = (venue.time_blocks ?? []).includes(timeBlock);
+  const inPerDay = (venue[dayColumn] ?? []).includes(timeBlock);
+  if (inGlobal && inPerDay) return 1.0;
+  if (inGlobal || inPerDay) return 0.5;
+  return 0.0;
+}
+
 // ─── Time window resolution ──────────────────────────────────
 
 /**

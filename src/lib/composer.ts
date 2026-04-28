@@ -10,6 +10,7 @@ import {
 import { pickBestForRole } from "@/lib/scoring";
 import { spendEstimate } from "@/config/budgets";
 import { ALGORITHM } from "@/config/algorithm";
+import type { DayColumn, TimeBlock } from "@/lib/itinerary/time-blocks";
 
 export type StopPattern = StopRole[];
 
@@ -75,7 +76,9 @@ export function composeItinerary(
   answers: QuestionnaireAnswers,
   weather: WeatherInfo | null,
   jitter: number = ALGORITHM.jitter.magnitude,
-  random: () => number = Math.random
+  random: () => number = Math.random,
+  dayColumn: DayColumn | null = null,
+  timeBlock: TimeBlock | null = null
 ): { stops: ItineraryStop[]; pattern: StopPattern } {
   const pattern = planStopMix(answers);
   const usedIds = new Set<string>();
@@ -91,7 +94,9 @@ export function composeItinerary(
     null,
     jitter,
     random,
-    usedCategories
+    usedCategories,
+    dayColumn,
+    timeBlock
   );
   if (!main) return { stops: [], pattern };
   usedIds.add(main.id);
@@ -120,7 +125,9 @@ export function composeItinerary(
       main,
       jitter,
       random,
-      usedCategories
+      usedCategories,
+      dayColumn,
+      timeBlock
     );
     if (!best) continue;
     usedIds.add(best.id);

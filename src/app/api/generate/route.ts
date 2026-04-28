@@ -216,13 +216,14 @@ export async function POST(request: Request) {
     // one tier if the pool drops below the threshold.
     if (body.budget !== "no_preference") {
       const allowedTiers = BUDGET_TIER_MAP[body.budget] ?? [1, 2, 3, 4];
+      // Null price_tier defaults to tier 2 ("nice_out") — same as scoring.
       let budgetFiltered = venues.filter(
-        (v) => v.price_tier != null && allowedTiers.includes(v.price_tier)
+        (v) => allowedTiers.includes(v.price_tier ?? 2)
       );
       if (budgetFiltered.length < ALGORITHM.pools.minBudgetWideningThreshold) {
         const widened = widenBudgetTiers(allowedTiers);
         budgetFiltered = venues.filter(
-          (v) => v.price_tier != null && widened.includes(v.price_tier)
+          (v) => widened.includes(v.price_tier ?? 2)
         );
         console.info(
           `[generate] budget pool thin (${budgetFiltered.length} after widening from [${allowedTiers}] to [${widened}])`
@@ -237,7 +238,7 @@ export async function POST(request: Request) {
     console.info(`[generate] seed=${seed} for ${body.occasion}/${body.vibe}/${body.budget}`);
 
     // Plan the stop mix from the time window, then score + assemble stops
-    const composed = composeItinerary(venues, inputs, weather, undefined, random);
+    const composed = composeItinerary(venues, inputs, weather, undefined, random, dayColumn, body.timeBlock);
 
     if (composed.stops.length === 0) {
       return NextResponse.json(
