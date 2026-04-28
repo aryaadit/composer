@@ -31,6 +31,8 @@ export const ALGORITHM = {
     timeRelevance: 10,
     qualityNormalize: 10,
     curationMultiplier: 5,
+    /** 0-5 pts based on google_rating, normalized: 3.5→0, 5.0→max. */
+    googleRating: 5,
   },
 
   /** Score deductions to encourage diversity. */

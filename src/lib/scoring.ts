@@ -12,6 +12,8 @@ import { walkDistanceKm } from "@/lib/geo";
 import { BUDGET_TIER_MAP } from "@/config/budgets";
 import { VIBE_VENUE_TAGS } from "@/config/vibes";
 import { ALGORITHM } from "@/config/algorithm";
+import { blockCoverageFraction } from "@/lib/itinerary/time-blocks";
+import type { DayColumn, TimeBlock } from "@/lib/itinerary/time-blocks";
 
 // ─── Role expansion ────────────────────────────────────────────────────
 // Generated from the Stop Roles sheet. Maps the 6 raw venue roles to
@@ -39,7 +41,9 @@ function scoreVenue(
   answers: QuestionnaireAnswers,
   role: StopRole,
   jitter: number,
-  random: () => number = Math.random
+  random: () => number,
+  dayColumn: DayColumn | null,
+  timeBlock: TimeBlock | null
 ): number {
   let score = 0;
 
@@ -77,15 +81,25 @@ function scoreVenue(
     score += W.neighborhood;
   }
 
-  // Time relevance — stub for now; role-aware logic lives in composer.
-  void role;
-  score += W.timeRelevance;
+  // Time relevance — score based on per-day block coverage
+  if (dayColumn && timeBlock) {
+    score += blockCoverageFraction(venue, dayColumn, timeBlock) * W.timeRelevance;
+  } else {
+    void role;
+    score += W.timeRelevance; // fallback: full points when no day/block context
+  }
 
   // Quality score
   score += (venue.quality_score / 10) * W.qualityNormalize;
 
   // Curation boost
   score += venue.curation_boost * W.curationMultiplier;
+
+  // Google rating — normalized: 3.5→0, 5.0→max. Below 3.5 contributes 0.
+  if (venue.google_rating != null) {
+    const normalized = Math.max(0, (venue.google_rating - 3.5) / 1.5);
+    score += Math.min(1, normalized) * W.googleRating;
+  }
 
   // Random jitter for variety on regenerate
   score += random() * jitter;
@@ -158,7 +172,9 @@ export function pickBestForRole(
   anchor: Venue | null,
   jitter: number,
   random: () => number = Math.random,
-  usedCategories: Set<string> = new Set()
+  usedCategories: Set<string> = new Set(),
+  dayColumn: DayColumn | null = null,
+  timeBlock: TimeBlock | null = null
 ): { best: ScoredVenue | null; scored: ScoredVenue[] } {
   const maxWalkKm = getMaxWalkKm(weather);
 
@@ -182,7 +198,7 @@ export function pickBestForRole(
   }
 
   const scored: ScoredVenue[] = candidates.map((v) => {
-    let score = scoreVenue(v, answers, role, jitter, random);
+    let score = scoreVenue(v, answers, role, jitter, random, dayColumn, timeBlock);
     if (v.category && usedCategories.has(v.category)) {
       score -= ALGORITHM.penalties.categoryDuplicate;
     }
