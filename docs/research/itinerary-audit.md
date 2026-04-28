@@ -2,12 +2,24 @@
 
 **Date:** 2026-04-27
 **Scope:** Full pipeline from POST /api/generate to ItineraryResponse
+**Last updated:** 2026-04-28 — see fixes below
+
+> **Post-audit fixes applied (2026-04-27/28):**
+> - Time relevance scoring implemented via `blockCoverageFraction()` (0/0.5/1 signal)
+> - Category diversity penalty added (-20pts for duplicate categories)
+> - Budget is now a hard filter with ±1 tier widening
+> - Google rating promoted to 5-point scoring signal
+> - Jitter is now seeded (deterministic) via FNV-1a hash of request inputs
+> - All magic numbers centralized in `src/config/algorithm.ts`
+> - Null price_tier consistently treated as tier 2 in both filter and scoring
+>
+> Items marked ~~strikethrough~~ below were resolved. See `ALGORITHM.md` for current architecture.
 
 ## Executive Summary
 
-- **Time relevance scoring is a stub** — always returns 10/10. Every venue gets full time score regardless of fit.
+- ~~**Time relevance scoring is a stub**~~ — **FIXED:** now uses `blockCoverageFraction()` for 0/5/10 scoring
 - **Party size is hardcoded to 2** for Resy availability queries. Groups of 4+ get shown 2-person slots.
-- **No composition diversity guard** — three wine bars in a row is possible if they all score highest.
+- ~~**No composition diversity guard**~~ — **FIXED:** -20pt category duplicate penalty via `ALGORITHM.penalties.categoryDuplicate`
 - **All ~1,400 active venues are loaded into memory** on every request. No SQL-level time-block filtering.
 - **Availability swap logic is wired but disabled** — `candidatePool` is always `undefined`.
 
@@ -56,10 +68,11 @@ POST body: `GenerateRequestBody` = `QuestionnaireAnswers` minus `startTime`/`end
 | 3 | Drinks = no | route.ts:199-203 | Drop alcohol venues if `prefs.drinks === "no"` | ~20% when active |
 | 4 | Time block | route.ts:207-216 | `venueOpenForBlock()` — hybrid per-day/global rule | ~30-50% |
 | 5 | Closed status | route.ts:219-223 | Drop CLOSED_PERMANENTLY / CLOSED_TEMPORARILY | <1% |
+| 6 | Budget tier | route.ts:217-233 | Hard filter: only venues in allowed tiers; widens by ±1 if pool < 30. Null price_tier treated as tier 2. | ~10-20% |
 
 ### Missing filters
 - **No dietary filter** — venues with `category: "steakhouse"` still shown to vegetarians.
-- **No price_tier filter at candidate stage** — budget is only a scoring signal, not a hard gate. A "casual" user can get $$$$ venues if they score well on other dimensions.
+- ~~**No price_tier filter at candidate stage**~~ — **FIXED:** budget is now a hard filter with widening.
 
 ### Smells
 - **Fetches ALL active venues from DB** (route.ts:165) — `SELECT * FROM composer_venues_v2 WHERE active = true`. No SQL-level time-block or neighborhood filtering. ~1,400 rows loaded into memory per request.
@@ -94,12 +107,14 @@ Then proximity filter (scoring.ts:164-169): must be within `MAX_WALK_KM` of Main
 | Occasion | 15 | ~15% | scoring.ts:57-60 | venue.occasion_tags.includes(answers.occasion) |
 | Budget | 15 | ~15% | scoring.ts:63-67 | venue.price_tier in BUDGET_TIER_MAP[answers.budget] |
 | Location | 10 | ~10% | scoring.ts:70-75 | venue.neighborhood in answers.neighborhoods (or empty = all match) |
-| Time | 10 | ~10% | scoring.ts:78-79 | **STUB — always returns 10** |
-| Quality | 0-10 | ~10% | scoring.ts:82 | `(venue.quality_score / 10) * 10` |
-| Curation boost | variable | ~5% | scoring.ts:85 | `venue.curation_boost * 5` (unbounded) |
-| Jitter | 0-10 | — | scoring.ts:88 | `Math.random() * jitter` (default jitter=10) |
+| Time | 0-10 | ~10% | scoring.ts:94-100 | `blockCoverageFraction(venue, dayColumn, timeBlock) * 10` — 1.0/0.5/0.0 based on per-day + global block coverage |
+| Quality | 0-10 | ~10% | scoring.ts:85 | `(venue.quality_score / 10) * 10` |
+| Curation boost | variable | ~5% | scoring.ts:88 | `venue.curation_boost * 5` (unbounded) |
+| Google rating | 0-5 | ~5% | scoring.ts:108-112 | `max(0, (rating - 3.5) / 1.5) * 5`. Below 3.5→0. Null→0. |
+| Category penalty | -20 | — | scoring.ts:233-235 | Deducted when venue.category matches an already-used category in the itinerary |
+| Jitter | 0-10 | — | scoring.ts:115 | Seeded PRNG via `seed.ts` — `random() * jitter`. Same inputs → same seed → deterministic. |
 
-**Effective max:** ~105 (35+15+15+10+10+10+5+10=110 theoretical, but curation_boost varies)
+**Effective max:** ~110 (35+15+15+10+10+10+5+5+10=115 theoretical, minus category penalty)
 
 ### Tiebreaking (scoring.ts:183-192)
 1. Score (descending)
@@ -116,9 +131,9 @@ If hard filter + proximity = 0 candidates:
 Proximity is **never** relaxed.
 
 ### Smells
-- **Time relevance is dead code** (scoring.ts:78-79): `void role; return 10;` — every venue gets full points. This was meant to score based on venue operating hours vs. requested time, but was never implemented.
-- **Curation boost is unbounded** (scoring.ts:85): `curation_boost * 5`. A venue with `curation_boost = 10` gets +50 points, dominating all other signals. No venues currently have boost that high, but no cap enforces it.
-- **No category diversity in scoring** — scoring doesn't penalize when the candidate matches the same category as an already-selected stop.
+- ~~**Time relevance is dead code**~~ — **FIXED:** now implemented via `blockCoverageFraction()`.
+- **Curation boost is unbounded** (scoring.ts:88): `curation_boost * 5`. A venue with `curation_boost = 10` gets +50 points, dominating all other signals. No venues currently have boost that high, but no cap enforces it.
+- ~~**No category diversity in scoring**~~ — **FIXED:** -20pt penalty for duplicate categories.
 - **"mix_it_up" vibe gets 25 baseline** (scoring.ts:48) while other vibes get 10 for zero matches. This means "mix_it_up" effectively boosts everything uniformly rather than being neutral.
 
 ---
@@ -151,14 +166,12 @@ Walk buffer: 10 min between each pair. Slack: 15 min.
 After composition, `applyEndTimeBuffer()` checks if last stop's estimated start + duration exceeds `endTime - 30min`. If so, trailing stops are dropped. No re-composition.
 
 ### Diversity rules
-**None.** The only anti-repeat mechanism is `usedIds` (don't pick the same venue twice). There is no:
-- Category diversity (no two Italian places)
-- Vibe diversity (no three cocktail bars)
-- Price tier diversity (don't cluster all $$$$ stops)
+- **Category duplicate penalty** (-20pts): `usedCategories` set tracks categories across picks. Subsequent picks matching an already-used category get penalized. Soft — a duplicate can still win if it scores 20+ better than alternatives.
+- **Venue repeat prevention**: `usedIds` prevents the same venue from appearing twice.
+- No vibe diversity or price tier diversity rules.
 
 ### Smells
 - **Silent slot skipping** (composer.ts:133): `if (!best) continue;` — user requested 3 stops, might get 2 or 1 with no explanation.
-- **No composition-level diversity** — scoring is per-slot, not per-itinerary. Three Italian restaurants can all be top-ranked independently.
 - **All non-Main stops anchored only to Main** (composer.ts:125) — not to each other. If Main is in SoHo and opener in West Village, closer must be near Main (SoHo), not near opener (West Village). This can produce non-linear walking paths.
 - **Plan B is just scored[1]** (composer.ts:135) — no guarantee it's a different category or vibe from the primary pick. Plan B could be the same type of venue.
 
@@ -210,19 +223,19 @@ After composition, `applyEndTimeBuffer()` checks if last stop's estimated start 
 ## Cross-Cutting Quality Concerns
 
 ### Composition diversity
-No diversity guard exists. The pipeline can produce 3 Italian restaurants, 3 cocktail bars, or 3 venues with the same vibe tags. The only anti-repeat is `usedIds` (same venue can't appear twice). This is the pipeline's most visible quality issue — users who regenerate may notice that picks feel same-y within a single itinerary.
+~~No diversity guard exists.~~ **FIXED:** A -20pt category duplicate penalty discourages same-category picks. Three identical categories are still theoretically possible if one category dominates the pool by 20+ points, but in practice the penalty produces mixed itineraries in dense neighborhoods.
 
 ### Vibe accuracy
 Vibe scoring is well-implemented via exact tag matching with the VIBE_VENUE_TAGS map. The 35/25/10 tiered scoring is sound. One concern: the 10-point baseline for zero matches means a high-quality non-matching venue (quality=10, curation=2) can outscore a mediocre matching venue (quality=3, curation=0). This is arguably correct — quality matters — but could surprise users expecting strict vibe adherence.
 
 ### Budget honesty
-Budget is a 15-point scoring signal, not a hard filter. A "casual" user can get a $$$ venue if it scores 35 on vibe, 15 on occasion, and 10 on quality (total 60+) while a matching $ venue scores lower. For strict budget adherence, budget would need to be a hard filter, not just a score component.
+~~Budget is a 15-point scoring signal, not a hard filter.~~ **FIXED:** Budget is now a hard filter at the candidate stage (route.ts:217-233). Venues outside allowed tiers are dropped. If the pool drops below 30, tiers widen by ±1. Budget also remains a 15-point scoring tiebreaker among surviving venues.
 
 ### Neighborhood respect
 Neighborhoods are a hard filter in `hardFilter()` (scoring.ts:105-107). Venues outside selected neighborhoods are dropped. Progressive relaxation drops this filter when candidates are too few — logged as a warning but user isn't told. This is the correct tradeoff: better to show a nearby-but-outside venue than return nothing.
 
 ### Time block honesty
-The `venueOpenForBlock()` hybrid rule (per-day blocks when populated, global fallback when empty) is solid. The filter applies before scoring, so closed venues are never scored. One gap: the time relevance scoring component is a stub (always 10/10), so there's no preference for venues that are centrally open during the block vs. barely open.
+The `venueOpenForBlock()` hybrid rule (per-day blocks when populated, global fallback when empty) is solid. The filter applies before scoring, so closed venues are never scored. ~~One gap: the time relevance scoring component is a stub.~~ **FIXED:** `blockCoverageFraction()` now scores 1.0 (both sources confirm), 0.5 (one source), or 0.0 (no data), multiplied by 10pts.
 
 ### Walking reasonableness
 The 1.5km hard cap (scoring.ts:15) with 1.3x Manhattan grid factor (geo.ts:1) produces ~20 min max walks. All non-Main stops are anchored to Main. Walking is honest but can feel non-linear — opener in West Village, main in SoHo, closer in SoHo — because closer is anchored to Main, not to opener.
@@ -231,41 +244,42 @@ The 1.5km hard cap (scoring.ts:15) with 1.3x Manhattan grid factor (geo.ts:1) pr
 Resy availability is fetched post-composition and **does not influence venue selection**. A venue with zero available slots gets the same score as one with 20 slots. The availability data is presentation-only, shown after the itinerary is assembled.
 
 ### Repetition handling
-Jitter (0-10 random points, scoring.ts:88) provides some variety across regenerations. `excludeVenueIds` (passed from client, populated from recently-saved itineraries) prevents exact repeats. But with only 10 points of jitter and 35 points of vibe weight, the top venue for a given input set tends to win repeatedly unless excluded.
+Jitter (0-10 points, **seeded from request hash** via `seed.ts`) provides deterministic results for identical inputs and variety when `excludeVenueIds` changes. Same inputs → same seed → same picks. Different exclusions → different seed → different jitter → different picks. This makes "regenerate" (which adds current venues to exclusions) produce variety while keeping direct links shareable.
 
 ---
 
 ## Top Smells (prioritized)
 
-1. **No composition diversity** — three same-category stops possible (no fix in pipeline)
-2. **Time relevance scoring is dead code** — stub at scoring.ts:78-79, always returns 10
-3. **Party size hardcoded to 2** — route.ts:320, Resy queries ignore actual group size
-4. **Full venue table loaded into memory** — route.ts:165, no SQL-level pre-filtering
-5. **Swap logic is wired but disabled** — availability-enrichment.ts:83-153 never called
-6. **Budget is soft, not hard** — $$$ venues can appear on "casual" itineraries
-7. **Silent slot skipping** — composer.ts:133, user might get fewer stops with no explanation
-8. **Curation boost unbounded** — scoring.ts:85, could dominate all other signals
-9. **Sequential Resy API calls** — one per stop, not parallelized
-10. **No server-side timeBlock validation** — route.ts:159, invalid value throws
+> Items 1, 2, 6 resolved post-audit. Renumbered.
+
+1. **Party size hardcoded to 2** — route.ts:320, Resy queries ignore actual group size
+2. **Full venue table loaded into memory** — route.ts:165, no SQL-level pre-filtering
+3. **Swap logic is wired but disabled** — availability-enrichment.ts:83-153 never called
+4. **Silent slot skipping** — composer.ts:133, user might get fewer stops with no explanation
+5. **Curation boost unbounded** — scoring.ts:88, could dominate all other signals
+6. **Sequential Resy API calls** — one per stop, not parallelized
+7. **No server-side timeBlock validation** — route.ts:159, invalid value throws
 
 ---
 
 ## Magic Numbers Inventory
 
-| Value | Location | Purpose | Named constant? |
-|-------|----------|---------|-----------------|
-| 35 | scoring.ts:52 | Vibe match (2+ tags) | No |
-| 25 | scoring.ts:53 | Vibe match (1 tag) | No |
-| 10 | scoring.ts:54 | Vibe match (0 tags) | No |
-| 25 | scoring.ts:48 | "mix_it_up" baseline | No |
-| 15 | scoring.ts:59 | Occasion match | No |
-| 15 | scoring.ts:65 | Budget match | No |
-| 10 | scoring.ts:74 | Location match | No |
-| 10 | scoring.ts:79 | Time relevance (stub) | No |
-| 5 | scoring.ts:85 | Curation boost multiplier | No |
-| 10 | scoring.ts:88 | Default jitter | No |
-| 1.5 | scoring.ts:15 | MAX_WALK_KM_NORMAL | Yes |
-| 0.4 | scoring.ts:16 | MAX_WALK_KM_BAD_WEATHER | Yes |
+> **All scoring/composition magic numbers are now centralized in `src/config/algorithm.ts`.**
+> See that file's JSDoc for sane ranges and calibration notes.
+
+| Value | Location | Purpose |
+|-------|----------|---------|
+| 35 | algorithm.ts | vibeMatch2Plus |
+| 25 | algorithm.ts | vibeMatch1 / vibeMixItUpBaseline |
+| 10 | algorithm.ts | vibeMatch0 / neighborhood / timeRelevance / qualityNormalize |
+| 15 | algorithm.ts | occasion / budget |
+| 5 | algorithm.ts | curationMultiplier / googleRating |
+| 20 | algorithm.ts | categoryDuplicate penalty |
+| 1.5 | algorithm.ts | maxWalkKmNormal |
+| 0.4 | algorithm.ts | maxWalkKmBadWeather |
+| 10 | algorithm.ts | jitter magnitude |
+| 30 | algorithm.ts | minBudgetWideningThreshold / lastStartBufferMin |
+| 4 | algorithm.ts | minPoolSize |
 | 4 | route.ts:175 | MIN_POOL_SIZE | No |
 | 30 | route.ts:32 | LAST_START_BUFFER_MIN | Yes |
 | 15 | route.ts:38 | WALK_SOFT_CAP_MIN | Yes |

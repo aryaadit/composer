@@ -8,7 +8,7 @@
  * To retune the algorithm, change values HERE. Do not sprinkle magic
  * numbers across scoring.ts, composer.ts, etc.
  *
- * Pipeline overview (see docs/algorithm.md for full architecture):
+ * Pipeline overview (see ALGORITHM.md for full architecture):
  *
  *   1. INPUT       — POST /api/generate parses request + user profile
  *   2. FILTER      — drops venues that fail hard requirements
