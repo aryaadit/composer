@@ -22,12 +22,18 @@ import {
 // not scoring config. If a new vibe appears in the sheet without a
 // description entry here, it renders with an empty description — add
 // one when you see it.
+// Display label overrides. The generated labels come from the sheet's
+// Vibe Scoring Matrix tab; these override for questionnaire copy clarity.
+const VIBE_LABEL_OVERRIDES: Record<string, string> = {
+  activity_food: "Activity Night",
+};
+
 const VIBE_DESCRIPTIONS: Record<string, string> = {
-  food_forward: "The meal is the move",
-  drinks_led: "Bars & cocktails",
-  activity_food: "Do something first",
-  walk_explore: "Wander the city",
-  mix_it_up: "A bit of everything",
+  food_forward: "The meal anchors the night",
+  drinks_led: "Explore great drinks at a great bar",
+  activity_food: "Start with something to do, then eat",
+  walk_explore: "Galleries, parks, strolls between spots",
+  mix_it_up: "One of each — food, drinks, something to do",
 };
 
 // Vibe slugs match the sheet's Vibe Scoring Matrix keys (snake_case).
@@ -35,7 +41,7 @@ const VIBE_KEYS = Object.keys(GEN_TAGS) as (keyof typeof GEN_TAGS)[];
 
 export const VIBES = VIBE_KEYS.map((key) => ({
   slug: key,
-  label: GEN_LABELS[key] ?? key,
+  label: VIBE_LABEL_OVERRIDES[key] ?? GEN_LABELS[key] ?? key,
   description: VIBE_DESCRIPTIONS[key] ?? "",
   venueTags: GEN_TAGS[key] ?? [],
 }));

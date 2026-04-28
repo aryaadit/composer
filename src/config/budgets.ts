@@ -8,17 +8,26 @@
 import { BUDGET_TIERS as GEN_TIERS } from "./generated/budgets";
 
 // Descriptions live here (UI copy, not scoring config).
+// Display label overrides. The generated labels include ($) symbols;
+// these provide cleaner questionnaire copy.
+const BUDGET_LABEL_OVERRIDES: Record<string, string> = {
+  casual: "Casual",
+  nice_out: "Nice Out",
+  splurge: "Splurge",
+  all_out: "All Out",
+};
+
 const BUDGET_DESCRIPTIONS: Record<string, string> = {
-  casual: "Good times, low key",
-  nice_out: "A proper night",
-  splurge: "Go all in",
-  all_out: "The full experience",
+  casual: "Easygoing food and drinks, nothing fussy",
+  nice_out: "A proper sit-down dinner kind of night",
+  splurge: "Real restaurants, real drinks, treat yourself",
+  all_out: "Tasting menus, fancy cocktails, no expense spared",
   no_preference: "Surprise me",
 };
 
 export const BUDGETS = Object.entries(GEN_TIERS).map(([slug, { label, tiers }]) => ({
   slug,
-  label,
+  label: BUDGET_LABEL_OVERRIDES[slug] ?? label,
   description: BUDGET_DESCRIPTIONS[slug] ?? "",
   tiers: tiers as readonly number[],
 }));

@@ -26,7 +26,7 @@ export const questionSteps: QuestionStep[] = [
       { value: "dating", label: "Dating", description: "Meeting someone new" },
       { value: "relationship", label: "Relationship", description: "Nights with my partner" },
       { value: "friends", label: "Friends Night Out", description: "No rules" },
-      { value: "family", label: "Family Fun", description: "Something for everyone" },
+      { value: "family", label: "Family", description: "Something for everyone, kids included" },
       { value: "solo", label: "Solo", description: "Just me" },
     ],
   },
@@ -41,7 +41,7 @@ export const questionSteps: QuestionStep[] = [
   {
     id: "budget",
     kind: "cards",
-    question: "What are we working with?",
+    question: "What's the budget?",
     options: BUDGETS.map((b) => ({
       value: b.slug,
       label: b.label,
@@ -51,7 +51,7 @@ export const questionSteps: QuestionStep[] = [
   {
     id: "vibe",
     kind: "cards",
-    question: "What's the energy?",
+    question: "What's the focus?",
     options: VIBES.map((v) => ({
       value: v.slug,
       label: v.label,
