@@ -45,13 +45,15 @@ export function windowMinutes(start: string, end: string): number {
 }
 
 /**
- * Pick the largest stop pattern whose budget fits the user's window.
+ * Pick the largest stop pattern whose time budget fits the user's window.
  *
- * Budgets (with AVG_WALK=10, slack 15):
- *   4 stops: 60+120+60+60 + 3×10 = 330 min  (needs ≥ 5h15m window)
- *   3 stops: 60+120+60   + 2×10 = 260 min  (needs ≥ 4h05m window)
- *   2 stops: 60+120      + 1×10 = 190 min  (needs ≥ 3h00m window)
- *   else:    2 stops as the hard minimum.
+ * Tries templates largest→smallest:
+ *   4 stops (opener, main, closer, closer) — needs ≥5h15m
+ *   3 stops (opener, main, closer) — needs ≥4h05m
+ *   2 stops (opener, main) — needs ≥3h00m (hard minimum)
+ *
+ * @param answers - Must include resolved startTime and endTime (HH:MM).
+ * @returns The role sequence to fill. Always at least 2 stops.
  */
 export function planStopMix(answers: QuestionnaireAnswers): StopPattern {
   const window = windowMinutes(answers.startTime, answers.endTime);
@@ -66,10 +68,27 @@ export function planStopMix(answers: QuestionnaireAnswers): StopPattern {
 }
 
 /**
- * Compose the evening: ask `planStopMix` for the role pattern, then pick the
- * Main as the geographic anchor and fill the remaining slots in pattern order
- * subject to walking-distance proximity. Each non-Main stop carries its own
- * Plan B alternative pulled from the same scored list.
+ * Compose a complete itinerary from a pool of candidate venues.
+ *
+ * 1. Calls `planStopMix` to determine how many stops fit the time window.
+ * 2. Picks Main first (no anchor constraint — scored freely).
+ * 3. Fills remaining roles anchored to Main for proximity.
+ * 4. Tracks `usedIds` and `usedCategories` across picks to avoid
+ *    repeats and apply the category-diversity penalty.
+ *
+ * If no candidate is found for a role, that slot is silently skipped —
+ * the returned array may have fewer stops than the planned pattern.
+ *
+ * @param venues    - Pre-filtered venue pool (post candidate-filtering).
+ * @param answers   - User's questionnaire responses with resolved times.
+ * @param weather   - Weather info; affects proximity cap and outdoor filter.
+ * @param jitter    - Jitter magnitude. Defaults to ALGORITHM.jitter.magnitude.
+ * @param random    - Seeded PRNG. Defaults to Math.random.
+ * @param dayColumn - Per-day column for time relevance scoring. Null = skip.
+ * @param timeBlock - Time block for time relevance scoring. Null = skip.
+ *
+ * @returns `{ stops, pattern }` — the assembled stops and the planned
+ *          role sequence (pattern may be longer than stops if roles were skipped).
  */
 export function composeItinerary(
   venues: Venue[],

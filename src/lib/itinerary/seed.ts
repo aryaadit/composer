@@ -10,7 +10,16 @@ import type { GenerateRequestBody } from "@/types";
 
 /**
  * Compute a deterministic 32-bit seed from the request body.
- * Hashes the scoring-relevant fields (sorted for stability).
+ *
+ * Hashes scoring-relevant fields: occasion, vibe, budget, timeBlock,
+ * day, neighborhoods (sorted), and excludeVenueIds (sorted). Arrays
+ * are sorted before hashing so field order doesn't affect the seed.
+ *
+ * Fields excluded from hash: partySize (hardcoded to 2), drinks/dietary
+ * (per-user profile, not request-specific).
+ *
+ * @param body - The POST request body from /api/generate.
+ * @returns A 32-bit unsigned integer seed for createSeededRandom().
  */
 export function computeRequestSeed(body: GenerateRequestBody): number {
   const parts = [
@@ -26,8 +35,13 @@ export function computeRequestSeed(body: GenerateRequestBody): number {
 }
 
 /**
- * Create a seeded PRNG function. Each call returns the next value
- * in [0, 1), same as Math.random() but deterministic.
+ * Create a seeded PRNG function (Mulberry32 algorithm).
+ *
+ * Each call to the returned function produces the next value in [0, 1),
+ * same interface as Math.random() but deterministic given the seed.
+ *
+ * @param seed - 32-bit integer seed from computeRequestSeed().
+ * @returns A function that produces the next pseudo-random number on each call.
  */
 export function createSeededRandom(seed: number): () => number {
   let state = seed | 0;

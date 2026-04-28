@@ -23,7 +23,17 @@ import { ROLE_EXPANSION as GEN_ROLE_EXPANSION } from "@/config/generated/stop-ro
 
 const ROLE_EXPANSION = GEN_ROLE_EXPANSION as Record<VenueRole, readonly StopRole[]>;
 
-/** Check whether a venue can serve a given canonical composition role. */
+/**
+ * Check whether a venue can serve a given canonical composition role.
+ *
+ * Maps the venue's raw stop_roles (opener, main, closer, drinks,
+ * activity, coffee) through ROLE_EXPANSION to canonical roles. A venue
+ * with stop_roles=["drinks"] can serve both "opener" and "closer".
+ *
+ * @param venue - The venue to check.
+ * @param role  - The canonical role being filled (opener, main, closer).
+ * @returns True if any of the venue's roles expand to include the target role.
+ */
 function venueMatchesRole(venue: Venue, role: StopRole): boolean {
   return venue.stop_roles.some(
     (vr) => (ROLE_EXPANSION[vr as VenueRole] ?? []).includes(role)
@@ -159,9 +169,30 @@ function filterByProximity(
 }
 
 /**
- * Hard-filter, then relax progressively, score the survivors, and return the
- * best venue for the given role plus the full ranked list. The ranked list is
- * how the composer picks Plan B alternatives without re-scoring.
+ * Pick the highest-scoring venue for a given stop role.
+ *
+ * Applies hard filters first (role match, neighborhood, weather), then
+ * scores survivors using weighted components from `src/config/algorithm.ts`.
+ * If the hard filter + proximity leaves zero candidates, relaxes by
+ * dropping the neighborhood requirement (proximity stays hard).
+ *
+ * Random jitter is applied from a seeded PRNG so identical inputs produce
+ * identical results — see `src/lib/itinerary/seed.ts`.
+ *
+ * @param venues         - Full venue pool (post candidate-filtering).
+ * @param role           - The stop role being filled (opener, main, closer).
+ * @param answers        - The user's questionnaire responses.
+ * @param weather        - Current weather; null disables weather filtering.
+ * @param usedIds        - Venue IDs already selected; excluded from candidates.
+ * @param anchor         - Reference venue for proximity filtering (Main). Null for Main selection.
+ * @param jitter         - Jitter magnitude from ALGORITHM.jitter.magnitude.
+ * @param random         - Seeded PRNG function; defaults to Math.random.
+ * @param usedCategories - Categories already used in this itinerary; triggers -20 penalty.
+ * @param dayColumn      - Per-day column (e.g. "fri_blocks") for time relevance scoring.
+ * @param timeBlock      - Time block (e.g. "evening") for time relevance scoring.
+ *
+ * @returns `{ best, scored }` — the top-ranked venue (or null if none qualify)
+ *          and the full sorted list (used by composer for Plan B selection).
  */
 export function pickBestForRole(
   venues: Venue[],

@@ -121,10 +121,14 @@ export function dateToDayColumn(isoDate: string): DayColumn {
 /**
  * Returns effective time blocks for a venue on a specific day.
  *
- * Hybrid rule:
- * - If ANY per-day column is populated, trust per-day data.
- *   Empty per-day for the requested day = venue closed that day.
+ * Implements the hybrid per-day/global rule:
+ * - If ANY of the 7 per-day columns has data, trust per-day data.
+ *   An empty per-day array for the requested day means "closed that day."
  * - If ALL 7 per-day columns are empty, fall back to global time_blocks.
+ *
+ * @param venue     - Venue with time_blocks and per-day block arrays.
+ * @param dayColumn - Which day column to check (e.g. "fri_blocks").
+ * @returns Array of time block IDs the venue covers on that day.
  */
 interface VenueBlocks {
   time_blocks: string[];
@@ -161,6 +165,13 @@ export function effectiveBlocksForDay(
 
 /**
  * True if venue is open during the given block on the given day.
+ *
+ * Wrapper around effectiveBlocksForDay — used as a filter predicate
+ * in the generate route's candidate-filtering stage.
+ *
+ * @param venue     - Venue with time block data.
+ * @param dayColumn - Day column (e.g. "fri_blocks").
+ * @param block     - Time block to check (e.g. "evening").
  */
 export function venueOpenForBlock(
   venue: VenueBlocks,
