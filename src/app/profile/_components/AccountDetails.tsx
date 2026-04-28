@@ -44,9 +44,25 @@ export function AccountDetails({ profile, userId, refreshProfile }: Props) {
         <div className="pt-5 pb-2">
           <DietaryField profile={profile} userId={userId} onSaved={refreshProfile} />
         </div>
+        {/*
+         * FAVORITE NEIGHBORHOODS — TEMPORARILY HIDDEN (2026-04-28)
+         *
+         * Hidden from the profile page because the underlying data
+         * (favorite_hoods) is no longer collected during onboarding.
+         * Showing an empty editable field would confuse users.
+         *
+         * The DB column, the HoodsField component, and the save logic
+         * are all intact. To restore: uncomment this block. To change
+         * how favorites are surfaced (e.g., derive from past itineraries
+         * instead of explicit selection), the field can be repurposed.
+         *
+         * Paired with onboarding step removal in OnboardingFlow.tsx.
+         */}
+        {/*
         <div className="pt-5 pb-2">
           <HoodsField profile={profile} userId={userId} onSaved={refreshProfile} />
         </div>
+        */}
       </div>
     </section>
   );

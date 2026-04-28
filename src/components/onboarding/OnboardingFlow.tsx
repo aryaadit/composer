@@ -4,7 +4,9 @@
 // (session exists, no profile row yet). Splash screen lives on the
 // root page — this component handles the profile steps only.
 //
-// Steps: 0 name, 1 context, 2 preferences, 3 neighborhoods → save → home
+// Steps: 0 name, 1 context, 2 preferences → save → home
+//
+// Neighborhood step removed 2026-04-28 — see commented-out block below.
 
 import { useRef, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
@@ -23,7 +25,7 @@ import { NeighborhoodPicker } from "@/components/shared/NeighborhoodPicker";
 import { Header } from "@/components/Header";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 
-const TOTAL_STEPS = 4; // 0–3
+const TOTAL_STEPS = 3; // 0–2
 
 export function OnboardingFlow() {
   const router = useRouter();
@@ -241,7 +243,25 @@ export function OnboardingFlow() {
               </div>
             )}
 
-            {/* ── Step 3: Neighborhoods ───────────────────── */}
+            {/*
+             * NEIGHBORHOOD STEP — TEMPORARILY DISABLED (2026-04-28)
+             *
+             * Removed from onboarding because users found it repetitive —
+             * they pick neighborhoods again during itinerary generation,
+             * and the prefill wasn't strong enough to justify the duplicate
+             * effort.
+             *
+             * The DB column composer_users.favorite_hoods is intact and
+             * the NeighborhoodPicker component is unchanged. To restore:
+             * uncomment this block, set TOTAL_STEPS back to 4, and adjust
+             * the bottom action area step checks.
+             *
+             * We may surface this info differently in the future:
+             *   - As a derived signal from the user's past itineraries
+             *   - As a discovery filter rather than a planning input
+             *   - As an optional polish step at the end of onboarding
+             */}
+            {/*
             {step === 3 && (
               <div className="flex-1 flex flex-col pt-8">
                 <h1 className="font-sans text-2xl font-medium text-charcoal mb-2">
@@ -258,13 +278,14 @@ export function OnboardingFlow() {
                 />
               </div>
             )}
+            */}
           </motion.div>
         </AnimatePresence>
       </div>
 
       {/* ── Bottom action area ──────────────────────────── */}
       <div className="relative z-10 px-6 pb-10 pt-4 max-w-lg w-full mx-auto">
-        {step >= 0 && step <= 2 && (
+        {step >= 0 && step <= 1 && (
           <Button
             variant="primary"
             onClick={handleNext}
@@ -277,7 +298,7 @@ export function OnboardingFlow() {
             Next →
           </Button>
         )}
-        {step === 3 && (
+        {step === 2 && (
           <Button
             variant="primary"
             onClick={() => void handleFinish()}
