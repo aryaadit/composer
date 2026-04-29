@@ -26,12 +26,11 @@ export default function ProfilePage() {
     }
   }, [isLoading, user, router]);
 
+  // Redirect is in-flight or auth is still hydrating — show blank cream
+  // page (not a spinner) so unauthenticated users don't see a loading
+  // state before the redirect lands.
   if (isLoading || !user || !profile) {
-    return (
-      <main className="flex flex-1 items-center justify-center min-h-screen bg-cream">
-        <div className="w-6 h-6 border-2 border-charcoal border-t-transparent rounded-full animate-spin" />
-      </main>
-    );
+    return <main className="min-h-screen bg-cream" />;
   }
 
   return (
