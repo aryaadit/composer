@@ -22,6 +22,7 @@ import {
   BOROUGH_ORDER,
   type Borough,
 } from "@/config/neighborhoods";
+import { ALGORITHM } from "@/config/algorithm";
 
 interface NeighborhoodPickerProps {
   /** Group IDs to pre-select. */
@@ -62,7 +63,10 @@ export function NeighborhoodPicker({
     [selectedSet, atMax, onChange]
   );
 
-  const groups = NEIGHBORHOOD_GROUPS;
+  const minVenues = ALGORITHM.pools.minGroupVenuesToRender;
+  const filtered = NEIGHBORHOOD_GROUPS.filter((g) => g.venueCount >= minVenues);
+  // Fallback to unfiltered if threshold hides everything
+  const groups = filtered.length > 0 ? filtered : NEIGHBORHOOD_GROUPS;
 
   // ── Flat list ────────────────────────────────────────────────────────
   if (!groupByBorough) {

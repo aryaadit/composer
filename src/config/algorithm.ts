@@ -225,6 +225,20 @@ export const ALGORITHM = {
      * [5,4,3,2,1] means #1 is 5x more likely than #5.
      */
     pickWeights: [5, 4, 3, 2, 1] as readonly number[],
+
+    /**
+     * Minimum total active venues a neighborhood group must have to
+     * appear in the picker.
+     *
+     * Higher = stricter; only well-populated groups appear. Lower = more
+     * groups visible but some may produce thin itineraries.
+     *
+     * Sane range: 30-75. Below 30, thin groups produce low-quality
+     * itineraries. Above 75, legitimate smaller groups get hidden.
+     *
+     * Calibrated 2026-04-29 at 50.
+     */
+    minGroupVenuesToRender: 50,
   },
 
   composition: {

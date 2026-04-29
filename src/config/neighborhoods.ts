@@ -73,11 +73,12 @@ export const BOROUGH_ORDER: readonly Borough[] = ["manhattan", "brooklyn", "quee
 
 // Convert the generated Record to the ordered array the UI iterates.
 export const NEIGHBORHOOD_GROUPS = Object.entries(GEN_GROUPS).map(
-  ([id, { label, borough, slugs }]) => ({
+  ([id, { label, borough, slugs, venueCount }]) => ({
     id,
     label,
     borough: borough.toLowerCase() as Borough,
     slugs,
+    venueCount,
   })
 );
 

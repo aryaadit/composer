@@ -77,6 +77,47 @@ def get_sheets_service():
     return build("sheets", "v4", credentials=creds)
 
 
+def get_supabase():
+    """Build a Supabase client for venue count queries."""
+    try:
+        from supabase import create_client
+        return create_client(
+            os.environ["NEXT_PUBLIC_SUPABASE_URL"],
+            os.environ["SUPABASE_SERVICE_ROLE_KEY"],
+        )
+    except ImportError:
+        print("WARNING: supabase-py not installed, venue counts will be 0")
+        return None
+    except KeyError:
+        print("WARNING: Supabase env vars not set, venue counts will be 0")
+        return None
+
+
+def fetch_venue_counts_by_neighborhood(supabase) -> dict[str, int]:
+    """Fetch active venue counts grouped by neighborhood slug."""
+    if supabase is None:
+        return {}
+    all_rows = []
+    page_size = 1000
+    offset = 0
+    while True:
+        res = supabase.table("composer_venues_v2") \
+            .select("neighborhood") \
+            .eq("active", True) \
+            .range(offset, offset + page_size - 1) \
+            .execute()
+        all_rows.extend(res.data)
+        if len(res.data) < page_size:
+            break
+        offset += page_size
+    counts: dict[str, int] = {}
+    for row in all_rows:
+        slug = row.get("neighborhood")
+        if slug:
+            counts[slug] = counts.get(slug, 0) + 1
+    return counts
+
+
 def read_sheet_column(service, tab: str, col: str) -> list[str]:
     """Read a single column from a sheet tab, skipping the header rows.
 
@@ -398,8 +439,9 @@ def emit_vibes(service) -> str:
     return "".join(lines)
 
 
-def emit_neighborhoods(service) -> str:
+def emit_neighborhoods(service, venue_counts: dict[str, int] | None = None) -> str:
     all_hoods = read_neighborhoods(service)
+    counts = venue_counts or {}
 
     lines = [HEADER]
 
@@ -409,6 +451,7 @@ def emit_neighborhoods(service) -> str:
         "  label: string;\n"
         "  borough: string;\n"
         "  slugs: string[];\n"
+        "  venueCount: number;\n"
         "}\n\n"
     )
 
@@ -416,11 +459,13 @@ def emit_neighborhoods(service) -> str:
     lines.append("export const NEIGHBORHOOD_GROUPS: Record<string, NeighborhoodGroup> = {\n")
     for g in NEIGHBORHOOD_GROUPS:
         slugs = ", ".join(quote(s) for s in g["slugs"])
+        venue_count = sum(counts.get(s, 0) for s in g["slugs"])
         lines.append(
             f"  {g['id']}: {{\n"
             f"    label: {quote(g['label'])},\n"
             f"    borough: {quote(g['borough'])},\n"
             f"    slugs: [{slugs}],\n"
+            f"    venueCount: {venue_count},\n"
             f"  }},\n"
         )
     lines.append("};\n\n")
@@ -512,10 +557,18 @@ def main() -> int:
     print("Connecting to Google Sheet...", file=sys.stderr)
     service = get_sheets_service()
 
+    print("Fetching venue counts from Supabase...", file=sys.stderr)
+    supabase = get_supabase()
+    venue_counts = fetch_venue_counts_by_neighborhood(supabase)
+    print(f"  {sum(venue_counts.values())} active venues across {len(venue_counts)} neighborhoods", file=sys.stderr)
+
     OUT_DIR.mkdir(parents=True, exist_ok=True)
 
     for filename, emitter in OUTPUTS:
-        content = emitter(service)
+        if emitter == emit_neighborhoods:
+            content = emitter(service, venue_counts)
+        else:
+            content = emitter(service)
         out_path = OUT_DIR / filename
         out_path.write_text(content)
         lines = content.count("\n")
