@@ -207,6 +207,24 @@ export const ALGORITHM = {
      * Sane range: 15-50.
      */
     minBudgetWideningThreshold: 30,
+
+    /**
+     * Number of top-scored candidates to consider for weighted random
+     * pick. Higher = more variety across regenerations. 1 = deterministic
+     * top-1 (old behavior).
+     *
+     * Sane range: 3-7.
+     */
+    pickTopN: 5,
+
+    /**
+     * Rank-based weights for the weighted random sampler. Index 0 is
+     * the highest-scored candidate. Weights are normalized internally;
+     * only relative magnitudes matter.
+     *
+     * [5,4,3,2,1] means #1 is 5x more likely than #5.
+     */
+    pickWeights: [5, 4, 3, 2, 1] as readonly number[],
   },
 
   composition: {

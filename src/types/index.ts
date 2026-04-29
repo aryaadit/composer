@@ -32,6 +32,12 @@ export type VenueRole =
   | "activity"
   | "coffee";
 
+export interface StopHint {
+  role: StopRole;
+  venueRoleHint?: VenueRole;
+}
+export type StopPattern = StopHint[];
+
 export type DrinksPref = "yes" | "sometimes" | "no";
 
 // Client-shaped preferences as collected by the onboarding flow. This is

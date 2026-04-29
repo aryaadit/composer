@@ -165,16 +165,30 @@ export async function POST(request: Request) {
 
     let venues = venueResult.data as Venue[];
 
+    // Graceful exclude-list degradation. The list is ordered
+    // most-recent-first by the client. Drop entries from the END
+    // (oldest) until the pool clears minPoolSize.
     if (excludeVenueIds.length > 0) {
-      const excludeSet = new Set(excludeVenueIds);
-      const filtered = venues.filter((v) => !excludeSet.has(v.id));
-      if (filtered.length >= ALGORITHM.pools.minPoolSize) {
-        venues = filtered;
-      } else {
-        console.warn(
-          `[generate] exclusion would collapse pool to ${filtered.length} venues (min ${ALGORITHM.pools.minPoolSize}), falling back to unfiltered pool`
+      const ids = [...excludeVenueIds];
+      let toExclude = new Set(ids);
+      let filtered = venues.filter((v) => !toExclude.has(v.id));
+      const trimmed: string[] = [];
+      while (
+        filtered.length < ALGORITHM.pools.minPoolSize &&
+        ids.length > 0
+      ) {
+        const dropped = ids.pop();
+        if (!dropped) break;
+        trimmed.push(dropped);
+        toExclude = new Set(ids);
+        filtered = venues.filter((v) => !toExclude.has(v.id));
+      }
+      if (trimmed.length > 0) {
+        console.info(
+          `[generate] partial exclusion: dropped ${trimmed.length} oldest IDs to keep pool ≥ ${ALGORITHM.pools.minPoolSize}`
         );
       }
+      venues = filtered;
     }
 
     if (venues.length === 0) {

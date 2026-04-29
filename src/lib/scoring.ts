@@ -12,8 +12,8 @@ import { walkDistanceKm } from "@/lib/geo";
 import { BUDGET_TIER_MAP } from "@/config/budgets";
 import { VIBE_VENUE_TAGS } from "@/config/vibes";
 import { ALGORITHM } from "@/config/algorithm";
-import { blockCoverageFraction } from "@/lib/itinerary/time-blocks";
-import type { DayColumn, TimeBlock } from "@/lib/itinerary/time-blocks";
+import { weightedPickByRank } from "@/lib/itinerary/weighted-pick";
+import { blockCoverageFraction, type DayColumn, type TimeBlock } from "@/lib/itinerary/time-blocks";
 
 // ─── Role expansion ────────────────────────────────────────────────────
 // Generated from the Stop Roles sheet. Maps the 6 raw venue roles to
@@ -122,13 +122,17 @@ function hardFilter(
   role: StopRole,
   answers: QuestionnaireAnswers,
   weather: WeatherInfo | null,
-  exclude: Set<string>
+  exclude: Set<string>,
+  enforceNeighborhood: boolean = true,
+  venueRoleHint?: VenueRole
 ): Venue[] {
   return venues.filter((v) => {
     if (!v.active) return false;
     if (exclude.has(v.id)) return false;
     if (!venueMatchesRole(v, role)) return false;
+    if (venueRoleHint && !v.stop_roles.includes(venueRoleHint)) return false;
     if (
+      enforceNeighborhood &&
       answers.neighborhoods.length > 0 &&
       !answers.neighborhoods.includes(v.neighborhood)
     ) {
@@ -168,6 +172,12 @@ function filterByProximity(
   return candidates.filter((v) => isWithinWalkRange(v, anchor, maxKm));
 }
 
+function applyProximity(candidates: Venue[], anchor: Venue | null, maxKm: number): Venue[] {
+  if (!anchor || candidates.length === 0) return candidates;
+  const nearby = filterByProximity(candidates, anchor, maxKm);
+  return nearby.length > 0 ? nearby : [];
+}
+
 /**
  * Pick the highest-scoring venue for a given stop role.
  *
@@ -190,6 +200,8 @@ function filterByProximity(
  * @param usedCategories - Categories already used in this itinerary; triggers -20 penalty.
  * @param dayColumn      - Per-day column (e.g. "fri_blocks") for time relevance scoring.
  * @param timeBlock      - Time block (e.g. "evening") for time relevance scoring.
+ * @param venueRoleHint  - Optional raw venue role to prefer (e.g. "drinks" for bar slots).
+ *                         If no venues match the hint, falls back to any role-compatible venue.
  *
  * @returns `{ best, scored }` — the top-ranked venue (or null if none qualify)
  *          and the full sorted list (used by composer for Plan B selection).
@@ -205,27 +217,25 @@ export function pickBestForRole(
   random: () => number = Math.random,
   usedCategories: Set<string> = new Set(),
   dayColumn: DayColumn | null = null,
-  timeBlock: TimeBlock | null = null
+  timeBlock: TimeBlock | null = null,
+  venueRoleHint?: VenueRole
 ): { best: ScoredVenue | null; scored: ScoredVenue[] } {
   const maxWalkKm = getMaxWalkKm(weather);
+  const enforceNeighborhood = anchor === null;
 
-  // 1. Hard filter (neighborhood match)
-  let candidates = hardFilter(venues, role, answers, weather, usedIds);
+  // Cascade: strict (with hint) → drop hint → drop neighborhood.
+  // Proximity to anchor is always hard.
+  let candidates = hardFilter(venues, role, answers, weather, usedIds, enforceNeighborhood, venueRoleHint);
+  candidates = applyProximity(candidates, anchor, maxWalkKm);
 
-  // 2. Enforce proximity to anchor
-  if (anchor && candidates.length > 0) {
-    const nearby = filterByProximity(candidates, anchor, maxWalkKm);
-    if (nearby.length > 0) candidates = nearby;
-    // If no nearby candidates survive, fall through to relaxed filter
-    else candidates = [];
+  if (candidates.length === 0 && venueRoleHint) {
+    candidates = hardFilter(venues, role, answers, weather, usedIds, enforceNeighborhood);
+    candidates = applyProximity(candidates, anchor, maxWalkKm);
   }
-
-  // 3. Progressive relaxation: drop neighborhood, KEEP proximity (hard).
   if (candidates.length === 0) {
-    candidates = relaxedFilter(venues, role, usedIds, weather);
-    if (anchor && candidates.length > 0) {
-      candidates = filterByProximity(candidates, anchor, maxWalkKm);
-    }
+    candidates = applyProximity(
+      relaxedFilter(venues, role, usedIds, weather), anchor, maxWalkKm
+    );
   }
 
   const scored: ScoredVenue[] = candidates.map((v) => {
@@ -238,7 +248,6 @@ export function pickBestForRole(
   scored.sort((a, b) => {
     const scoreDiff = b.score - a.score;
     if (Math.abs(scoreDiff) > 0.01) return scoreDiff;
-    // Tiebreaker: google_rating → google_review_count → quality_score
     const ratingDiff = (b.google_rating ?? 0) - (a.google_rating ?? 0);
     if (Math.abs(ratingDiff) > 0.01) return ratingDiff;
     const reviewDiff = (b.google_review_count ?? 0) - (a.google_review_count ?? 0);
@@ -246,5 +255,17 @@ export function pickBestForRole(
     return b.quality_score - a.quality_score;
   });
 
-  return { best: scored[0] ?? null, scored };
+  // Weighted top-N pick for variety. When jitter=0 (health checks) or
+  // topN=1, falls back to deterministic top-1.
+  const topN = jitter === 0 ? 1 : (ALGORITHM.pools.pickTopN ?? 1);
+  const best =
+    topN <= 1 || scored.length <= 1
+      ? scored[0] ?? null
+      : weightedPickByRank(
+          scored.slice(0, Math.min(topN, scored.length)),
+          ALGORITHM.pools.pickWeights,
+          random
+        );
+
+  return { best, scored };
 }

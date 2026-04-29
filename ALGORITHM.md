@@ -98,15 +98,23 @@ When two venues have identical total scores (within 0.01), the sort falls throug
 
 ## Composition rules (Stage 4)
 
-### Stop role sequence
+### Vibe-driven templates
 
-`planStopMix` in `composer.ts` picks the largest template that fits the user's time window:
+Each vibe maps to its own sequence of stop patterns in `src/config/templates.ts`. A "drinks-led" itinerary has a different stop structure than a "food-forward" one:
 
-- 4 stops (opener, main, closer, closer) — needs ~5h15m
-- 3 stops (opener, main, closer) — needs ~4h05m
-- 2 stops (opener, main) — minimum, always fits
+- **food_forward**: opener → main → closer (standard)
+- **drinks_led**: opener (hint: drinks) → main → closer (hint: drinks) — bookends with bars
+- **activity_food**: opener (hint: activity) → main → closer — starts with something to do
+- **walk_explore**: opener (hint: coffee) → main (hint: activity) → closer — morning coffee → gallery → dinner
+- **mix_it_up**: randomly picks one of the four concrete vibes at runtime
 
-Main is picked first as the geographic anchor. All other stops must be within `ALGORITHM.distance.maxWalkKmNormal` (1.5km) of Main. Each role calls `pickBestForRole` independently.
+Each slot has a canonical `role` (opener, main, closer) and an optional `venueRoleHint` that biases candidate selection. When the hinted pool is empty, `pickBestForRole` falls back gracefully via cascade relaxation: strict (with hint) → drop hint → drop neighborhood.
+
+`planStopMix` picks the largest template whose time budget fits the user's window. Main is picked first as the geographic anchor. All other stops must be within `ALGORITHM.distance.maxWalkKmNormal` (1.5km) of Main.
+
+### Weighted top-N pick
+
+Instead of always picking the #1 scored venue, `pickBestForRole` samples from the top N candidates using rank-based weights (configurable via `ALGORITHM.pools.pickTopN` and `pickWeights`). Default: top 5, weighted `[5,4,3,2,1]` — #1 is 5x more likely than #5 but not guaranteed. This adds variety across regenerations while preserving quality. Falls back to deterministic top-1 when `jitter === 0`.
 
 ### Category diversity penalty
 
@@ -132,6 +140,8 @@ If `pickBestForRole` returns null for a role (no candidates survive all filters 
 | Mediocre venue over great one | Jitter swung the ranking | Lower `ALGORITHM.jitter.magnitude` |
 | Same 3 venues every time | Jitter too low or pool too thin | Raise jitter or broaden filters |
 | Walk too long between stops | Proximity cap in scoring | `ALGORITHM.distance.maxWalkKmNormal` |
+| Drinks itinerary has no bars | venueRoleHint pool empty, fell back | Check venue stop_roles data, `templates.ts` hints |
+| Too much variety across regenerates | pickTopN too high or weights too flat | `ALGORITHM.pools.pickTopN`, `pickWeights` |
 
 ## Tunable levers
 
@@ -151,6 +161,8 @@ All live in `src/config/algorithm.ts`. See inline JSDoc there for sane ranges an
 | jitter.magnitude | 10 | Randomness range |
 | maxWalkKmNormal | 1.5 | Proximity hard cap (km) |
 | minBudgetWideningThreshold | 30 | When budget filter loosens |
+| pickTopN | 5 | How many top candidates to sample from |
+| pickWeights | [5,4,3,2,1] | Rank-based sampling probabilities |
 
 ## Known limitations
 
