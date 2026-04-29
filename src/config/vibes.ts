@@ -25,15 +25,19 @@ import {
 // Display label overrides. The generated labels come from the sheet's
 // Vibe Scoring Matrix tab; these override for questionnaire copy clarity.
 const VIBE_LABEL_OVERRIDES: Record<string, string> = {
-  activity_food: "Activity Night",
+  food_forward: "Meal",
+  drinks_led: "Drinks",
+  activity_food: "Activity",
+  walk_explore: "Stroll",
+  mix_it_up: "Variety",
 };
 
 const VIBE_DESCRIPTIONS: Record<string, string> = {
-  food_forward: "The meal anchors the night",
-  drinks_led: "Explore great drinks at a great bar",
-  activity_food: "Start with something to do, then eat",
-  walk_explore: "Galleries, parks, strolls between spots",
-  mix_it_up: "One of each — food, drinks, something to do",
+  food_forward: "A great meal anchors it all",
+  drinks_led: "Bars and cocktails are the focus",
+  activity_food: "Something to do first, then eat",
+  walk_explore: "Galleries, parks, pacing the day",
+  mix_it_up: "Food, drinks, and something to do",
 };
 
 // Vibe slugs match the sheet's Vibe Scoring Matrix keys (snake_case).
