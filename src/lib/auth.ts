@@ -17,6 +17,7 @@
 // ────────────────────────────────────────────────────────────────────────
 
 import { getBrowserSupabase } from "@/lib/supabase/browser";
+import { validateProfilePayload } from "@/lib/validation/profile";
 import type {
   Session,
   User,
@@ -67,6 +68,19 @@ export async function upsertProfile(
   userId: string,
   prefs: UserPrefs
 ): Promise<ComposerUser | null> {
+  // Validate against current taxonomy before write. Bad payload =
+  // throw so the caller surfaces the message inline. Client-side
+  // validation should catch this first; this is defense-in-depth.
+  const errors = validateProfilePayload({
+    name: prefs.name,
+    context: prefs.context,
+    dietary: prefs.dietary,
+    drinks: prefs.drinks ?? undefined,
+  });
+  if (errors.length > 0) {
+    throw new Error(errors[0].message);
+  }
+
   const row = {
     id: userId,
     name: prefs.name,
