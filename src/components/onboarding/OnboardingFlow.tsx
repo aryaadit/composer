@@ -21,6 +21,7 @@ import {
   DRINK_OPTIONS,
   DIETARY_OPTIONS,
 } from "@/config/onboarding";
+import { validateName } from "@/lib/profanity";
 import { NeighborhoodPicker } from "@/components/shared/NeighborhoodPicker";
 import { Header } from "@/components/Header";
 import { ProgressBar } from "@/components/ui/ProgressBar";
@@ -35,6 +36,7 @@ export function OnboardingFlow() {
 
   // Profile state
   const [name, setName] = useState("");
+  const [nameError, setNameError] = useState<string | null>(null);
   const [contexts, setContexts] = useState<string[]>([]);
   const [drinks, setDrinks] = useState<DrinksPref | "">("");
   const [dietary, setDietary] = useState<string[]>([]);
@@ -67,22 +69,40 @@ export function OnboardingFlow() {
 
   const handleFinish = async () => {
     if (!user || savingRef.current) return;
+
+    // Final defense-in-depth name check at submit. Should be unreachable
+    // if the step-0 button gating works, but bypasses are possible.
+    const nameErr = validateName(name);
+    if (nameErr) {
+      setNameError(nameErr);
+      setStep(0);
+      return;
+    }
+
     savingRef.current = true;
     setSaving(true);
 
     const prefs: UserPrefs = {
-      name: name.trim() || "Friend",
+      name: name.trim(),
       context: contexts,
       drinks: (drinks || undefined) as DrinksPref | undefined,
       dietary,
       favoriteHoods,
     };
 
-    const saved = await upsertProfile(user.id, prefs);
-    if (saved) {
-      await refreshProfile();
-      router.replace("/");
-    } else {
+    try {
+      const saved = await upsertProfile(user.id, prefs);
+      if (saved) {
+        await refreshProfile();
+        router.replace("/");
+      } else {
+        setSaving(false);
+        savingRef.current = false;
+      }
+    } catch (err) {
+      // Validation thrown from upsertProfile — surface inline at step 0.
+      setNameError(err instanceof Error ? err.message : "Couldn't save profile");
+      setStep(0);
       setSaving(false);
       savingRef.current = false;
     }
@@ -149,14 +169,32 @@ export function OnboardingFlow() {
                 <input
                   type="text"
                   value={name}
-                  onChange={(e) => setName(e.target.value)}
+                  onChange={(e) => {
+                    setName(e.target.value);
+                    if (nameError) setNameError(null);
+                  }}
+                  onBlur={() => setNameError(validateName(name))}
                   placeholder="Your first name"
-                  className="w-full px-0 py-3 text-xl font-sans bg-transparent border-b border-border focus:border-charcoal focus:outline-none transition-colors text-charcoal placeholder:text-muted"
+                  className={`w-full px-0 py-3 text-xl font-sans bg-transparent border-b focus:outline-none transition-colors text-charcoal placeholder:text-muted ${
+                    nameError ? "border-burgundy" : "border-border focus:border-charcoal"
+                  }`}
                   autoFocus
                   onKeyDown={(e) => {
-                    if (e.key === "Enter" && name.trim()) handleNext();
+                    if (e.key === "Enter") {
+                      const err = validateName(name);
+                      if (err) {
+                        setNameError(err);
+                        return;
+                      }
+                      handleNext();
+                    }
                   }}
                 />
+                {nameError && (
+                  <p className="font-sans text-sm text-burgundy mt-2">
+                    {nameError}
+                  </p>
+                )}
               </div>
             )}
 
@@ -289,9 +327,18 @@ export function OnboardingFlow() {
         {step >= 0 && step <= 1 && (
           <Button
             variant="primary"
-            onClick={handleNext}
+            onClick={() => {
+              if (step === 0) {
+                const err = validateName(name);
+                if (err) {
+                  setNameError(err);
+                  return;
+                }
+              }
+              handleNext();
+            }}
             disabled={
-              (step === 0 && !name.trim()) ||
+              (step === 0 && (validateName(name) !== null)) ||
               (step === 1 && contexts.length === 0)
             }
             className="w-full"
