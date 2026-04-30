@@ -9,7 +9,6 @@
 
 import { useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { getBrowserSupabase } from "@/lib/supabase/browser";
 
 // Re-export from the canonical shared location so existing
 // AccountDetails / SinglePillSelectField imports keep working.
@@ -177,24 +176,40 @@ export function useFieldEditor<T>(
     setEditing(false);
   };
 
+  // userId is unused now (the API derives it from the session) but kept
+  // in the signature for backward compatibility with all existing callers.
+  void userId;
+
   const save = async (column: string, value: unknown) => {
     setSaving(true);
     setError(null);
-    const { error: err } = await getBrowserSupabase()
-      .from("composer_users")
-      .update({ [column]: value })
-      .eq("id", userId);
-    if (err) {
-      console.error("[profile] update failed:", err.message);
-      setError("Save failed");
+    try {
+      const res = await fetch("/api/profile", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ [column]: value }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        // 400: { errors: [{ field, message }] }, 500: { error }
+        const message =
+          data.errors?.[0]?.message ?? data.error ?? "Failed to save";
+        setError(message);
+        setSaving(false);
+        return;
+      }
+
+      await onSaved();
       setSaving(false);
-      return;
+      setEditing(false);
+      setJustSaved(true);
+      setTimeout(() => setJustSaved(false), 2000);
+    } catch (err) {
+      console.error("[profile] update failed:", err);
+      setError("Network error. Please try again.");
+      setSaving(false);
     }
-    await onSaved();
-    setSaving(false);
-    setEditing(false);
-    setJustSaved(true);
-    setTimeout(() => setJustSaved(false), 2000);
   };
 
   return {
