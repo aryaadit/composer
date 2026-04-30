@@ -7,6 +7,7 @@
 // hits "New date plan" from home.
 
 import { use, useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { getBrowserSupabase } from "@/lib/supabase/browser";
 import { CompositionHeader } from "@/components/itinerary/CompositionHeader";
@@ -135,12 +136,19 @@ export default function SavedItineraryPage({
 
   const noopRegenerate = () => {};
   return (
-    <main className="flex flex-1 flex-col items-center min-h-screen px-6 pt-6 pb-8">
-      <div className="w-full max-w-lg mx-auto mb-6">
-        <Header showBack backHref="/" />
-      </div>
-
-      <CompositionHeader header={itinerary.header} inputs={itinerary.inputs} />
+    <main className="flex flex-1 flex-col items-center min-h-screen pb-8">
+      <Header
+        rightSlot={
+          <Link
+            href="/"
+            className="font-sans text-sm text-muted hover:text-charcoal transition-colors"
+          >
+            &larr; Back
+          </Link>
+        }
+      />
+      <div className="w-full px-6 mt-6 flex flex-col items-center">
+        <CompositionHeader header={itinerary.header} inputs={itinerary.inputs} />
       <ItineraryView
         stops={itinerary.stops}
         walks={itinerary.walks}
@@ -148,6 +156,7 @@ export default function SavedItineraryPage({
         date={itinerary.inputs.day}
         partySize={2}
       />
+      </div>
       <ActionBar
         itinerary={itinerary}
         onRegenerate={noopRegenerate}

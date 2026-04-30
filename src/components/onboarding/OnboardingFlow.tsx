@@ -107,23 +107,24 @@ export function OnboardingFlow() {
   return (
     <div className="min-h-screen flex flex-col bg-cream">
       {showProgress && (
-        <div className="px-6">
-          <div className="w-full max-w-lg mx-auto relative">
-            <Header />
-            {step > 0 && (
-              <button
-                type="button"
-                onClick={handleBack}
-                className="absolute right-0 top-1/2 -translate-y-1/2 font-sans text-sm text-warm-gray hover:text-charcoal transition-colors"
-              >
-                &larr; Back
-              </button>
-            )}
-          </div>
-          <div className="w-full max-w-lg mx-auto mt-1">
+        <>
+          <Header
+            rightSlot={
+              step > 0 && (
+                <button
+                  type="button"
+                  onClick={handleBack}
+                  className="font-sans text-sm text-warm-gray hover:text-charcoal transition-colors"
+                >
+                  &larr; Back
+                </button>
+              )
+            }
+          />
+          <div className="px-6 w-full max-w-lg mx-auto mt-1">
             <ProgressBar currentStep={step} totalSteps={progressSteps} />
           </div>
-        </div>
+        </>
       )}
 
       <div className="flex-1 flex flex-col px-6 max-w-lg w-full mx-auto">

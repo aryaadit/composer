@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import type {
   ItineraryResponse,
@@ -167,11 +168,19 @@ function ItineraryContent() {
   }
 
   return (
-    <main className="flex flex-1 flex-col items-center min-h-screen px-6 pt-6 pb-8">
-      <div className="w-full max-w-lg mx-auto mb-6">
-        <Header showBack backHref="/" />
-      </div>
-      <CompositionHeader header={itinerary.header} inputs={itinerary.inputs} />
+    <main className="flex flex-1 flex-col items-center min-h-screen pb-8">
+      <Header
+        rightSlot={
+          <Link
+            href="/"
+            className="font-sans text-sm text-muted hover:text-charcoal transition-colors"
+          >
+            &larr; Back
+          </Link>
+        }
+      />
+      <div className="w-full px-6 mt-6 flex flex-col items-center">
+        <CompositionHeader header={itinerary.header} inputs={itinerary.inputs} />
       {regenerating ? (
         <div className="w-full max-w-lg py-16">
           <StepLoading />
@@ -198,6 +207,7 @@ function ItineraryContent() {
       {addStopError && (
         <p className="font-sans text-sm text-charcoal mt-4">{addStopError}</p>
       )}
+      </div>
       <ActionBar
         itinerary={itinerary}
         onRegenerate={handleRegenerate}

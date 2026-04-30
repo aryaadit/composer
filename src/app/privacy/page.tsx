@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Header } from "@/components/Header";
 
 export const metadata: Metadata = {
   title: "Privacy Policy — Composer",
@@ -8,15 +9,19 @@ export const metadata: Metadata = {
 
 export default function PrivacyPage() {
   return (
-    <main className="min-h-screen bg-cream px-6 py-12">
-      <div className="max-w-2xl mx-auto">
-        <Link
-          href="/"
-          className="inline-block font-sans text-xs text-muted hover:text-charcoal transition-colors mb-8"
-        >
-          &larr; Back
-        </Link>
-
+    <>
+      <Header
+        rightSlot={
+          <Link
+            href="/"
+            className="font-sans text-sm text-muted hover:text-charcoal transition-colors"
+          >
+            &larr; Back
+          </Link>
+        }
+      />
+      <main className="min-h-screen bg-cream px-6 pb-12">
+        <div className="max-w-2xl mx-auto pt-4">
         <h1 className="font-serif text-3xl font-normal text-charcoal mb-2">
           Privacy Policy
         </h1>
@@ -175,7 +180,8 @@ export default function PrivacyPage() {
           </a>
           .
         </p>
-      </div>
-    </main>
+        </div>
+      </main>
+    </>
   );
 }

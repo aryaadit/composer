@@ -174,38 +174,28 @@ export function QuestionnaireShell() {
   if (!step) return <StepLoading />;
 
   return (
-    <div className="relative min-h-screen px-6">
-      {/* Top chrome — pulled out of the centering math via absolute positioning
-          so the question content can be true-centered in the viewport, not in
-          the leftover space below the header + progress. */}
-      <div className="absolute top-0 inset-x-0 px-6 z-10">
-        <div className="w-full max-w-lg mx-auto relative">
-          <Header />
-          {/* Step-back is intrinsic to the questionnaire flow (advances
-              the reducer, doesn't exit to home), so it lives outside
-              Header. Absolute-positioned over the Header's empty right
-              slot to share the row visually. */}
-          {state.currentStep > 0 && (
+    <div className="min-h-screen flex flex-col">
+      <Header
+        rightSlot={
+          state.currentStep > 0 && (
             <button
               onClick={() => dispatch({ type: "BACK" })}
-              className="absolute right-0 top-1/2 -translate-y-1/2 font-sans text-sm text-warm-gray hover:text-charcoal transition-colors"
+              className="font-sans text-sm text-warm-gray hover:text-charcoal transition-colors"
             >
               &larr; Back
             </button>
-          )}
-        </div>
-        <div className="w-full max-w-lg mx-auto mt-1">
-          <ProgressBar
-            currentStep={state.currentStep}
-            totalSteps={questionSteps.length}
-          />
-        </div>
+          )
+        }
+      />
+      <div className="px-6 max-w-lg w-full mx-auto mt-1">
+        <ProgressBar
+          currentStep={state.currentStep}
+          totalSteps={questionSteps.length}
+        />
       </div>
 
-      {/* Content — viewport-centered. Equal pt/pb so the centered content
-          actually lands at viewport center, not below it. pt-24 covers the
-          absolute top chrome on short viewports. */}
-      <div className="min-h-screen flex flex-col justify-center items-center py-24">
+      {/* Content — fills remaining viewport space and centers vertically. */}
+      <div className="flex-1 flex flex-col justify-center items-center px-6 py-8">
         <div className="w-full max-w-lg">
           <AnimatePresence mode="wait" custom={state.direction}>
             <motion.div

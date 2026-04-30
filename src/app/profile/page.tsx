@@ -7,6 +7,7 @@
 // is actually missing vs still loading.
 
 import { useEffect } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { Header } from "@/components/Header";
@@ -35,10 +36,17 @@ export default function ProfilePage() {
 
   return (
     <div className="min-h-screen bg-cream">
-      <div className="max-w-lg w-full mx-auto px-6 pt-6 pb-10">
-        <Header showBack backHref="/" />
-        <div className="mt-6" />
-
+      <Header
+        rightSlot={
+          <Link
+            href="/"
+            className="font-sans text-sm text-muted hover:text-charcoal transition-colors"
+          >
+            &larr; Back
+          </Link>
+        }
+      />
+      <div className="max-w-lg w-full mx-auto px-6 pb-10 mt-6">
         <ProfileHeader
           name={profile.name}
           email={user.email ?? null}

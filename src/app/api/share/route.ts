@@ -24,7 +24,10 @@ export async function POST(request: Request) {
 
     const { data, error } = await supabase
       .from("composer_shared_itineraries")
-      .insert({ itinerary })
+      .insert({
+        itinerary,
+        time_block: itinerary.inputs?.timeBlock ?? "evening",
+      })
       .select("id")
       .single();
 

@@ -66,25 +66,24 @@ export function HomeScreen({ userName }: HomeScreenProps) {
 
   return (
     <div className="min-h-screen flex flex-col bg-cream">
-      <div className="px-6 pt-6 max-w-lg w-full mx-auto">
-        <Header />
-      </div>
-      <div className="px-6 pt-4 pb-8 max-w-lg w-full mx-auto flex items-start justify-between">
-        <div>
-          <p className="font-sans text-sm tracking-widest uppercase text-muted mb-2">
-            {greeting ? `${greeting}, ${userName}` : "\u00A0"}
-          </p>
-          <h1 className="font-serif text-3xl font-normal text-charcoal leading-tight">
-            Compose your night.
-          </h1>
-        </div>
-        <Link
-          href="/profile"
-          aria-label="Profile"
-          className="text-muted hover:text-charcoal transition-colors mt-1"
-        >
-          <UserIcon />
-        </Link>
+      <Header
+        rightSlot={
+          <Link
+            href="/profile"
+            aria-label="Profile"
+            className="text-muted hover:text-charcoal transition-colors"
+          >
+            <UserIcon />
+          </Link>
+        }
+      />
+      <div className="px-6 pt-4 pb-8 max-w-lg w-full mx-auto">
+        <p className="font-sans text-sm tracking-widest uppercase text-muted mb-2">
+          {greeting ? `${greeting}, ${userName}` : "\u00A0"}
+        </p>
+        <h1 className="font-serif text-3xl font-normal text-charcoal leading-tight">
+          Compose your night.
+        </h1>
       </div>
 
       {/* Main CTA */}
