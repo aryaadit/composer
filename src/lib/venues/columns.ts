@@ -218,3 +218,47 @@ export function columnKind(col: string): ColumnKind {
   if (DATE_COLUMNS.has(col)) return "date";
   return "string";
 }
+
+/**
+ * Per-column Postgres type, used by apply.ts to build the
+ * `jsonb_to_recordset(...) AS t(col TYPE, ...)` typedef. The names match
+ * the v2 schema declarations exactly; mismatches will surface as plpgsql
+ * cast errors at apply time, not silent corruption.
+ *
+ * Defaults:
+ *   string  → text
+ *   array   → text[]
+ *   bool    → boolean
+ *   float   → double precision
+ *   int     → integer
+ *   date    → date
+ *
+ * Per-column overrides where the schema disagrees with the default.
+ */
+const PG_TYPE_OVERRIDES: Record<string, string> = {
+  // NUMERIC in the schema (not double precision).
+  duration_hours: "numeric",
+  google_rating: "numeric",
+  // TIMESTAMPTZ in the schema (not date) — the importer only writes a
+  // YYYY-MM-DD; Postgres parses that as midnight UTC.
+  last_updated: "timestamptz",
+};
+
+export function pgType(col: string): string {
+  if (col in PG_TYPE_OVERRIDES) return PG_TYPE_OVERRIDES[col];
+  switch (columnKind(col)) {
+    case "array":
+      return "text[]";
+    case "bool":
+      return "boolean";
+    case "int":
+      return "integer";
+    case "float":
+      return "double precision";
+    case "date":
+      return "date";
+    case "string":
+    default:
+      return "text";
+  }
+}

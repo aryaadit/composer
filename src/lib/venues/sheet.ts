@@ -14,6 +14,11 @@ import * as fs from "fs";
 import * as path from "path";
 import { google, type sheets_v4 } from "googleapis";
 
+import {
+  VENUE_SHEET_DATA_RANGE,
+  VENUE_SHEET_HEADER_RANGE,
+  VENUE_SHEET_TAB,
+} from "./config";
 import type { SheetMetadata } from "./types";
 
 const SCOPES = [
@@ -21,15 +26,8 @@ const SCOPES = [
   "https://www.googleapis.com/auth/drive.readonly",
 ];
 
-const TAB_NAME = "NYC Venues";
-
-// Defensive buffer for future sheet columns. The Python CLI reads A:CD
-// (col 82); the legacy TS route reads A:BD (col 56). The current schema
-// runs through column BD, but the wider range future-proofs against new
-// sheet columns being added by the curator without coordination — the
-// transform module ignores headers it doesn't recognize.
-const HEADER_RANGE = `${TAB_NAME}!A2:CD2`;
-const DATA_RANGE = `${TAB_NAME}!A3:CD`;
+const HEADER_RANGE = `${VENUE_SHEET_TAB}!${VENUE_SHEET_HEADER_RANGE}`;
+const DATA_RANGE = `${VENUE_SHEET_TAB}!${VENUE_SHEET_DATA_RANGE}`;
 
 /**
  * Resolve the sheet ID from `GOOGLE_SHEET_ID`. Throws immediately if
@@ -101,6 +99,27 @@ export async function readSheetRows(): Promise<{
   const rows = (dataRes.data.values ?? []).map((r) => r.map((c) => String(c)));
 
   return { headers, rows };
+}
+
+/**
+ * List the tab titles in the spreadsheet. Used by the tab-existence
+ * sanity assertion so a renamed tab fails loudly with the available
+ * names instead of producing a confusing "0 rows read" downstream.
+ *
+ * Costs one API call per dry-run/apply — negligible.
+ */
+export async function fetchTabNames(): Promise<string[]> {
+  const sheets = sheetsClient();
+  const spreadsheetId = getSheetId();
+  const meta = await sheets.spreadsheets.get({
+    spreadsheetId,
+    fields: "sheets.properties.title",
+  });
+  const titles =
+    meta.data.sheets
+      ?.map((s) => s.properties?.title)
+      .filter((t): t is string => typeof t === "string") ?? [];
+  return titles;
 }
 
 /**

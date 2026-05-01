@@ -82,3 +82,38 @@ export interface SheetMetadata {
   /** First 5 distinct neighborhoods, alphabetized. Smell test for the diff. */
   sampleNeighborhoods: string[];
 }
+
+/**
+ * One sanity assertion outcome. `detail` is shown to the operator
+ * regardless of pass/fail so they can read the actual measurement.
+ *
+ * Severity:
+ *   - `block` — failure prevents apply (override only with --skip-assertions)
+ *   - `warn`  — failure is printed but apply proceeds
+ */
+export interface AssertionResult {
+  name: string;
+  passed: boolean;
+  detail: string;
+  severity: "block" | "warn";
+}
+
+/**
+ * Aggregate output of `runAssertions()`. `blocked` is true if any
+ * `block`-severity assertion failed.
+ */
+export interface AssertionReport {
+  results: AssertionResult[];
+  blocked: boolean;
+}
+
+/**
+ * Counts returned by `composer_apply_venue_import` plus the orchestrator's
+ * wall-clock timing. `total = inserted + updated`.
+ */
+export interface ApplyResult {
+  inserted: number;
+  updated: number;
+  total: number;
+  durationMs: number;
+}

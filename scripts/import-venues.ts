@@ -1,22 +1,41 @@
 // CLI wrapper for src/lib/venues/import.ts.
 //
-// Phase 1: dry-run only. Read-only diff against production. The apply
-// subcommand intentionally errors out — it lands in Phase 2.
-//
 // Usage:
 //   npm run import-venues -- dry-run                  # default, formatted stdout
 //   npm run import-venues -- dry-run --json           # JSON to stdout
 //   npm run import-venues -- dry-run --out diff.json  # JSON to file
-//   npm run import-venues -- apply                    # not yet implemented
+//
+//   npm run import-venues -- apply                    # interactive [y/N] prompt
+//   npm run import-venues -- apply --yes              # skip prompt
+//   npm run import-venues -- apply --confirm-large-change
+//   npm run import-venues -- apply --skip-assertions  # OVERRIDE confirmation
+//
+// Phase 2: dry-run + apply. Phase 3 will add deactivation; Phase 4 the
+// audit trail.
 
 import { config as loadEnv } from "dotenv";
 import * as fs from "fs";
 import * as path from "path";
+import * as readline from "readline";
 
 loadEnv({ path: ".env.local" });
 
-import { runDryRun, type DryRunResult } from "../src/lib/venues/import";
-import type { FieldChange, ModifiedVenue, SkippedRow } from "../src/lib/venues/types";
+import { LargeChangeError } from "../src/lib/venues/apply";
+import {
+  applyPrepared,
+  prepareApply,
+  runDryRun,
+  type ApplyPreparation,
+  type DryRunResult,
+} from "../src/lib/venues/import";
+import { VENUE_SHEET_TAB } from "../src/lib/venues/config";
+import type {
+  ApplyResult,
+  AssertionResult,
+  FieldChange,
+  ModifiedVenue,
+  SkippedRow,
+} from "../src/lib/venues/types";
 
 // ─── Argv ──────────────────────────────────────────────────────────────
 
@@ -24,23 +43,39 @@ interface Args {
   command: "dry-run" | "apply";
   json: boolean;
   out: string | null;
+  yes: boolean;
+  confirmLargeChange: boolean;
+  skipAssertions: boolean;
 }
 
 function parseArgs(argv: string[]): Args {
   const args = argv.slice(2);
   const command = (args[0] ?? "dry-run") as Args["command"];
 
-  let json = false;
-  let out: string | null = null;
+  const out: Args = {
+    command,
+    json: false,
+    out: null,
+    yes: false,
+    confirmLargeChange: false,
+    skipAssertions: false,
+  };
+
   for (let i = 1; i < args.length; i++) {
     const a = args[i];
     if (a === "--json") {
-      json = true;
+      out.json = true;
     } else if (a === "--out") {
-      out = args[i + 1] ?? null;
+      out.out = args[i + 1] ?? null;
       i++;
     } else if (a.startsWith("--out=")) {
-      out = a.slice("--out=".length);
+      out.out = a.slice("--out=".length);
+    } else if (a === "--yes" || a === "-y") {
+      out.yes = true;
+    } else if (a === "--confirm-large-change") {
+      out.confirmLargeChange = true;
+    } else if (a === "--skip-assertions") {
+      out.skipAssertions = true;
     } else {
       console.error(`Unknown flag: ${a}`);
       process.exit(2);
@@ -50,13 +85,24 @@ function parseArgs(argv: string[]): Args {
     console.error(`Unknown command: ${command}. Expected "dry-run" or "apply".`);
     process.exit(2);
   }
-  return { command, json, out };
+  return out;
 }
 
 // ─── Formatters ────────────────────────────────────────────────────────
 
 function fmtNum(n: number): string {
   return n.toLocaleString("en-US");
+}
+
+function relativeAge(iso: string): string {
+  const ms = Date.now() - new Date(iso).getTime();
+  if (!Number.isFinite(ms) || ms < 0) return "";
+  const minutes = Math.round(ms / 60000);
+  if (minutes < 60) return `${minutes} min ago`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 48) return `${hours} hours ago`;
+  const days = Math.round(hours / 24);
+  return `${days} days ago`;
 }
 
 function fmtModifiedTime(iso: string | undefined, by: string | undefined): string {
@@ -67,7 +113,9 @@ function fmtModifiedTime(iso: string | undefined, by: string | undefined): strin
   const stamp = `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(
     d.getUTCDate()
   )} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())} UTC`;
-  return by ? `${stamp} by ${by}` : stamp;
+  const age = relativeAge(iso);
+  const tail = [age && `(${age})`, by && `by ${by}`].filter(Boolean).join(" ");
+  return tail ? `${stamp} ${tail}` : stamp;
 }
 
 function fmtValue(v: unknown): string {
@@ -88,8 +136,6 @@ function fmtChange(c: FieldChange): string {
 }
 
 function summarizeMod(m: ModifiedVenue): string {
-  // Show up to 2 field changes per venue in the inline preview; enough
-  // signal for a smell test without flooding stdout.
   const top = m.changedFields.slice(0, 2).map(fmtChange).join("; ");
   const overflow =
     m.changedFields.length > 2
@@ -104,46 +150,70 @@ function fmtSkipped(s: SkippedRow): string {
   return `  - row ${s.row}${id}${name}: ${s.reason}`;
 }
 
-function printReport(result: DryRunResult): void {
-  const { sheet, db, diff } = result;
+function fmtAssertion(a: AssertionResult): string {
+  const mark = a.passed ? "✓" : "✗";
+  const tail = !a.passed && a.severity === "block" ? " [BLOCKED]" : "";
+  return `  ${mark} ${a.name}: ${a.detail}${tail}`;
+}
 
-  const lines: string[] = [];
-  lines.push("=== Venue Import Dry Run ===");
-  lines.push("");
-  lines.push("Source");
-  lines.push(`  Sheet:        "${sheet.title}"`);
-  lines.push(`  ID:           ${sheet.spreadsheetId}`);
-  lines.push(`  Modified:     ${fmtModifiedTime(sheet.modifiedTime, sheet.modifiedBy)}`);
-  lines.push(`  Rows in tab:  ${fmtNum(sheet.rowCount)}`);
-  lines.push(
+/**
+ * Project ref from the Supabase URL — `uivpcwacqsqhbpisvmun` from
+ * `https://uivpcwacqsqhbpisvmun.supabase.co`. Falls back to the full host
+ * when the URL doesn't have the standard shape.
+ */
+function dbEnvLabel(): string {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
+  if (!url) return "unknown";
+  try {
+    const host = new URL(url).host;
+    const ref = host.split(".")[0];
+    return ref || host;
+  } catch {
+    return "unknown";
+  }
+}
+
+// ─── Source/Target/Diff blocks (shared between dry-run and apply) ──────
+
+function sourceLines(meta: DryRunResult["sheet"]): string[] {
+  return [
+    "Source",
+    `  Sheet:        "${meta.title}"`,
+    `  ID:           ${meta.spreadsheetId}`,
+    `  Modified:     ${fmtModifiedTime(meta.modifiedTime, meta.modifiedBy)}`,
+    `  Tab:          ${VENUE_SHEET_TAB}`,
+    `  Rows in tab:  ${fmtNum(meta.rowCount)}`,
     `  Sample neighborhoods: ${
-      sheet.sampleNeighborhoods.length > 0
-        ? sheet.sampleNeighborhoods.join(", ")
+      meta.sampleNeighborhoods.length > 0
+        ? meta.sampleNeighborhoods.join(", ")
         : "(none)"
-    }`
-  );
-  lines.push("");
-  lines.push("Target");
-  lines.push(`  Database:     composer_venues_v2 (${dbEnvLabel()})`);
-  lines.push(`  Active rows:  ${fmtNum(db.active)}`);
-  lines.push(`  Inactive:     ${fmtNum(db.inactive)}`);
-  lines.push("");
-  lines.push("Diff");
-  lines.push(`  Add:        ${fmtNum(diff.add.length)} venues`);
-  lines.push(`  Modify:     ${fmtNum(diff.modify.length)} venues`);
-  lines.push(`  Unchanged:  ${fmtNum(diff.unchanged)} venues`);
-  lines.push(
-    `  Skipped:    ${fmtNum(diff.skipped.length)} sheet rows (validation failures)`
-  );
+    }`,
+  ];
+}
+
+function targetLines(db: DryRunResult["db"]): string[] {
+  return [
+    "Target",
+    `  Database:     composer_venues_v2 (${dbEnvLabel()})`,
+    `  Active rows:  ${fmtNum(db.active)}`,
+    `  Inactive:     ${fmtNum(db.inactive)}`,
+  ];
+}
+
+function diffLines(diff: DryRunResult["diff"]): string[] {
+  const lines: string[] = [
+    "Diff",
+    `  Add:        ${fmtNum(diff.add.length)} venues`,
+    `  Modify:     ${fmtNum(diff.modify.length)} venues`,
+    `  Unchanged:  ${fmtNum(diff.unchanged)} venues`,
+    `  Skipped:    ${fmtNum(diff.skipped.length)} sheet rows (validation failures)`,
+  ];
 
   if (diff.modify.length > 0) {
     lines.push("");
-    lines.push(
-      `Sample modifications (first ${Math.min(5, diff.modify.length)}):`
-    );
+    lines.push(`Sample modifications (first ${Math.min(5, diff.modify.length)}):`);
     diff.modify.slice(0, 5).forEach((m) => lines.push(summarizeMod(m)));
   }
-
   if (diff.add.length > 0) {
     lines.push("");
     lines.push(`New venues (first ${Math.min(5, diff.add.length)}):`);
@@ -154,72 +224,160 @@ function printReport(result: DryRunResult): void {
       lines.push(`  - ${vid}: "${name}" (${hood})`);
     });
   }
-
-  lines.push("");
   if (diff.skipped.length > 0) {
-    lines.push(
-      `Skipped rows (first ${Math.min(20, diff.skipped.length)}):`
-    );
+    lines.push("");
+    lines.push(`Skipped rows (first ${Math.min(20, diff.skipped.length)}):`);
     diff.skipped.slice(0, 20).forEach((s) => lines.push(fmtSkipped(s)));
     if (diff.skipped.length > 20) {
       lines.push(`  ... and ${diff.skipped.length - 20} more`);
     }
-  } else {
+  }
+  return lines;
+}
+
+function printDryRunReport(result: DryRunResult): void {
+  const lines: string[] = ["=== Venue Import Dry Run ===", ""];
+  lines.push(...sourceLines(result.sheet), "");
+  lines.push(...targetLines(result.db), "");
+  lines.push(...diffLines(result.diff));
+  if (result.diff.skipped.length === 0) {
+    lines.push("");
     lines.push("Skipped rows: none");
   }
-
   lines.push("");
   lines.push("(read-only — no changes applied)");
-
   process.stdout.write(lines.join("\n") + "\n");
 }
 
-/**
- * Best-effort label for which DB the importer is talking to. Falls back to
- * the URL host so the operator can see at a glance whether they're hitting
- * production, a branch, or local.
- */
-function dbEnvLabel(): string {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
-  if (!url) return "unknown";
+function printApplyReport(prep: ApplyPreparation): void {
+  const lines: string[] = ["=== Venue Import: Apply ===", ""];
+  lines.push(...sourceLines(prep.sheet), "");
+  lines.push(...targetLines(prep.db), "");
+  lines.push("Sanity Assertions");
+  prep.assertions.results.forEach((a) => lines.push(fmtAssertion(a)));
+  lines.push("");
+  lines.push(...diffLines(prep.diff));
+  process.stdout.write(lines.join("\n") + "\n");
+}
+
+// ─── readline prompts ──────────────────────────────────────────────────
+
+async function promptYesNo(question: string): Promise<boolean> {
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
   try {
-    const host = new URL(url).host;
-    return host;
-  } catch {
-    return "unknown";
+    const answer = await new Promise<string>((resolve) =>
+      rl.question(`${question} `, resolve)
+    );
+    return /^y(es)?$/i.test(answer.trim());
+  } finally {
+    rl.close();
   }
 }
 
-// ─── Main ──────────────────────────────────────────────────────────────
-
-async function main(): Promise<void> {
-  const args = parseArgs(process.argv);
-
-  if (args.command === "apply") {
-    console.error("apply: Not yet implemented. Phase 2.");
-    process.exit(1);
+async function promptForLiteral(question: string, expected: string): Promise<boolean> {
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+  try {
+    const answer = await new Promise<string>((resolve) =>
+      rl.question(`${question} `, resolve)
+    );
+    return answer.trim() === expected;
+  } finally {
+    rl.close();
   }
+}
 
+// ─── Subcommand handlers ───────────────────────────────────────────────
+
+async function handleDryRun(args: Args): Promise<void> {
   const result = await runDryRun();
 
   if (args.out) {
     const target = path.resolve(process.cwd(), args.out);
     fs.writeFileSync(target, JSON.stringify(result, null, 2) + "\n", "utf8");
     if (!args.json) {
-      printReport(result);
+      printDryRunReport(result);
       console.log(`\nFull diff written to ${target}`);
     } else {
       console.log(`Full diff written to ${target}`);
     }
     return;
   }
-
   if (args.json) {
     process.stdout.write(JSON.stringify(result, null, 2) + "\n");
     return;
   }
+  printDryRunReport(result);
+}
 
-  printReport(result);
+async function handleApply(args: Args): Promise<void> {
+  const prep = await prepareApply();
+  printApplyReport(prep);
+
+  // Layer 2: assertions block unless explicitly overridden.
+  if (prep.assertions.blocked) {
+    console.log("");
+    if (!args.skipAssertions) {
+      console.log("Apply blocked by failed assertions. Use --skip-assertions to override (not recommended).");
+      process.exit(1);
+    }
+    console.log(
+      "WARNING: --skip-assertions bypasses sanity checks designed to prevent\ndestructive imports against the wrong sheet."
+    );
+    const ok = await promptForLiteral("Type 'OVERRIDE' to continue:", "OVERRIDE");
+    if (!ok) {
+      console.log("Override not confirmed. Aborting.");
+      process.exit(1);
+    }
+  }
+
+  const totalChanges = prep.diff.add.length + prep.diff.modify.length;
+
+  if (totalChanges === 0) {
+    console.log("");
+    console.log("No changes to apply. (sheet and DB are in sync)");
+    return;
+  }
+
+  // Confirmation prompt (unless --yes).
+  if (!args.yes) {
+    console.log("");
+    const ok = await promptYesNo(`Apply ${fmtNum(totalChanges)} change${totalChanges === 1 ? "" : "s"}? [y/N]`);
+    if (!ok) {
+      console.log("Aborted.");
+      process.exit(1);
+    }
+  }
+
+  console.log("");
+  console.log("Applying...");
+  let result: ApplyResult;
+  try {
+    result = await applyPrepared(prep, { confirmLargeChange: args.confirmLargeChange });
+  } catch (err) {
+    if (err instanceof LargeChangeError) {
+      console.error("");
+      console.error(err.message);
+      console.error("Re-run with --confirm-large-change to proceed.");
+      process.exit(1);
+    }
+    throw err;
+  }
+
+  const seconds = (result.durationMs / 1000).toFixed(1);
+  console.log(
+    `✓ Inserted ${fmtNum(result.inserted)}, updated ${fmtNum(result.updated)} in ${seconds}s`
+  );
+}
+
+// ─── Main ──────────────────────────────────────────────────────────────
+
+async function main(): Promise<void> {
+  const args = parseArgs(process.argv);
+  if (args.command === "apply") {
+    await handleApply(args);
+  } else {
+    await handleDryRun(args);
+  }
 }
 
 main().catch((err) => {
