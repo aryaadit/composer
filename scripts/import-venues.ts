@@ -10,8 +10,8 @@
 //   npm run import-venues -- apply --confirm-large-change
 //   npm run import-venues -- apply --skip-assertions  # OVERRIDE confirmation
 //
-// Phase 2: dry-run + apply. Phase 3 will add deactivation; Phase 4 the
-// audit trail.
+// Phase 3: dry-run + apply (with orphan deactivation). Phase 4 will add
+// the audit trail.
 
 import { config as loadEnv } from "dotenv";
 import * as fs from "fs";
@@ -201,10 +201,14 @@ function targetLines(db: DryRunResult["db"]): string[] {
 }
 
 function diffLines(diff: DryRunResult["diff"]): string[] {
+  // Order intentionally most→least destructive (add is also "destructive"
+  // in the sense that new rows appear in itineraries, but deactivation is
+  // the most user-visible removal).
   const lines: string[] = [
     "Diff",
     `  Add:        ${fmtNum(diff.add.length)} venues`,
     `  Modify:     ${fmtNum(diff.modify.length)} venues`,
+    `  Deactivate: ${fmtNum(diff.deactivate.length)} venues`,
     `  Unchanged:  ${fmtNum(diff.unchanged)} venues`,
     `  Skipped:    ${fmtNum(diff.skipped.length)} sheet rows (validation failures)`,
   ];
@@ -213,6 +217,13 @@ function diffLines(diff: DryRunResult["diff"]): string[] {
     lines.push("");
     lines.push(`Sample modifications (first ${Math.min(5, diff.modify.length)}):`);
     diff.modify.slice(0, 5).forEach((m) => lines.push(summarizeMod(m)));
+  }
+  if (diff.deactivate.length > 0) {
+    lines.push("");
+    lines.push(`Sample deactivations (first ${Math.min(5, diff.deactivate.length)}):`);
+    diff.deactivate.slice(0, 5).forEach((d) => {
+      lines.push(`  - ${d.venue_id}: "${d.name}" (no longer in sheet)`);
+    });
   }
   if (diff.add.length > 0) {
     lines.push("");
@@ -330,7 +341,8 @@ async function handleApply(args: Args): Promise<void> {
     }
   }
 
-  const totalChanges = prep.diff.add.length + prep.diff.modify.length;
+  const totalChanges =
+    prep.diff.add.length + prep.diff.modify.length + prep.diff.deactivate.length;
 
   if (totalChanges === 0) {
     console.log("");
@@ -341,7 +353,9 @@ async function handleApply(args: Args): Promise<void> {
   // Confirmation prompt (unless --yes).
   if (!args.yes) {
     console.log("");
-    const ok = await promptYesNo(`Apply ${fmtNum(totalChanges)} change${totalChanges === 1 ? "" : "s"}? [y/N]`);
+    const ok = await promptYesNo(
+      `Apply ${fmtNum(totalChanges)} change${totalChanges === 1 ? "" : "s"}? [y/N]`
+    );
     if (!ok) {
       console.log("Aborted.");
       process.exit(1);
@@ -357,6 +371,7 @@ async function handleApply(args: Args): Promise<void> {
     if (err instanceof LargeChangeError) {
       console.error("");
       console.error(err.message);
+      console.error("");
       console.error("Re-run with --confirm-large-change to proceed.");
       process.exit(1);
     }
@@ -365,7 +380,7 @@ async function handleApply(args: Args): Promise<void> {
 
   const seconds = (result.durationMs / 1000).toFixed(1);
   console.log(
-    `✓ Inserted ${fmtNum(result.inserted)}, updated ${fmtNum(result.updated)} in ${seconds}s`
+    `✓ Inserted ${fmtNum(result.inserted)}, updated ${fmtNum(result.updated)}, deactivated ${fmtNum(result.deactivated)} in ${seconds}s`
   );
 }
 

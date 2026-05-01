@@ -1,11 +1,12 @@
-// Apply orchestrator for the venue importer (Phase 2).
+// Apply orchestrator for the venue importer (Phase 3).
 //
 // Builds the SQL fragments and JSON payload for composer_apply_venue_import,
-// enforces the large-change guard, and short-circuits on empty diffs.
+// enforces both the total-changes and deactivation-only large-change
+// guards, and short-circuits when the diff is empty across all buckets.
 //
 // All SQL fragments come from the typed constants in columns.ts; nothing
 // from the sheet or user input is ever interpolated. See the security
-// note in 20260501_composer_apply_venue_import_function.sql.
+// note in 20260502_composer_apply_venue_import_with_deactivation.sql.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -23,20 +24,47 @@ import type {
 } from "./types";
 
 /**
- * Thrown when the diff exceeds the operator-confirmation threshold and the
- * caller did not pass `confirmLargeChange: true`. Carries enough context
- * for the CLI to print a useful message.
+ * Why a particular apply tripped the large-change guard. The CLI uses
+ * `kind` to render a tailored message; programmatic callers can branch
+ * on it for differentiated retry policies.
+ */
+export type LargeChangeReason =
+  | { kind: "total"; count: number; threshold: number; dbActiveCount: number }
+  | { kind: "deactivations"; count: number; threshold: number; dbActiveCount: number };
+
+/**
+ * Thrown when the diff exceeds either the total-changes ceiling or the
+ * deactivations-only ceiling, and the caller did not pass
+ * `confirmLargeChange: true`. Both reasons may appear; the CLI joins
+ * them into a single message.
  */
 export class LargeChangeError extends Error {
-  constructor(
-    public readonly totalChanges: number,
-    public readonly threshold: number,
-    public readonly dbActiveCount: number
-  ) {
-    super(
-      `Diff exceeds threshold: ${totalChanges} changes (max ${threshold} = max(${CHANGE_THRESHOLDS.maxChangesAbsolute}, ${(CHANGE_THRESHOLDS.maxChangesFraction * 100).toFixed(0)}% of ${dbActiveCount} active))`
-    );
+  constructor(public readonly reasons: LargeChangeReason[]) {
+    super(LargeChangeError.formatMessage(reasons));
     this.name = "LargeChangeError";
+  }
+
+  static formatMessage(reasons: LargeChangeReason[]): string {
+    if (reasons.length === 1) {
+      const r = reasons[0];
+      if (r.kind === "deactivations") {
+        return `Deactivations exceed threshold: ${r.count} (max ${r.threshold} = max(${CHANGE_THRESHOLDS.maxDeactivationsAbsolute}, ${(CHANGE_THRESHOLDS.maxDeactivationsFraction * 100).toFixed(0)}% of ${r.dbActiveCount} active))`;
+      }
+      return `Total changes exceed threshold: ${r.count} (max ${r.threshold} = max(${CHANGE_THRESHOLDS.maxChangesAbsolute}, ${(CHANGE_THRESHOLDS.maxChangesFraction * 100).toFixed(0)}% of ${r.dbActiveCount} active))`;
+    }
+    const lines = ["Diff exceeds change thresholds:"];
+    for (const r of reasons) {
+      if (r.kind === "deactivations") {
+        lines.push(
+          `  - Deactivations: ${r.count} (max ${r.threshold} = ${(CHANGE_THRESHOLDS.maxDeactivationsFraction * 100).toFixed(0)}% of ${r.dbActiveCount} active)`
+        );
+      } else {
+        lines.push(
+          `  - Total changes: ${r.count} (max ${r.threshold} = ${(CHANGE_THRESHOLDS.maxChangesFraction * 100).toFixed(0)}% of ${r.dbActiveCount} active)`
+        );
+      }
+    }
+    return lines.join("\n");
   }
 }
 
@@ -87,16 +115,43 @@ function recordToPayload(rec: VenueRecord): Record<string, VenueCellValue> {
   return out;
 }
 
-/**
- * Compute the effective large-change threshold. Both bounds are checked;
- * the larger wins so a small DB doesn't get locked out of routine
- * multi-venue imports.
- */
-export function largeChangeThreshold(dbActiveCount: number): number {
+/** Effective threshold for the total-changes guard (add+modify+deactivate). */
+export function totalChangeThreshold(dbActiveCount: number): number {
   const fractional = Math.ceil(
     dbActiveCount * CHANGE_THRESHOLDS.maxChangesFraction
   );
   return Math.max(CHANGE_THRESHOLDS.maxChangesAbsolute, fractional);
+}
+
+/** Effective threshold for the deactivations-only guard. */
+export function deactivationThreshold(dbActiveCount: number): number {
+  const fractional = Math.ceil(
+    dbActiveCount * CHANGE_THRESHOLDS.maxDeactivationsFraction
+  );
+  return Math.max(CHANGE_THRESHOLDS.maxDeactivationsAbsolute, fractional);
+}
+
+/**
+ * Walk both threshold rules and return the reasons that tripped. Empty
+ * array means everything fits under the ceilings.
+ */
+export function evaluateLargeChange(
+  diff: ImportDiff,
+  dbActiveCount: number
+): LargeChangeReason[] {
+  const totalCount = diff.add.length + diff.modify.length + diff.deactivate.length;
+  const totalLimit = totalChangeThreshold(dbActiveCount);
+  const deactCount = diff.deactivate.length;
+  const deactLimit = deactivationThreshold(dbActiveCount);
+
+  const reasons: LargeChangeReason[] = [];
+  if (totalCount > totalLimit) {
+    reasons.push({ kind: "total", count: totalCount, threshold: totalLimit, dbActiveCount });
+  }
+  if (deactCount > deactLimit) {
+    reasons.push({ kind: "deactivations", count: deactCount, threshold: deactLimit, dbActiveCount });
+  }
+  return reasons;
 }
 
 /**
@@ -105,13 +160,11 @@ export function largeChangeThreshold(dbActiveCount: number): number {
  * down to add+modify rows — this function does not re-derive that from
  * `diff` because the diff carries field-level deltas, not full records.
  *
- * The diff is still passed so the large-change guard can compare counts
- * against the configured threshold.
+ * Deactivations are taken straight from `diff.deactivate` (just venue_ids,
+ * no record content needed).
  *
- * @throws LargeChangeError when diff size exceeds threshold and
- *         `confirmLargeChange` is not set. The CLI catches this to print
- *         a structured message; programmatic callers can surface it
- *         however they want.
+ * @throws LargeChangeError when either threshold trips and
+ *         `confirmLargeChange` is not set.
  */
 export async function runApply(
   supabase: SupabaseClient,
@@ -120,23 +173,28 @@ export async function runApply(
   dbActiveCount: number,
   options: { confirmLargeChange?: boolean } = {}
 ): Promise<ApplyResult> {
-  const totalChanges = diff.add.length + diff.modify.length;
-  const threshold = largeChangeThreshold(dbActiveCount);
+  const totalChanges =
+    diff.add.length + diff.modify.length + diff.deactivate.length;
 
-  if (totalChanges > threshold && !options.confirmLargeChange) {
-    throw new LargeChangeError(totalChanges, threshold, dbActiveCount);
+  if (!options.confirmLargeChange) {
+    const reasons = evaluateLargeChange(diff, dbActiveCount);
+    if (reasons.length > 0) {
+      throw new LargeChangeError(reasons);
+    }
   }
 
   if (totalChanges === 0) {
-    return { inserted: 0, updated: 0, total: 0, durationMs: 0 };
+    return { inserted: 0, updated: 0, deactivated: 0, total: 0, durationMs: 0 };
   }
 
-  return executeApply(supabase, recordsToWrite);
+  const deactivateIds = diff.deactivate.map((d) => d.venue_id);
+  return executeApply(supabase, recordsToWrite, deactivateIds);
 }
 
 async function executeApply(
   supabase: SupabaseClient,
-  recordsToWrite: VenueRecord[]
+  recordsToWrite: VenueRecord[],
+  deactivateIds: string[]
 ): Promise<ApplyResult> {
   const fragments = buildSqlFragments();
   const payload = recordsToWrite.map(recordToPayload);
@@ -148,6 +206,7 @@ async function executeApply(
     p_select_list: fragments.selectList,
     p_recordset_typedef: fragments.recordsetTypedef,
     p_rows: payload,
+    p_deactivate_ids: deactivateIds,
   });
   const durationMs = Date.now() - start;
 
@@ -160,10 +219,16 @@ async function executeApply(
     );
   }
 
-  const result = data as { inserted?: number; updated?: number; total?: number };
+  const result = data as {
+    inserted?: number;
+    updated?: number;
+    deactivated?: number;
+    total?: number;
+  };
   return {
     inserted: result.inserted ?? 0,
     updated: result.updated ?? 0,
+    deactivated: result.deactivated ?? 0,
     total: result.total ?? 0,
     durationMs,
   };

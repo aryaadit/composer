@@ -22,6 +22,7 @@ import {
   columnKind,
 } from "./columns";
 import type {
+  DeactivatedVenue,
   FieldChange,
   ImportDiff,
   ModifiedVenue,
@@ -219,14 +220,20 @@ function diffOneVenue(
 /**
  * Compute the diff between transformed sheet records and current DB rows.
  *
- * Match key: `venue_id`. Phase 1 does NOT compute deactivation candidates
- * (rows in DB but missing from sheet) — that lives with the deactivation
- * logic in Phase 3.
+ * Match key: `venue_id`. Buckets:
+ *   - add:        in sheet, not in DB
+ *   - modify:     in both, with at least one writable-column change
+ *   - deactivate: active in DB, not in sheet (Phase 3 — soft delete by
+ *                 setting active=false in the apply path)
+ *   - unchanged:  in both, no writable-column differences
+ *
+ * Already-inactive DB rows missing from the sheet are NOT in deactivate —
+ * they're already in the desired state, so re-flipping them would be
+ * pointless work and would dirty `updated_at` for nothing.
  *
  * @param sheetRecords  Output of transformRows() — already-validated records.
- * @param dbVenues      Current DB rows (must include venue_id and any column
- *                      we might compare; the import.ts caller selects all
- *                      writable columns).
+ * @param dbVenues      Current DB rows (must include venue_id, name, active,
+ *                      and every writable column we compare).
  * @param skipped       Validation failures from transformRows(), passed
  *                      through into the diff so the caller can surface them
  *                      together.
@@ -242,6 +249,12 @@ export function computeDiff(
     if (typeof vid === "string" && vid.length > 0) {
       dbByVenueId.set(vid, v);
     }
+  }
+
+  const sheetIds = new Set<string>();
+  for (const r of sheetRecords) {
+    const vid = r.venue_id;
+    if (typeof vid === "string" && vid.length > 0) sheetIds.add(vid);
   }
 
   const add: VenueRecord[] = [];
@@ -267,5 +280,21 @@ export function computeDiff(
     }
   }
 
-  return { add, modify, unchanged, skipped };
+  // Orphans: DB rows currently active that the sheet no longer references.
+  // Stable sort by venue_id so the sample output is deterministic across
+  // runs (helps reviewers spot regression vs noise in CI logs).
+  const deactivate: DeactivatedVenue[] = [];
+  for (const v of dbVenues) {
+    const vid = v.venue_id;
+    if (typeof vid !== "string" || vid.length === 0) continue;
+    if (v.active !== true) continue;
+    if (sheetIds.has(vid)) continue;
+    deactivate.push({
+      venue_id: vid,
+      name: typeof v.name === "string" ? v.name : vid,
+    });
+  }
+  deactivate.sort((a, b) => a.venue_id.localeCompare(b.venue_id));
+
+  return { add, modify, deactivate, unchanged, skipped };
 }

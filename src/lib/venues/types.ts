@@ -53,13 +53,28 @@ export interface ModifiedVenue {
 }
 
 /**
+ * One DB row that's currently active but missing from the sheet. The
+ * apply path soft-deletes these by setting `active = false`. We carry
+ * `name` so dry-run output is human-readable without re-querying.
+ */
+export interface DeactivatedVenue {
+  venue_id: string;
+  name: string;
+}
+
+/**
  * Output of computeDiff(). The shape is deliberately wide so dry-run
- * output, JSON export, and (Phase 2) the apply path can all read from
- * the same structure.
+ * output, JSON export, and the apply path can all read from the same
+ * structure.
  */
 export interface ImportDiff {
   add: VenueRecord[];
   modify: ModifiedVenue[];
+  /**
+   * Active DB rows whose venue_id is not in the sheet. Apply will set
+   * `active = false` (soft delete). Already-inactive rows are excluded.
+   */
+  deactivate: DeactivatedVenue[];
   unchanged: number;
   skipped: SkippedRow[];
 }
@@ -109,11 +124,16 @@ export interface AssertionReport {
 
 /**
  * Counts returned by `composer_apply_venue_import` plus the orchestrator's
- * wall-clock timing. `total = inserted + updated`.
+ * wall-clock timing.
+ *
+ * `total` is the upsert payload size = inserted + updated. `deactivated`
+ * is reported separately because deactivation runs as a distinct UPDATE
+ * inside the same transaction.
  */
 export interface ApplyResult {
   inserted: number;
   updated: number;
+  deactivated: number;
   total: number;
   durationMs: number;
 }

@@ -12,7 +12,8 @@
 // Phases shipped:
 //   1. dry-run: read-only diff
 //   2. apply:   atomic upsert with sanity assertions and large-change guard
-// Phase 3 will add orphan deactivation; Phase 4 the audit trail.
+//   3. orphan deactivation in the same transaction as upsert
+// Phase 4 will add the composer_import_runs audit trail.
 //
 // The legacy paths (scripts/import_venues_v2.py and the
 // /api/admin/sync-venues route) remain operational and untouched.

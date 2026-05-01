@@ -62,14 +62,26 @@ export const SANITY_THRESHOLDS = {
 } as const;
 
 /**
- * Apply-time guardrails on diff size. If a diff exceeds either threshold
- * the apply requires `--confirm-large-change`. Both bounds are checked;
- * the effective threshold is the larger of the two so small DBs aren't
- * locked out of routine multi-venue imports.
+ * Apply-time guardrails on diff size. If any threshold is exceeded the
+ * apply requires `--confirm-large-change`. For each pair (absolute +
+ * fraction-of-active) the larger bound wins so a small DB doesn't lock
+ * out routine multi-venue imports.
+ *
+ * Two pairs:
+ *   1. Total changes (add + modify + deactivate) — broad sanity ceiling.
+ *   2. Deactivations alone — tighter, because mass deactivation is the
+ *      most user-visible destructive outcome (venues vanish from
+ *      itineraries). 25 deactivations in a 1300-venue DB is well under
+ *      the total ceiling but should still pause for explicit confirmation.
  */
 export const CHANGE_THRESHOLDS = {
-  /** Hard cap on add+modify count regardless of DB size. */
+  /** Hard cap on add+modify+deactivate count regardless of DB size. */
   maxChangesAbsolute: 100,
-  /** Cap as a fraction of currently active DB rows. */
+  /** Cap on add+modify+deactivate as a fraction of currently active rows. */
   maxChangesFraction: 0.10,
+
+  /** Hard cap on deactivations alone, regardless of DB size. */
+  maxDeactivationsAbsolute: 10,
+  /** Cap on deactivations as a fraction of currently active rows. */
+  maxDeactivationsFraction: 0.02,
 } as const;
