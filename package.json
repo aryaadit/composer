@@ -10,6 +10,7 @@
     "test:watch": "vitest",
     "lint": "eslint",
     "generate-configs": "python3 scripts/generate-configs.py",
+    "import-venues": "tsx scripts/import-venues.ts",
     "prepare": "husky"
   },
   "dependencies": {
@@ -39,6 +40,7 @@
     "pg": "^8.20.0",
     "string-similarity": "^4.0.4",
     "tailwindcss": "^4",
+    "tsx": "^4.20.6",
     "typescript": "^5",
     "vitest": "^3.2.4"
   }
