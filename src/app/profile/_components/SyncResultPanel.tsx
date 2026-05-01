@@ -58,7 +58,7 @@ export function SyncApplyingPanel({
         Sit tight — the RPC + audit write usually takes 1–3 seconds.
       </p>
       <div className="pt-2 border-t border-border">
-        <DiffSummary diff={preview.diff} />
+        <DiffSummary phase="ready" diff={preview.diff} />
       </div>
     </div>
   );
@@ -116,7 +116,7 @@ export function SyncSuccessPanel({
         {stateExplanations.applySuccess}
       </p>
       <div className="pt-2 border-t border-border">
-        <DiffSummary diff={diff} />
+        <DiffSummary phase="ready" diff={diff} />
       </div>
     </div>
   );
@@ -147,7 +147,7 @@ export function SyncAssertionBlockedPanel({
         {stateExplanations.applyAssertionBlocked}
       </p>
       <div className="pt-1 border-t border-border">
-        <AssertionsTable results={data.assertions.results} />
+        <AssertionsTable phase="ready" results={data.assertions.results} />
       </div>
       <div className="flex items-center gap-3">
         <button

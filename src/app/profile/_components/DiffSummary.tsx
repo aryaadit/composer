@@ -3,6 +3,10 @@
 // Counts grid + per-bucket samples for the admin sync UI.
 // Used in both preview and result panels so the operator sees the same
 // representation before and after applying.
+//
+// Loading variant: same row labels, skeleton bars in place of count
+// values. The label column matters (it teaches the operator what
+// dimensions exist); the values are what the request resolves.
 
 import { useState } from "react";
 import type {
@@ -12,13 +16,34 @@ import type {
   SkippedRow,
   VenueRecord,
 } from "@/lib/venues/types";
+import { SkeletonBar } from "./SkeletonBar";
 import { deactivationExplanation } from "./syncCopy";
 
-interface DiffSummaryProps {
-  diff: ImportDiff;
-}
+export type DiffSummaryProps =
+  | { phase: "loading" }
+  | { phase: "ready"; diff: ImportDiff };
 
-export function DiffSummary({ diff }: DiffSummaryProps) {
+export function DiffSummary(props: DiffSummaryProps) {
+  if (props.phase === "loading") {
+    return (
+      <div className="space-y-5" aria-busy>
+        <div>
+          <h4 className="font-sans text-[10px] tracking-widest uppercase text-muted mb-2">
+            Changes
+          </h4>
+          <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 font-sans text-xs">
+            <CountRowSkeleton label="Add" />
+            <CountRowSkeleton label="Modify" />
+            <CountRowSkeleton label="Deactivate" hint={deactivationExplanation} />
+            <CountRowSkeleton label="Unchanged" muted />
+            <CountRowSkeleton label="Skipped" muted />
+          </dl>
+        </div>
+      </div>
+    );
+  }
+
+  const { diff } = props;
   const totalChanges =
     diff.add.length + diff.modify.length + diff.deactivate.length;
 
@@ -113,6 +138,28 @@ function CountRow({
       </dt>
       <dd className={`text-right font-mono ${muted ? "text-muted" : "text-charcoal"}`}>
         {value.toLocaleString()}
+      </dd>
+    </>
+  );
+}
+
+function CountRowSkeleton({
+  label,
+  hint,
+  muted,
+}: {
+  label: string;
+  hint?: string;
+  muted?: boolean;
+}) {
+  return (
+    <>
+      <dt className={`text-${muted ? "muted" : "warm-gray"}`}>
+        {label}
+        {hint && <InfoTooltip text={hint} />}
+      </dt>
+      <dd className="text-right">
+        <SkeletonBar width="w-12" />
       </dd>
     </>
   );

@@ -44,7 +44,11 @@ type SyncState =
   | { kind: "loading_preflight" }
   | { kind: "preflight_ready"; data: AdminPreflightResponse }
   | { kind: "preflight_failed"; error: string }
-  | { kind: "loading_preview" }
+  // Carries the preflight result so the transitional preview panel can
+  // render Source/Target with real values while the diff and assertions
+  // are still skeletons. Without this the user sees Source/Target jump
+  // back to skeletons during the preview load (regression).
+  | { kind: "loading_preview"; preflight: AdminPreflightResponse }
   | { kind: "preview_ready"; data: AdminPreviewResponse }
   | { kind: "preview_failed"; error: string }
   // Carries the preview that triggered this apply so the transitional
@@ -155,7 +159,31 @@ export function AdminSection() {
   };
 
   const handlePreview = async () => {
-    setSync({ kind: "loading_preview" });
+    // Carry the current preflight forward into loading_preview so the
+    // transitional panel can render Source/Target with real values
+    // (already known) and only skeleton the new sections (assertions,
+    // diff). If we got here without a preflight in state — shouldn't
+    // happen via the normal flow — fall back to a synthetic empty
+    // preflight so the panel doesn't crash; the values will look
+    // unknown but layout stays intact.
+    setSync((prev) => {
+      const preflight =
+        prev.kind === "preflight_ready"
+          ? prev.data
+          : ({
+              ok: true,
+              kind: "preflight",
+              metadata: {
+                spreadsheetId: "",
+                title: "",
+                rowCount: 0,
+                sampleNeighborhoods: [],
+              },
+              db_active_count: 0,
+              db_inactive_count: 0,
+            } satisfies AdminPreflightResponse);
+      return { kind: "loading_preview", preflight };
+    });
     try {
       const res = await callRoute({ action: "preview" });
       if (res.ok && res.kind === "preview") {
@@ -432,11 +460,15 @@ function SyncBody({
     case "initial":
       return <PrimaryButton label={buttonLabels.checkSource} onClick={onPreflight} />;
     case "loading_preflight":
-      return <p className="font-sans text-xs text-muted">Fetching source identity…</p>;
+      // Skeleton variant of the preflight panel — same structure renders
+      // immediately so the operator sees something happening, no jump
+      // when data arrives.
+      return <SyncPreflightPanel phase="loading" />;
     case "preflight_ready":
       return (
         <div className="space-y-3">
           <SyncPreflightPanel
+            phase="ready"
             metadata={state.data.metadata}
             dbActive={state.data.db_active_count}
             dbInactive={state.data.db_inactive_count}
@@ -449,10 +481,13 @@ function SyncBody({
         <ErrorBlock title="Preflight failed" message={state.error} />
       );
     case "loading_preview":
-      return <p className="font-sans text-xs text-muted">Computing diff and running assertions…</p>;
+      // Skeleton variant of the preview panel — Source/Target use real
+      // preflight data; Sanity Assertions and Changes are skeletons.
+      return <SyncPreviewPanel phase="loading" preflight={state.preflight} />;
     case "preview_ready":
       return (
         <SyncPreviewPanel
+          phase="ready"
           data={state.data}
           isApplying={isApplying}
           onApply={() => onApply()}
