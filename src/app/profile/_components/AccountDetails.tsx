@@ -33,15 +33,15 @@ export function AccountDetails({ profile, userId, refreshProfile }: Props) {
   // info. Everything remaining here is editable, so there's no visible
   // "Account" heading — the fields speak for themselves.
   return (
-    <section className="mb-12">
-      <div className="flex flex-col gap-7 divide-y divide-border">
-        <div className="pb-2">
+    <section className="mb-8">
+      <div className="flex flex-col divide-y divide-border">
+        <div className="pb-4">
           <ContextField profile={profile} userId={userId} onSaved={refreshProfile} />
         </div>
-        <div className="pt-5 pb-2">
+        <div className="pt-4 pb-4">
           <DrinksField profile={profile} userId={userId} onSaved={refreshProfile} />
         </div>
-        <div className="pt-5 pb-2">
+        <div className="pt-4 pb-4">
           <DietaryField profile={profile} userId={userId} onSaved={refreshProfile} />
         </div>
         {/*

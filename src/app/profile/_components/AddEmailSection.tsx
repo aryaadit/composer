@@ -24,7 +24,7 @@ export function AddEmailSection({ currentEmail }: AddEmailSectionProps) {
 
   if (sent) {
     return (
-      <section className="mt-8 pt-6 border-t border-border">
+      <section className="mt-8 pt-6 pb-8 border-t border-border">
         <h3 className="font-sans text-xs tracking-widest uppercase text-muted mb-3">
           Email
         </h3>
@@ -54,7 +54,7 @@ export function AddEmailSection({ currentEmail }: AddEmailSectionProps) {
   };
 
   return (
-    <section className="mt-8 pt-6 border-t border-border">
+    <section className="mt-8 pt-6 pb-8 border-t border-border">
       <h3 className="font-sans text-xs tracking-widest uppercase text-muted mb-3">
         Add email (optional)
       </h3>
