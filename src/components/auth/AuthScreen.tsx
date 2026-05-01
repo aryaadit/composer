@@ -8,7 +8,6 @@
 // (session + profile → home, session + no profile → onboarding).
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import Link from "next/link";
 import { motion } from "motion/react";
 import { Button } from "@/components/ui/Button";
 import {
@@ -325,14 +324,14 @@ export function AuthScreen() {
               Composer for account verification. Message frequency varies.
               Message and data rates may apply. Reply STOP to opt out, HELP
               for help. See our{" "}
-              <Link
-                href="/privacy"
+              <a
+                href="https://www.onpalate.com/composer/privacy"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="underline hover:text-charcoal transition-colors"
               >
                 Privacy Policy
-              </Link>
+              </a>
               .
             </p>
 
