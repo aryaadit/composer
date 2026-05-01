@@ -44,7 +44,7 @@ OPENWEATHERMAP_API_KEY
 # Sheet sync (admin-only routes + scripts)
 GOOGLE_SHEETS_CLIENT_EMAIL
 GOOGLE_SHEETS_PRIVATE_KEY
-GOOGLE_SHEET_ID                  # the venue sheet id — must match EXPECTED_SHEET_ID in code
+GOOGLE_SHEET_ID                  # the venue sheet id (no hardcoded constant — operator validates identity via the import preview)
 
 # Optional enrichment
 GOOGLE_PLACES_API_KEY            # used by photo + price-tier backfill scripts
@@ -469,44 +469,49 @@ chore(venues): add 12 new West Village venues to seed
 - `active = false` hides a venue from scoring. Use this instead of deleting records.
 - The `notes` column in the Google Sheet is internal only — stored in the DB but not surfaced in the app.
 
-### Updating Venue Data — Two Modes
+### Updating Venue Data
 
-**Current sheet ID:** `1EdJqvFKaGAAo5oKMXBXeXfZdzfdT9IsmLiQYA9whXVg` (referenced in `.env.local`, both Sheets API scripts, the admin sync route, and Vercel env vars).
+**Current sheet ID:** `1EdJqvFKaGAAo5oKMXBXeXfZdzfdT9IsmLiQYA9whXVg` (referenced in `.env.local` and Vercel env vars only — there are no longer hardcoded copies in code).
 
-#### Mode A: Incremental upsert (small edits)
+The canonical importer lives in `src/lib/venues/`. It runs upserts atomically against `composer_venues_v2` via the Postgres function `composer_apply_venue_import`, and records every apply attempt to `composer_import_runs` for audit. Two surfaces, one underlying module:
 
-For typical edits — add a few venues, fix some fields, mark a venue inactive — use the upsert flow:
+#### Surface A: Admin UI (`/profile`)
+
+Operator-friendly, browser-based. Click **Check source** → **Run preview** → **Apply N changes**. The UI surfaces sheet identity, sanity assertions, the diff with samples, and a deactivation count tooltip explaining soft-delete semantics. Threshold guards block large diffs and require explicit confirmation. Use this for routine sheet edits.
+
+#### Surface B: CLI (`npm run import-venues`)
+
+Engineer-driven. Same pipeline, more output. Subcommands:
 
 ```bash
-# Generate the SQL
-python3 scripts/import_venues_v2.py --out /tmp/import_v2.sql
-
-# Apply it via psql or the Supabase dashboard SQL editor
-psql "$DATABASE_URL" < /tmp/import_v2.sql
+npm run import-venues -- dry-run                  # diff + assertions, no writes
+npm run import-venues -- apply                    # interactive [y/N] prompt
+npm run import-venues -- apply --yes              # skip prompt
+npm run import-venues -- apply --confirm-large-change
+npm run import-venues -- apply --skip-assertions  # typed OVERRIDE confirmation
+npm run import-venues -- history [--status … --limit … --since …]
+npm run import-venues -- show <id>                # full detail for one run
 ```
 
-The importer is **upsert-only via `venue_id` conflict**: existing rows update, new rows insert, **nothing deletes**. Set `active = false` in the sheet to hide a venue. `image_keys` is excluded from `ALL_COLUMNS` so it survives upserts untouched.
+Use this when you want the diff in JSON (`--json`, `--out diff.json`), or when investigating a past run via the audit table.
 
-#### Mode B: Wipe-and-replace (when sheet diverges materially)
+#### Soft-delete semantics
 
-When the sheet has diverged enough that orphan DB rows accumulate (e.g., venues removed from the sheet still active in DB), do a full reset:
+Both surfaces deactivate orphans (DB rows whose `venue_id` is no longer in the sheet) by setting `active = false`. **Nothing deletes** — image keys, saved itineraries that reference the venue, and other downstream data stay intact. To restore a deactivated venue, add it back to the sheet and re-sync.
+
+#### Wipe-and-replace (rare — only when reseeding from scratch)
+
+The new pipeline doesn't need wipe-and-replace for routine work; orphan deactivation handles drift. The legacy `snapshot_image_keys.py` / `restore_image_keys.py` scripts are preserved as a safety net for the rare case where you actually need to TRUNCATE and reseed (e.g., you migrate to a new schema). If you're reaching for this in normal operation, ask first — the importer's deactivation path is almost certainly what you want instead.
 
 ```bash
-# 1. Snapshot image_keys (photos are not in the sheet)
-python3 scripts/snapshot_image_keys.py
-# Note the output filename — Step 4 needs it.
-
-# 2. TRUNCATE composer_venues_v2 (Supabase SQL editor)
-
-# 3. Re-import everything from the new sheet
-python3 scripts/import_venues_v2.py --out /tmp/import_v2.sql
-# Apply via psql
-
-# 4. Restore image_keys from the snapshot
+# Only if you really need to TRUNCATE composer_venues_v2:
+python3 scripts/snapshot_image_keys.py             # capture image_keys (not in the sheet)
+# … TRUNCATE composer_venues_v2 in the Supabase SQL editor …
+npm run import-venues -- apply --yes               # repopulate from the sheet
 python3 scripts/restore_image_keys.py docs/debug/image_keys_snapshot_<timestamp>.csv
 ```
 
-**Critical:** snapshot/restore uses `google_place_id` as the join key, **not** `venue_id`. `venue_id` is regenerated by the importer; `google_place_id` is the stable canonical identifier.
+Snapshot/restore uses `google_place_id` as the join key (not `venue_id`) — `google_place_id` is the stable canonical identifier across reseeds.
 
 ### Updating Scoring Configs
 

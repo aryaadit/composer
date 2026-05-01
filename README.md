@@ -153,7 +153,12 @@ These are enforced by [CLAUDE.md](CLAUDE.md). Read that file for the full rule s
 
 Venues live in the `composer_venues_v2` table in Supabase (the v1 `composer_venues` is deprecated). **Every venue is human-curated — no AI-generated entries.** The curation layer is the product.
 
-Venues are managed in a Google Sheet (current ID: `1EdJqvFKaGAAo5oKMXBXeXfZdzfdT9IsmLiQYA9whXVg`) and synced to Supabase via `scripts/import_venues_v2.py`. Two import modes — incremental upsert and wipe-and-replace — are documented in [CLAUDE.md → Updating Venue Data](CLAUDE.md#updating-venue-data--two-modes).
+Venues are managed in a Google Sheet (current ID: `1EdJqvFKaGAAo5oKMXBXeXfZdzfdT9IsmLiQYA9whXVg`) and synced to Supabase via the canonical importer at `src/lib/venues/`. Two surfaces:
+
+- **CLI** (`npm run import-venues -- dry-run|apply|history|show`) for engineer-driven imports with full visibility into the diff and audit trail
+- **Admin UI** at `/profile` for the operator-facing preview→apply flow
+
+Both go through the same module, hit the same Postgres function (`composer_apply_venue_import`), and record every apply attempt to `composer_import_runs`. See [CLAUDE.md → Updating Venue Data](CLAUDE.md#updating-venue-data) for the full workflow.
 
 Full schema in [`supabase/migrations/20260428_composer_venues_v2.sql`](supabase/migrations/20260428_composer_venues_v2.sql). Highlights:
 
@@ -240,7 +245,10 @@ Visit `http://localhost:3000`.
 | `npx tsc --noEmit` | TypeScript check (no emit) |
 | `npx vitest run` | Run the unit test suite |
 | `npm run generate-configs` | Regenerate `src/config/generated/*.ts` from the Google Sheet's Master Reference tab |
-| `python3 scripts/import_venues_v2.py --out FILE` | Generate venue import SQL from the new sheet's NYC Venues tab |
+| `npm run import-venues -- dry-run` | Read the source sheet, run sanity assertions, print diff. No writes. |
+| `npm run import-venues -- apply` | Apply the diff atomically — sanity checks + threshold guard + audit trail |
+| `npm run import-venues -- history [--status …] [--limit N]` | Recent runs from `composer_import_runs` |
+| `npm run import-venues -- show <id>` | Full detail for one run (counts, assertions, diff payload) |
 | `python3 scripts/snapshot_image_keys.py` | Snapshot `image_keys` to CSV before a wipe-and-replace import |
 | `python3 scripts/restore_image_keys.py SNAPSHOT.csv` | Restore `image_keys` after wipe-and-replace import |
 | `python3 scripts/backfill_price_tier.py` | Backfill null `price_tier` from Google Places `priceLevel` |

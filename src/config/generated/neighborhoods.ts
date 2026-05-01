@@ -1,6 +1,6 @@
 // AUTO-GENERATED — DO NOT EDIT
-// Source: Google Sheet 139gp-s2sBbEZbi4-6mrsMlhKykpoGWvuQdboMaAt20o
-// Generated: 2026-04-29T23:16:46.289787+00:00
+// Source: Google Sheet 1EdJqvFKaGAAo5oKMXBXeXfZdzfdT9IsmLiQYA9whXVg
+// Generated: 2026-05-01T10:19:33.444051+00:00
 
 export interface NeighborhoodGroup {
   label: string;
@@ -14,7 +14,7 @@ export const NEIGHBORHOOD_GROUPS: Record<string, NeighborhoodGroup> = {
     label: "West Village",
     borough: "Manhattan",
     slugs: ["west_village"],
-    venueCount: 133,
+    venueCount: 130,
   },
   greenwich_village: {
     label: "Greenwich Village",
@@ -26,13 +26,13 @@ export const NEIGHBORHOOD_GROUPS: Record<string, NeighborhoodGroup> = {
     label: "East Village / LES",
     borough: "Manhattan",
     slugs: ["east_village", "lower_east_side", "bowery"],
-    venueCount: 225,
+    venueCount: 221,
   },
   soho_nolita_tribeca: {
     label: "SoHo / Nolita / Tribeca",
     borough: "Manhattan",
     slugs: ["soho_nolita", "nolita", "noho", "tribeca", "little_italy", "hudson_square"],
-    venueCount: 192,
+    venueCount: 149,
   },
   chelsea: {
     label: "Chelsea",
@@ -44,25 +44,25 @@ export const NEIGHBORHOOD_GROUPS: Record<string, NeighborhoodGroup> = {
     label: "Flatiron / NoMad",
     borough: "Manhattan",
     slugs: ["flatiron", "nomad"],
-    venueCount: 83,
+    venueCount: 81,
   },
   gramercy_murray_hill: {
     label: "Gramercy / Murray Hill",
     borough: "Manhattan",
     slugs: ["gramercy", "murray_hill", "gramercy_kips_bay"],
-    venueCount: 14,
+    venueCount: 13,
   },
   midtown_west: {
     label: "Hell's Kitchen / Midtown West",
     borough: "Manhattan",
     slugs: ["midtown_west"],
-    venueCount: 30,
+    venueCount: 29,
   },
   midtown_east: {
     label: "Midtown East",
     borough: "Manhattan",
     slugs: ["midtown_east"],
-    venueCount: 30,
+    venueCount: 29,
   },
   koreatown: {
     label: "Koreatown",
@@ -74,25 +74,25 @@ export const NEIGHBORHOOD_GROUPS: Record<string, NeighborhoodGroup> = {
     label: "Chinatown",
     borough: "Manhattan",
     slugs: ["chinatown"],
-    venueCount: 72,
+    venueCount: 35,
   },
   fidi_lower_manhattan: {
     label: "FiDi / Lower Manhattan",
     borough: "Manhattan",
     slugs: ["fidi", "lower_manhattan", "battery_park_city"],
-    venueCount: 63,
+    venueCount: 26,
   },
   upper_west_side: {
     label: "Upper West Side",
     borough: "Manhattan",
     slugs: ["upper_west_side"],
-    venueCount: 34,
+    venueCount: 32,
   },
   upper_east_side: {
     label: "Upper East Side",
     borough: "Manhattan",
     slugs: ["upper_east_side"],
-    venueCount: 27,
+    venueCount: 26,
   },
   harlem_uptown: {
     label: "Harlem / Uptown",
@@ -104,19 +104,19 @@ export const NEIGHBORHOOD_GROUPS: Record<string, NeighborhoodGroup> = {
     label: "Williamsburg / Greenpoint",
     borough: "Brooklyn",
     slugs: ["williamsburg", "greenpoint"],
-    venueCount: 145,
+    venueCount: 142,
   },
   east_williamsburg_bushwick: {
     label: "East Williamsburg / Bushwick",
     borough: "Brooklyn",
     slugs: ["east_williamsburg", "bushwick"],
-    venueCount: 78,
+    venueCount: 77,
   },
   dumbo_brooklyn_heights: {
     label: "DUMBO / Brooklyn Heights",
     borough: "Brooklyn",
     slugs: ["dumbo", "brooklyn_heights", "cobble_hill", "carroll_gardens"],
-    venueCount: 55,
+    venueCount: 52,
   },
   fort_greene_clinton_hill: {
     label: "Fort Greene / Clinton Hill",
@@ -146,7 +146,7 @@ export const NEIGHBORHOOD_GROUPS: Record<string, NeighborhoodGroup> = {
     label: "Astoria / LIC",
     borough: "Queens",
     slugs: ["astoria", "long_island_city", "sunnyside"],
-    venueCount: 39,
+    venueCount: 37,
   },
   queens: {
     label: "Queens",

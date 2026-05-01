@@ -14,9 +14,10 @@
 //   2. apply:   atomic upsert with sanity assertions and large-change guard
 //   3. orphan deactivation in the same transaction as upsert
 //   4. audit trail to composer_import_runs (success / failed / aborted)
+//   5. admin route + UI cutover; legacy Python CLI and src/lib/google-sheets.ts deleted
 //
-// The legacy paths (scripts/import_venues_v2.py and the
-// /api/admin/sync-venues route) remain operational and untouched.
+// The legacy Python CLI and src/lib/google-sheets.ts were removed in
+// Phase 5b (2026-05-01); this module is the only path now.
 
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 

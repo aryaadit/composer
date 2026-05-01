@@ -5,10 +5,9 @@
 //   - reading the NYC Venues tab (headers + data rows)
 //   - fetching sheet identity for Layer 1 safety (title, last modified)
 //
-// This module is venue-importer-specific by design — it intentionally does
-// not share src/lib/google-sheets.ts. That file is consumed by the legacy
-// admin sync route and will be removed when the route is migrated in a
-// later phase.
+// Venue-importer-specific by design. The previous shared helper
+// (src/lib/google-sheets.ts) was deleted in Phase 5b — its only consumer
+// was the pre-cutover admin route, which now uses this module instead.
 
 import * as fs from "fs";
 import * as path from "path";
