@@ -1,6 +1,6 @@
 # Composer Itinerary Generation
 
-Composer takes a short questionnaire (occasion, neighborhoods, budget, vibe, when) and produces a curated 2-4 stop evening itinerary for NYC. The generation pipeline scores ~1,400 active venues against the user's inputs, picks the best combination, and enriches it with walking routes, Resy availability, and AI-written copy.
+Composer takes a short questionnaire (occasion, neighborhoods, budget, vibe, when) and produces a curated 2-4 stop evening itinerary for NYC. The generation pipeline scores ~1,310 active venues against the user's inputs, picks the best combination, and enriches it with walking routes, Resy availability, and AI-written copy.
 
 The algorithm is designed to feel opinionated — "this is the move" — not exhaustive. It prefers strong matches over safe averages, and uses a category-diversity penalty to avoid three-of-the-same. Every tunable constant lives in `src/config/algorithm.ts`.
 
@@ -169,12 +169,12 @@ All live in `src/config/algorithm.ts`. See inline JSDoc there for sane ranges an
 - **Time relevance is coarse** — 0/0.5/1 signal, not a smooth gradient based on hours of overlap.
 - **Walking distance is a filter, not a scoring signal** — a venue 200m away scores the same as one 1.4km away.
 - **Resy availability is presentation-only** — doesn't affect venue selection. A venue with zero slots scores identically to one with 20.
-- **~488 venues have null price_tier** — treated as tier 2. Google had no priceLevel data for them (galleries, parks, etc.).
+- **~322 venues have null price_tier** — treated as tier 2 in both the budget hard filter and scoring. Google Places had no priceLevel for them (galleries, parks, etc.). The Apr 27 backfill from Google Places returned no new data for these.
 - **Party size hardcoded to 2** for Resy availability queries.
 - **Swap logic is wired but disabled** — `candidatePool` is never passed to `enrichWithAvailability`.
 - **No per-stop proximity** — all non-Main stops anchor to Main, not to each other. Walking routes can feel non-linear.
 
-See `docs/itinerary-audit.md` for the full audit.
+See `docs/itinerary-audit.md` for the original audit (2026-04-27 snapshot — items there marked ~~strikethrough~~ have since been fixed).
 
 ## How to retune safely
 

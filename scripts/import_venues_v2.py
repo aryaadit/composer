@@ -1,14 +1,23 @@
 #!/usr/bin/env python3
 """
-Import venues from Reid's updated Google Sheet into composer_venues_v2.
+Import venues from the live Google Sheet into composer_venues_v2.
 
 Reads:   Google Sheet 1EdJqvFKaGAAo5oKMXBXeXfZdzfdT9IsmLiQYA9whXVg, tab "NYC Venues"
-Writes:  SQL to stdout or file (--out), or directly to Supabase (--execute)
+Writes:  SQL to stdout or to file (--out). Apply manually via psql.
+
+Behavior: UPSERT via INSERT ... ON CONFLICT (venue_id) DO UPDATE.
+Existing rows update; new rows insert; nothing deletes (set active=false
+in the sheet to hide a venue). `image_keys` is intentionally excluded
+from ALL_COLUMNS so it survives upserts — it's populated separately by
+backfill_venue_photos_v2.py.
+
+For the wipe-and-replace flow (TRUNCATE → import → restore image_keys),
+see CLAUDE.md → Updating Venue Data → Mode B.
 
 Usage:
-  python3 scripts/import_venues_v2.py --dry-run
-  python3 scripts/import_venues_v2.py --out /tmp/import_v2.sql
-  python3 scripts/import_venues_v2.py --execute
+  python3 scripts/import_venues_v2.py --dry-run             # report only
+  python3 scripts/import_venues_v2.py --out /tmp/import.sql # write SQL
+  # then apply: psql "$DATABASE_URL" < /tmp/import.sql
 """
 
 from __future__ import annotations
@@ -329,8 +338,7 @@ def generate_sql(venues: list[dict]) -> str:
 def main():
     parser = argparse.ArgumentParser(description="Import venues into composer_venues_v2")
     parser.add_argument("--dry-run", action="store_true", help="Report only, no SQL output")
-    parser.add_argument("--out", type=str, help="Write SQL to file")
-    parser.add_argument("--execute", action="store_true", help="Execute directly against Supabase")
+    parser.add_argument("--out", type=str, help="Write SQL to file (then apply via psql)")
     args = parser.parse_args()
 
     # Load .env.local for Google Sheets credentials
@@ -413,8 +421,6 @@ def main():
             f.write(sql)
         print(f"\nSQL written to {args.out} ({len(sql)} bytes)")
         print(f"Apply with: psql \"$DATABASE_URL\" < {args.out}")
-    elif args.execute:
-        print("\n--execute not implemented. Use --out and apply manually.")
     else:
         print(sql)
 

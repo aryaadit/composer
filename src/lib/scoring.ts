@@ -91,12 +91,14 @@ function scoreVenue(
     score += W.neighborhood;
   }
 
-  // Time relevance — score based on per-day block coverage
+  // Time relevance — score based on per-day block coverage. When the
+  // caller has no day/block context (legacy callers, tests), fall back
+  // to full points so the component doesn't penalize anything.
   if (dayColumn && timeBlock) {
     score += blockCoverageFraction(venue, dayColumn, timeBlock) * W.timeRelevance;
   } else {
-    void role;
-    score += W.timeRelevance; // fallback: full points when no day/block context
+    void role; // role was used by the original stub; kept for future role-aware logic
+    score += W.timeRelevance;
   }
 
   // Quality score
@@ -179,15 +181,17 @@ function applyProximity(candidates: Venue[], anchor: Venue | null, maxKm: number
 }
 
 /**
- * Pick the highest-scoring venue for a given stop role.
+ * Pick a venue for a given stop role.
  *
- * Applies hard filters first (role match, neighborhood, weather), then
- * scores survivors using weighted components from `src/config/algorithm.ts`.
- * If the hard filter + proximity leaves zero candidates, relaxes by
- * dropping the neighborhood requirement (proximity stays hard).
+ * Cascade relaxation: strict (with `venueRoleHint`) → drop hint → drop
+ * neighborhood. Proximity to `anchor` is always hard.
  *
- * Random jitter is applied from a seeded PRNG so identical inputs produce
- * identical results — see `src/lib/itinerary/seed.ts`.
+ * After scoring + sort, samples from the top N candidates using
+ * `weightedPickByRank` (top 5, weights `[5,4,3,2,1]`). When `jitter === 0`
+ * — used by `/api/health` for determinism — falls back to top-1.
+ *
+ * Random jitter and the weighted sample both consume the seeded PRNG so
+ * identical inputs produce identical picks. See `src/lib/itinerary/seed.ts`.
  *
  * @param venues         - Full venue pool (post candidate-filtering).
  * @param role           - The stop role being filled (opener, main, closer).
@@ -195,7 +199,7 @@ function applyProximity(candidates: Venue[], anchor: Venue | null, maxKm: number
  * @param weather        - Current weather; null disables weather filtering.
  * @param usedIds        - Venue IDs already selected; excluded from candidates.
  * @param anchor         - Reference venue for proximity filtering (Main). Null for Main selection.
- * @param jitter         - Jitter magnitude from ALGORITHM.jitter.magnitude.
+ * @param jitter         - Jitter magnitude from ALGORITHM.jitter.magnitude. 0 = deterministic top-1.
  * @param random         - Seeded PRNG function; defaults to Math.random.
  * @param usedCategories - Categories already used in this itinerary; triggers -20 penalty.
  * @param dayColumn      - Per-day column (e.g. "fri_blocks") for time relevance scoring.
@@ -203,7 +207,7 @@ function applyProximity(candidates: Venue[], anchor: Venue | null, maxKm: number
  * @param venueRoleHint  - Optional raw venue role to prefer (e.g. "drinks" for bar slots).
  *                         If no venues match the hint, falls back to any role-compatible venue.
  *
- * @returns `{ best, scored }` — the top-ranked venue (or null if none qualify)
+ * @returns `{ best, scored }` — the picked venue (or null if none qualify)
  *          and the full sorted list (used by composer for Plan B selection).
  */
 export function pickBestForRole(

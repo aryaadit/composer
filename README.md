@@ -12,19 +12,19 @@ Live at [composer.onpalate.com](https://composer.onpalate.com).
 
 A user answers a five-step questionnaire:
 
-1. **Occasion** — early dating, dating, couple, friends night out, solo
-2. **Neighborhoods** — pick up to three from borough-grouped options
-3. **Budget** — casual, nice out, splurge, all out, no preference
-4. **Vibe** — food-forward, drinks-led, activity + food, walk & explore, mix it up
-5. **When** — day (today through next week + custom date picker) + duration (keep it short / enjoy the moment / open-ended)
+1. **Occasion** — Dating, Relationship, Friends Night Out, Family, Solo
+2. **Neighborhoods** — pick up to three from borough-grouped options (25 groups; thin groups hidden)
+3. **Budget** — Casual, Solid, Splurge, All Out, No Preference
+4. **Vibe** — Meal, Drinks, Activity, Stroll, Variety
+5. **When** — day + time block (morning / afternoon / evening / late night)
 
-Composer returns a 2-to-4 stop evening, with the count driven by the duration:
+Composer returns a 2-to-4 stop evening, with the count driven by the time window and the chosen vibe's template (see `src/config/templates.ts`):
 
-- **Keep it short (2h)** → 2 stops (Opener + Main)
-- **Enjoy the moment (3.5h)** → 3 stops (Opener + Main + Closer)
-- **Open-ended (5h)** → 3-4 stops (Opener + Main + Closer + optional Closer)
+- **<3h window** → 2 stops (Opener + Main)
+- **3–5h window** → 3 stops (Opener + Main + Closer)
+- **≥5h window** → up to 4 stops
 
-Each itinerary includes walk times between stops, reservation links where available, weather-aware filtering, Plan B alternatives on flexible stops, a Google Maps export, and a shareable link.
+Each itinerary includes walk times between stops, Resy availability + booking deep-links where available, weather-aware filtering, Plan B alternatives, deterministic reproduction (same inputs → same picks), a Google Maps export, and a shareable link.
 
 ---
 
@@ -32,12 +32,14 @@ Each itinerary includes walk times between stops, reservation links where availa
 
 | Layer | Technology |
 |-------|-----------|
-| Framework | Next.js 16.2 (App Router, Turbopack) + TypeScript (strict) |
+| Framework | Next.js 16 (App Router, Turbopack) + TypeScript (strict) |
 | UI | React 19, Tailwind CSS 4, Motion (Framer fork) |
 | Database | Supabase (Postgres + Row Level Security) |
 | AI | Google Gemini 2.5 Flash via `@google/generative-ai` |
 | Weather | OpenWeatherMap (free tier, called per request, not cached) |
-| Auth | Supabase email/password (profiles + saved itineraries with RLS) |
+| Reservations | Resy availability API (POST /4/find) |
+| Validation | `obscenity` for name profanity filtering |
+| Auth | Supabase phone OTP via Twilio (default) + email/password (alt) |
 | Deployment | Vercel — auto-deploy from `main` |
 | Domain | composer.onpalate.com |
 
@@ -111,27 +113,24 @@ composer/
 
 `/api/generate` (POST) is the only generation endpoint. It runs server-side. The client never calls Supabase, OpenWeatherMap, or Gemini directly.
 
-1. **User preferences** (name, drinks, dietary) are read server-side from the authenticated user's `composer_users` profile via `getServerSupabase()`. The client sends only the questionnaire answers.
-2. **Parallel fetch:** weather is pulled from OpenWeatherMap and active venues are queried from Supabase.
-3. **Drinks filter:** if the user said "no" to drinks, alcohol-forward venues are dropped entirely.
-4. **planStopMix** ([src/lib/composer.ts](src/lib/composer.ts)) decides how many stops fit the time window and which role pattern to use:
-   - `<2.5h` → `["opener", "main"]`
-   - `<4.5h` → `["opener", "main", "closer"]`
-   - `≥4.5h` → `["opener", "main", "closer", "closer"]`
-5. **Hard filters** ([src/lib/scoring.ts](src/lib/scoring.ts)) drop inactive venues, wrong roles, neighborhood mismatches, and outdoor seating in bad weather.
-6. **Bad-weather walking cap** drops the max walking distance from 1.5 km (~20 min) to 0.4 km (~5 min) when it's raining or snowing.
-7. **Weighted scoring** ranks the survivors:
-   - Vibe match — 35% (exact canonical tag matching, no fuzzy)
-   - Occasion fit — 15%
-   - Budget fit — 15%
-   - Location (in selected neighborhoods) — 10%
-   - Time relevance — 10%
-   - Quality signal — up to 10% (from `quality_score`)
-   - Curation boost — up to 10% (from `curation_boost`)
-   - Plus small jitter for variety on regenerate
-8. **composeItinerary** picks the Main first as the geographic anchor, then fills the remaining slots in pattern order subject to walking-distance proximity to Main. **Plan B** alternatives are pulled from the same scored list.
-9. **Progressive relaxation:** if filters return zero venues for a slot, neighborhood filtering is dropped while proximity is preserved.
-10. **Gemini polish layer** writes the composition title, subtitle, and per-venue notes in the founder voice. If the call fails or times out, the route falls back to raw DB curation notes — the itinerary still renders.
+For the full architecture map see [ALGORITHM.md](ALGORITHM.md). Tunable constants live in `src/config/algorithm.ts`. Quick summary:
+
+1. **User preferences** (name, drinks) read server-side from `composer_users` via `getServerSupabase()`.
+2. **Parallel fetch:** weather + all active venues from `composer_venues_v2`.
+3. **Hard filters** in route.ts: exclude IDs (graceful trim) → drinks=no → time block coverage → closed status → budget tier (with widening).
+4. **Seeded PRNG:** request inputs hashed via FNV-1a → Mulberry32 PRNG. Same inputs → same picks (`src/lib/itinerary/seed.ts`).
+5. **planStopMix** picks a vibe-specific template from `src/config/templates.ts`. Each slot has a canonical role and an optional `venueRoleHint` (e.g., drinks-led opener prefers a `drinks` venue).
+6. **`pickBestForRole`** in `src/lib/scoring.ts` cascade-relaxes: strict (with hint) → drop hint → drop neighborhood. Proximity to Main is always hard-capped (1.5km normal, 0.4km bad weather).
+7. **Weighted scoring** (all weights from `ALGORITHM.weights`):
+   - Vibe match: 10–35 (exact canonical tag matching)
+   - Occasion: 15 · Budget: 15 · Neighborhood: 10
+   - Time relevance: 0–10 (`blockCoverageFraction`: 1.0/0.5/0.0 based on per-day vs global block data)
+   - Quality: 0–10 · Curation boost: variable · Google rating: 0–5
+   - Category duplicate penalty: -20 (applied when candidate's category matches a stop already in the itinerary)
+8. **Weighted top-N pick:** instead of always #1, samples from top 5 with weights `[5,4,3,2,1]`. Falls back to deterministic top-1 when `jitter === 0`.
+9. **composeItinerary** picks Main first as the geographic anchor, then fills the rest of the pattern. Plan B = scored[1] from each non-Main pick.
+10. **Gemini polish layer** writes the composition title, subtitle, and per-venue notes. Fails open: raw `curation_note` from DB if Gemini errors.
+11. **Resy enrichment** runs post-composition. Each stop with a Resy ID gets a slot lookup; failures degrade to "unconfirmed" status without blocking the itinerary.
 
 ---
 
@@ -152,58 +151,30 @@ These are enforced by [CLAUDE.md](CLAUDE.md). Read that file for the full rule s
 
 ## Venue database
 
-Venues live in the `composer_venues` table in Supabase. **Every venue is human-curated — no AI-generated entries, no Google Places scraping.** The curation layer is the product.
+Venues live in the `composer_venues_v2` table in Supabase (the v1 `composer_venues` is deprecated). **Every venue is human-curated — no AI-generated entries.** The curation layer is the product.
 
-Venues are managed in a Google Sheet shared between the founders and imported to Supabase via CSV. See the Import Guide tab in the venue sheet for the full pipeline.
+Venues are managed in a Google Sheet (current ID: `1EdJqvFKaGAAo5oKMXBXeXfZdzfdT9IsmLiQYA9whXVg`) and synced to Supabase via `scripts/import_venues_v2.py`. Two import modes — incremental upsert and wipe-and-replace — are documented in [CLAUDE.md → Updating Venue Data](CLAUDE.md#updating-venue-data--two-modes).
 
-### Schema (abridged)
+Full schema in [`supabase/migrations/20260428_composer_venues_v2.sql`](supabase/migrations/20260428_composer_venues_v2.sql). Highlights:
 
-```sql
-composer_venues (
-  id              uuid primary key,
-  name            text,
-  category        text,
-  neighborhood    text,                -- hyphenated slug (see below)
-  address         text,
-  latitude        double precision,
-  longitude       double precision,
-  stop_roles      text[],              -- opener | main | closer
-  price_tier      int,                 -- 1 | 2 | 3
-  vibe_tags       text[],              -- canonical only (see below)
-  occasion_tags   text[],
-  outdoor_seating boolean,
-  reservation_url text,
-  curation_note   text,
-  active          boolean,
-  quality_score   int,                 -- 1-10
-  curation_boost  int,                 -- 0-2
-  best_before     text,                -- "21:00"
-  best_after      text                 -- "17:00"
-)
-```
+- **`venue_id`** — sheet identifier, used as upsert conflict key
+- **`google_place_id`** — stable canonical identifier; used as join key for image_keys snapshot/restore (NOT `venue_id`)
+- **`image_keys`** — Supabase Storage paths for venue photos. **Not in the sheet** — populated by `scripts/backfill_venue_photos_v2.py`. Excluded from importer's column list, so it survives upserts. Snapshotted before any TRUNCATE.
+- **Per-day blocks** (`mon_blocks`, `tue_blocks`, ..., `sun_blocks`) — override global `time_blocks` via the hybrid rule in `venueOpenForBlock()`
 
-Full schema and seed data in [`supabase/seed.sql`](supabase/seed.sql).
+### Canonical taxonomy
 
-### Canonical vibe tags
+All taxonomy lists are auto-generated from the Google Sheet's Master Reference tab via `npm run generate-configs`. Files in `src/config/generated/` are auto-generated — never edit by hand.
 
-Scoring matches on exact equality. Adding a new tag requires updating `lib/scoring.ts` simultaneously.
-
-**Scored tags:**
-
-| Tag(s) | Maps to vibe |
-|--------|-------------|
-| `food_forward`, `tasting`, `dinner`, `bistro` | Food-forward |
-| `cocktail_forward`, `wine_bar`, `speakeasy`, `drinks` | Drinks-led |
-| `activity`, `comedy`, `karaoke`, `games`, `bowling` | Activity + food |
-| `walk`, `gallery`, `bookstore`, `market`, `park` | Walk & explore |
-
-**Cross-cutting tags** (valid, not scored): `romantic`, `conversation_friendly`, `group_friendly`, `late_night`, `casual`, `upscale`, `outdoor`.
+Display labels live in the wrappers and override the generated values:
+- `src/config/vibes.ts` — `Meal`, `Drinks`, `Activity`, `Stroll`, `Variety`
+- `src/config/budgets.ts` — `Casual`, `Solid`, `Splurge`, `All Out`, `No Preference`
 
 ### Neighborhood slugs
 
-Always snake_case. Must match exactly across the DB, [src/config/neighborhoods.ts](src/config/neighborhoods.ts), and the venue sheet:
+Always snake_case. The picker shows 25 user-facing groups (Manhattan: 15, Brooklyn: 7, Queens: 2, Bronx/SI: 1) maintained as a constant in `scripts/generate-configs.py`. Each group expands to 1+ storage slugs. Groups with `venueCount < 50` are hidden from the picker.
 
-`west_village` · `east_village_les` · `soho_nolita` · `williamsburg` · `midtown_hells_kitchen` · `upper_west_side`
+Storage slug examples: `west_village`, `east_village`, `soho_nolita`, `williamsburg`, `midtown_west`, `upper_west_side`, `flatiron`, `nomad`, `bushwick`.
 
 ---
 
@@ -230,8 +201,18 @@ Create `.env.local` in the project root:
 ```
 NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_publishable_key
+SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
 GEMINI_API_KEY=your_gemini_api_key
 OPENWEATHERMAP_API_KEY=your_openweathermap_key
+
+# Sheet sync (admin-only)
+GOOGLE_SHEETS_CLIENT_EMAIL=service_account_email
+GOOGLE_SHEETS_PRIVATE_KEY=service_account_private_key
+GOOGLE_SHEET_ID=1EdJqvFKaGAAo5oKMXBXeXfZdzfdT9IsmLiQYA9whXVg
+
+# Optional
+GOOGLE_PLACES_API_KEY=your_google_places_key
+MAPBOX_ACCESS_TOKEN=your_mapbox_token
 ```
 
 Run the seed SQL in your Supabase project (Dashboard → SQL Editor):
@@ -257,8 +238,12 @@ Visit `http://localhost:3000`.
 | `npm run start` | Run the production build locally |
 | `npm run lint` | ESLint over the project |
 | `npx tsc --noEmit` | TypeScript check (no emit) |
-| `npm run generate-configs` | Regenerate `src/config/generated/*.ts` from the Google Sheet reference tabs |
-| `python3 scripts/import_venues.py --out FILE` | Generate venue import SQL from the Google Sheet's Venues tab |
+| `npx vitest run` | Run the unit test suite |
+| `npm run generate-configs` | Regenerate `src/config/generated/*.ts` from the Google Sheet's Master Reference tab |
+| `python3 scripts/import_venues_v2.py --out FILE` | Generate venue import SQL from the new sheet's NYC Venues tab |
+| `python3 scripts/snapshot_image_keys.py` | Snapshot `image_keys` to CSV before a wipe-and-replace import |
+| `python3 scripts/restore_image_keys.py SNAPSHOT.csv` | Restore `image_keys` after wipe-and-replace import |
+| `python3 scripts/backfill_price_tier.py` | Backfill null `price_tier` from Google Places `priceLevel` |
 
 For the full venue update workflow (sheet → configs → import → verify), see **CLAUDE.md → Venue Database Rules**.
 
@@ -272,8 +257,14 @@ For the full venue update workflow (sheet → configs → import → verify), se
 |----------|----------------|----------|
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase → Settings → API → Project URL | Yes |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase → Settings → API → Publishable / anon key | Yes |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase → Settings → API → service_role key | Yes |
 | `GEMINI_API_KEY` | aistudio.google.com → API Keys | Yes |
 | `OPENWEATHERMAP_API_KEY` | openweathermap.org → API Keys (allow up to 2h to activate) | Yes |
+| `GOOGLE_SHEETS_CLIENT_EMAIL` | Service account in GCP project | Sheet sync |
+| `GOOGLE_SHEETS_PRIVATE_KEY` | Service account JSON key | Sheet sync |
+| `GOOGLE_SHEET_ID` | Venue sheet URL | Sheet sync |
+| `GOOGLE_PLACES_API_KEY` | GCP — Maps Platform | Photo + price-tier backfills |
+| `MAPBOX_ACCESS_TOKEN` | mapbox.com → Account → Access tokens | Optional (static walk maps) |
 
 > **Production env vars must be set separately in the Vercel project dashboard.** Vercel does not read your local `.env.local`. If a value is missing in Vercel, the server will silently fall back: a missing `OPENWEATHERMAP_API_KEY` disables the weather gate (logged as a `[weather]` warning), and a missing `GEMINI_API_KEY` causes the copy generation to fall back to raw DB notes (logged as a `[gemini]` warning). Both fallbacks degrade gracefully — the itinerary still renders.
 
@@ -298,7 +289,7 @@ This repo uses a branch-and-PR workflow. Full process and rules in [CONTRIBUTING
 
 Composer is deployed on Vercel. Every push to `main` triggers an automatic production deployment to `composer.onpalate.com`. Every PR gets a preview deployment URL.
 
-Production environment variables (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `GEMINI_API_KEY`, `OPENWEATHERMAP_API_KEY`) must be configured in the Vercel project settings — they are **not** read from `.env.local`.
+Production environment variables must be configured in the Vercel project settings — they are **not** read from `.env.local`. When the venue sheet ID changes, BOTH `.env.local` AND the Vercel `GOOGLE_SHEET_ID` env var must be updated (followed by a redeploy).
 
 To monitor production: check Vercel → Logs for `[gemini]` and `[weather]` warnings, which surface fallback paths and missing credentials.
 
@@ -356,6 +347,9 @@ The endpoint always returns HTTP 200 — inspect the top-level `ok` plus per-che
 |------|----------|---------|
 | [README.md](README.md) | Everyone | What you're reading now |
 | [CLAUDE.md](CLAUDE.md) | Claude Code + humans | Project rules, conventions, architectural principles, and design system |
+| [ALGORITHM.md](ALGORITHM.md) | Engineers | Itinerary generation pipeline architecture |
+| [BRAND_VOICE.md](BRAND_VOICE.md) | Anyone writing copy | Voice principles and copy library |
+| [CODING_STANDARDS.md](CODING_STANDARDS.md) | Engineers | Source-of-truth + canonical-module rules |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Contributors | Branch workflow and contributor rules |
 | [.github/pull_request_template.md](.github/pull_request_template.md) | GitHub | Auto-loaded PR template |
 
@@ -365,14 +359,17 @@ The endpoint always returns HTTP 200 — inspect the top-level `ok` plus per-che
 
 ### MVP (current)
 
-- Email/password auth with user profiles
+- Phone OTP auth via Twilio (default), email/password as alternative
+- Three-step onboarding (name → context → drinks/dietary)
 - Five-step questionnaire (occasion → neighborhoods → budget → vibe → when)
-- 2-to-4 stop itineraries with walk routing
-- Plan B alternatives, weather gate, share-as-text
+- 2-to-4 stop itineraries with vibe-driven templates and walk routing
+- Deterministic seeded picks — same inputs reproduce the same itinerary
+- Resy availability + booking deep-links per stop
+- Plan B alternatives, weather gate, share-as-link
 - Saved itineraries (server-side, per user)
-- Profile page with inline-editable preferences
-- Admin section (health check, onboarding reset, DB-driven `is_admin` flag)
-- Manhattan + Brooklyn (selected neighborhoods)
+- Profile page with inline-editable preferences (server-validated via `PATCH /api/profile`)
+- Admin section (sync venues, venue lookup, health check)
+- 25-group neighborhood taxonomy across Manhattan, Brooklyn, Queens, and Bronx/SI
 
 ### Phase 2 (not yet building)
 
