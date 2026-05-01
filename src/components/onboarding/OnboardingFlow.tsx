@@ -350,6 +350,7 @@ export function OnboardingFlow() {
           <Button
             variant="primary"
             onClick={() => void handleFinish()}
+            disabled={!drinks || dietary.length === 0}
             className="w-full"
           >
             Let&apos;s go →
