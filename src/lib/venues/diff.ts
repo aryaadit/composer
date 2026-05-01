@@ -221,11 +221,27 @@ function diffOneVenue(
  * Compute the diff between transformed sheet records and current DB rows.
  *
  * Match key: `venue_id`. Buckets:
- *   - add:        in sheet, not in DB
- *   - modify:     in both, with at least one writable-column change
- *   - deactivate: active in DB, not in sheet (Phase 3 — soft delete by
- *                 setting active=false in the apply path)
- *   - unchanged:  in both, no writable-column differences
+ *   - add:        sheet rows not in DB
+ *   - modify:     sheet rows that exist in DB with at least one writable-column change
+ *   - deactivate: active DB rows whose venue_id is not in the sheet (Phase 3 —
+ *                 soft delete by setting active=false in the apply path)
+ *   - unchanged:  sheet rows that exist in DB with no writable-column differences
+ *   - skipped:    sheet rows that failed transform validation
+ *
+ * `unchanged` is COUNTED FROM THE SHEET'S PERSPECTIVE — sheet rows that
+ * map to existing DB rows requiring no action. It is NOT a count of "DB
+ * rows whose state isn't changing." This preserves the invariant
+ *
+ *     add + modify + unchanged + skipped == sheet row count
+ *
+ * which makes the operator's mental model legible: the operator edits a
+ * sheet of N venues, and the diff partitions those N rows into action
+ * buckets. Deactivations are ORTHOGONAL — DB rows with no corresponding
+ * sheet row, so they don't fit in any sheet-row bucket.
+ *
+ * Example (sheet=1,314, DB=1,311 active, 1 orphan):
+ *   add=0, modify=0, deactivate=1, unchanged=1,314, skipped=0
+ *   sum of sheet buckets = 1,314 = sheet rows ✓
  *
  * Already-inactive DB rows missing from the sheet are NOT in deactivate —
  * they're already in the desired state, so re-flipping them would be

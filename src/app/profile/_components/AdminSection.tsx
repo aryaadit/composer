@@ -27,6 +27,7 @@ import type {
 import { SyncPreflightPanel } from "./SyncPreflightPanel";
 import { SyncPreviewPanel } from "./SyncPreviewPanel";
 import {
+  SyncApplyingPanel,
   SyncAssertionBlockedPanel,
   SyncFailedPanel,
   SyncSuccessPanel,
@@ -46,7 +47,10 @@ type SyncState =
   | { kind: "loading_preview" }
   | { kind: "preview_ready"; data: AdminPreviewResponse }
   | { kind: "preview_failed"; error: string }
-  | { kind: "loading_apply" }
+  // Carries the preview that triggered this apply so the transitional
+  // "Applying…" panel can show the diff that's being written. Without
+  // this the operator sees a 2–3s blank gap (item 4 from UI fixes).
+  | { kind: "loading_apply"; preview: AdminPreviewResponse }
   | { kind: "apply_success"; data: AdminApplySuccessResponse }
   | { kind: "apply_assertion_blocked"; data: AdminApplyAssertionBlockedResponse }
   | { kind: "apply_threshold_blocked"; data: AdminApplyThresholdBlockedResponse }
@@ -175,7 +179,37 @@ export function AdminSection() {
   const handleApply = async (
     flags: { override_assertions?: "OVERRIDE"; confirm_large_change?: boolean } = {}
   ) => {
-    setSync({ kind: "loading_apply" });
+    // Preserve the preview that triggered this apply so SyncApplyingPanel
+    // can render the diff while the RPC runs. Falls back to a synthetic
+    // empty preview only if apply was somehow invoked outside the
+    // preview state — shouldn't happen via the normal flow.
+    setSync((prev) => {
+      const preview =
+        prev.kind === "preview_ready"
+          ? prev.data
+          : prev.kind === "apply_assertion_blocked" ||
+            prev.kind === "apply_threshold_blocked"
+          ? null
+          : null;
+      return {
+        kind: "loading_apply",
+        preview:
+          preview ?? ({
+            ok: true,
+            kind: "preview",
+            metadata: {
+              spreadsheetId: "",
+              title: "",
+              rowCount: 0,
+              sampleNeighborhoods: [],
+            },
+            diff: { add: [], modify: [], deactivate: [], unchanged: 0, skipped: [] },
+            assertions: { results: [], blocked: false },
+            db_active_count: 0,
+            db_inactive_count: 0,
+          } satisfies AdminPreviewResponse),
+      };
+    });
     setOverrideOpen(false);
     try {
       const res = await callRoute({ action: "apply", ...flags });
@@ -359,7 +393,12 @@ function CurrentStateExplanation({ state }: { state: SyncState }) {
       text = stateExplanations.preflightReady;
       break;
     case "preview_ready":
-      text = stateExplanations.previewReady;
+      // When preview comes back with blocked assertions there's no
+      // Apply button and nothing to "review and apply" — swap to the
+      // assertion-blocked explanation so the subtitle isn't misleading.
+      text = state.data.assertions.blocked
+        ? stateExplanations.applyAssertionBlocked
+        : stateExplanations.previewReady;
       break;
     default:
       return null;
@@ -423,7 +462,7 @@ function SyncBody({
     case "preview_failed":
       return <ErrorBlock title="Preview failed" message={state.error} />;
     case "loading_apply":
-      return <p className="font-sans text-xs text-muted">Applying changes…</p>;
+      return <SyncApplyingPanel preview={state.preview} />;
     case "apply_success":
       return <SyncSuccessPanel data={state.data} />;
     case "apply_assertion_blocked":

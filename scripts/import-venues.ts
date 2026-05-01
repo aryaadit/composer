@@ -32,6 +32,7 @@ import { getRun, listRuns, shortId } from "../src/lib/venues/audit";
 import { VENUE_SHEET_TAB } from "../src/lib/venues/config";
 import {
   applyPrepared,
+  OverrideEmptyReadError,
   prepareApply,
   recordAssertionsAbort,
   runDryRun,
@@ -490,6 +491,7 @@ async function handleApply(args: Args): Promise<void> {
       triggeredBy: "cli",
       startedAt,
     }));
+
   } catch (err) {
     if (err instanceof LargeChangeError) {
       // applyPrepared already recorded the abort/threshold row.
@@ -497,6 +499,13 @@ async function handleApply(args: Args): Promise<void> {
       console.error(err.message);
       console.error("");
       console.error("Re-run with --confirm-large-change to proceed.");
+      process.exit(1);
+    }
+    if (err instanceof OverrideEmptyReadError) {
+      // applyPrepared already recorded the failure row. Print message
+      // and exit without a stack trace — the message is the diagnostic.
+      console.error("");
+      console.error(err.message);
       process.exit(1);
     }
     throw err;

@@ -18,9 +18,13 @@ export function SyncPreflightPanel({
   dbInactive,
 }: SyncPreflightPanelProps) {
   return (
-    <div className="border border-border rounded-md p-4 space-y-4">
-      <SourceBlock metadata={metadata} />
-      <TargetBlock active={dbActive} inactive={dbInactive} />
+    <div className="border border-border rounded-md p-4 grid gap-6 sm:grid-cols-2 sm:gap-8">
+      <div className="min-w-0">
+        <SourceBlock metadata={metadata} />
+      </div>
+      <div className="min-w-0">
+        <TargetBlock active={dbActive} inactive={dbInactive} />
+      </div>
     </div>
   );
 }
@@ -33,25 +37,26 @@ export function SourceBlock({ metadata }: { metadata: SheetMetadata }) {
       : metadata.spreadsheetId;
 
   return (
-    <div>
+    <div className="min-w-0">
       <h4 className="font-sans text-[10px] tracking-widest uppercase text-muted mb-2">
         Source
       </h4>
-      <dl className="grid grid-cols-[6rem_1fr] gap-x-3 gap-y-1 font-sans text-xs">
+      <dl className="grid grid-cols-[5rem_minmax(0,1fr)] gap-x-3 gap-y-1 font-sans text-xs">
         <dt className="text-warm-gray">Sheet</dt>
-        <dd className="text-charcoal font-mono">
+        <dd className="text-charcoal font-mono break-words min-w-0">
           &ldquo;{metadata.title}&rdquo;
         </dd>
         <dt className="text-warm-gray">ID</dt>
-        <dd className="text-charcoal font-mono">
+        <dd className="text-charcoal font-mono min-w-0 break-all">
           {truncatedId}{" "}
+          <span className="text-muted">·</span>{" "}
           <a
             href={sheetUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-burgundy hover:text-burgundy-light underline-offset-2 hover:underline"
+            className="text-burgundy hover:text-burgundy-light underline-offset-2 hover:underline whitespace-nowrap"
           >
-            open in new tab ↗
+            open ↗
           </a>
         </dd>
         {metadata.rowCount > 0 && (
@@ -63,7 +68,7 @@ export function SourceBlock({ metadata }: { metadata: SheetMetadata }) {
           </>
         )}
         <dt className="text-warm-gray">Modified</dt>
-        <dd className="text-charcoal">{formatModified(metadata)}</dd>
+        <dd className="text-charcoal min-w-0 break-words">{formatModified(metadata)}</dd>
       </dl>
     </div>
   );
@@ -77,13 +82,13 @@ export function TargetBlock({
   inactive: number;
 }) {
   return (
-    <div>
+    <div className="min-w-0">
       <h4 className="font-sans text-[10px] tracking-widest uppercase text-muted mb-2">
         Target
       </h4>
-      <dl className="grid grid-cols-[6rem_1fr] gap-x-3 gap-y-1 font-sans text-xs">
+      <dl className="grid grid-cols-[5rem_minmax(0,1fr)] gap-x-3 gap-y-1 font-sans text-xs">
         <dt className="text-warm-gray">Database</dt>
-        <dd className="text-charcoal font-mono">composer_venues_v2</dd>
+        <dd className="text-charcoal font-mono break-all min-w-0">composer_venues_v2</dd>
         <dt className="text-warm-gray">Active</dt>
         <dd className="text-charcoal font-mono">
           {active.toLocaleString()} venues

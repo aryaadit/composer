@@ -1,11 +1,16 @@
 "use client";
 
-// Admin venue lookup — search by name, see all fields, force-resync a
-// single venue from the source sheet. The single-venue resync routes
-// through `POST /api/admin/sync-venues { action: 'sync_single' }` which
-// uses the canonical importer module (no assertions, no threshold
-// guards — those exist for full-sheet operations). Single-venue runs
-// still record to the audit trail with `trigger_source = 'route:sync_single'`.
+// Admin venue lookup — search by name, force-resync a single venue from
+// the source sheet. The single-venue resync routes through
+// `POST /api/admin/sync-venues { action: 'sync_single' }` which uses
+// the canonical importer module (no assertions, no threshold guards —
+// those exist for full-sheet operations). Single-venue runs still
+// record to the audit trail with `trigger_source = 'route:sync_single'`.
+//
+// The card shows venue name + thumbnail + sync button by default.
+// "Raw JSON" toggle exposes the full venue row for verification —
+// the per-field key/value dump that previously rendered inline was
+// redundant with that toggle and made the card visually heavy.
 
 import { useState } from "react";
 import type { Venue } from "@/types";
@@ -50,7 +55,7 @@ export function VenueLookup() {
   };
 
   return (
-    <div className="mt-5 w-full">
+    <div className="mt-3 w-full">
       <div className="flex gap-2">
         <input
           type="text"
@@ -73,11 +78,17 @@ export function VenueLookup() {
       </div>
 
       {state.status === "data" && (
-        <div className="mt-3 space-y-4">
+        <div className="mt-3 space-y-3">
           {state.result.count === 0 && (
-            <p className="font-mono text-xs text-muted">
-              No venues matching &quot;{state.result.query}&quot;
-            </p>
+            <div className="font-mono text-xs">
+              <p className="text-muted">
+                No venues matching &ldquo;{state.result.query}&rdquo;
+              </p>
+              <p className="text-muted mt-1">
+                Try a venue name (e.g. &ldquo;Rubirosa&rdquo;) or search a
+                partial — the lookup matches anywhere in the name.
+              </p>
+            </div>
           )}
           {state.result.venues.map((v) => (
             <VenueCard
@@ -101,6 +112,8 @@ export function VenueLookup() {
   );
 }
 
+// ─── Venue card ────────────────────────────────────────────────────────
+
 function VenueCard({
   venue,
   expanded,
@@ -111,6 +124,7 @@ function VenueCard({
   onToggle: () => void;
 }) {
   const [syncState, setSyncState] = useState<SyncState>({ status: "idle" });
+  const heroUrl = getVenueHeroImageUrl(venue.image_keys ?? []);
 
   const handleSync = async () => {
     setSyncState({ status: "syncing" });
@@ -129,6 +143,7 @@ function VenueCard({
         setSyncState({
           status: "success",
           action: json.action,
+          changed: json.changed,
           runId: json.run_id,
         });
       } else if (!json.ok && json.kind === "sync_single_not_found") {
@@ -159,70 +174,37 @@ function VenueCard({
       });
     }
   };
-  const heroUrl = getVenueHeroImageUrl(venue.image_keys ?? []);
-
-  const SKIP_KEYS = new Set([
-    "id", "venue_id", "name", "google_place_id", "latitude", "longitude",
-    "created_at", "updated_at", "image_keys",
-  ]);
-
-  const fields: [string, string][] = [];
-  for (const [key, val] of Object.entries(venue)) {
-    if (SKIP_KEYS.has(key)) continue;
-    if (val == null) continue;
-    if (typeof val === "string" && val.trim() === "") continue;
-    if (Array.isArray(val) && val.length === 0) continue;
-
-    const label = key
-      .replace(/_/g, " ")
-      .replace(/\b\w/g, (c) => c.toUpperCase());
-
-    let display: string;
-    if (typeof val === "boolean") {
-      display = val ? "yes" : "no";
-    } else if (Array.isArray(val)) {
-      display = val.join(", ");
-    } else if (typeof val === "number") {
-      display = String(val);
-    } else {
-      display = String(val);
-    }
-
-    fields.push([label, display]);
-  }
 
   return (
     <div className="border border-border rounded-md p-3">
-      <div className="flex items-center justify-between mb-2">
-        <div className="flex items-center gap-2">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2 min-w-0">
           {heroUrl && (
+            // eslint-disable-next-line @next/next/no-img-element
             <img
               src={heroUrl}
               alt={venue.name}
               className="w-10 h-10 rounded object-cover flex-shrink-0"
             />
           )}
-          <div className="font-sans text-sm font-medium text-charcoal">
-            {venue.name}
+          <div className="min-w-0">
+            <div className="font-sans text-sm font-medium text-charcoal truncate">
+              {venue.name}
+            </div>
+            <div className="font-mono text-[11px] text-muted truncate">
+              {venue.venue_id} · {venue.neighborhood}
+            </div>
           </div>
         </div>
         <SyncButton state={syncState} onClick={() => void handleSync()} />
       </div>
       <SyncStatusLine state={syncState} />
-      <div className="font-mono text-xs text-muted space-y-0.5">
-        {fields.map(([label, value]) => (
-          <div key={label}>
-            <span className="text-warm-gray">{label}:</span>{" "}
-            <span className="text-charcoal">{value}</span>
-          </div>
-        ))}
-      </div>
       <button
         type="button"
         onClick={onToggle}
         className="mt-2 font-mono text-xs text-muted hover:text-charcoal transition-colors"
       >
-        {expanded ? "Hide JSON ▲" : "Raw JSON ▼"}
+        {expanded ? "Hide raw JSON ▲" : "Raw JSON ▼"}
       </button>
       {expanded && (
         <pre className="mt-2 font-mono text-xs text-muted whitespace-pre-wrap max-w-full overflow-x-auto border-t border-border pt-2">
@@ -238,7 +220,12 @@ function VenueCard({
 type SyncState =
   | { status: "idle" }
   | { status: "syncing" }
-  | { status: "success"; action: "inserted" | "updated"; runId: string | null }
+  | {
+      status: "success";
+      action: "inserted" | "updated";
+      changed: boolean;
+      runId: string | null;
+    }
   | { status: "not_found"; message: string }
   | { status: "error"; message: string };
 
@@ -253,7 +240,9 @@ function SyncButton({
     state.status === "syncing"
       ? "syncing…"
       : state.status === "success"
-      ? `${state.action} ✓`
+      ? state.changed
+        ? `${state.action} ✓`
+        : "no change ✓"
       : state.status === "not_found"
       ? "not in sheet ✗"
       : state.status === "error"
@@ -264,40 +253,61 @@ function SyncButton({
       type="button"
       onClick={onClick}
       disabled={state.status === "syncing"}
-      className="font-mono text-xs text-muted hover:text-charcoal transition-colors disabled:cursor-wait"
+      className="font-mono text-xs text-muted hover:text-charcoal transition-colors disabled:cursor-wait whitespace-nowrap"
     >
       {label}
     </button>
   );
 }
 
+/**
+ * Compact two-line status. Three success variants based on what the
+ * route reported:
+ *   - inserted             — venue didn't exist in DB, just added
+ *   - updated + changed    — DB row had different field values, now overwritten
+ *   - updated + !changed   — sheet matched DB exactly, force-write was a no-op
+ *
+ * The third variant (no-change) is the most easily-misread state — the
+ * old "Overwrote DB row" copy lied about what happened. Audit row
+ * confirms: modified_count=0 means nothing changed.
+ */
 function SyncStatusLine({ state }: { state: SyncState }) {
   if (state.status === "idle" || state.status === "syncing") return null;
 
   if (state.status === "success") {
+    const statusCopy =
+      state.action === "inserted"
+        ? "Added new row from sheet."
+        : state.changed
+        ? "Updated DB row — fields changed."
+        : "No changes — sheet matches DB.";
+    const tone =
+      state.action === "inserted" || state.changed
+        ? "text-emerald-600"
+        : "text-muted";
     return (
-      <p className="font-mono text-xs text-emerald-600 mt-1">
-        {state.action === "inserted"
-          ? "Inserted into DB."
-          : "Overwrote DB row from sheet."}{" "}
+      <div className={`font-mono text-xs ${tone} mt-1.5`}>
+        <p>{statusCopy}</p>
         {state.runId && (
-          <span className="text-muted">
-            Run {shortId(state.runId)} (CLI:{" "}
-            <code>npm run import-venues -- show {shortId(state.runId)}</code>)
-          </span>
+          <p className="text-muted mt-0.5">
+            Run {shortId(state.runId)} · CLI:{" "}
+            <code className="text-charcoal">
+              npm run import-venues -- show {shortId(state.runId)}
+            </code>
+          </p>
         )}
-      </p>
+      </div>
     );
   }
   if (state.status === "not_found") {
     return (
-      <p className="font-mono text-xs text-burgundy mt-1">
+      <p className="font-mono text-xs text-burgundy mt-1.5">
         {state.message} — add it to the source sheet first, then resync.
       </p>
     );
   }
   return (
-    <p className="font-mono text-xs text-burgundy mt-1">{state.message}</p>
+    <p className="font-mono text-xs text-burgundy mt-1.5">{state.message}</p>
   );
 }
 

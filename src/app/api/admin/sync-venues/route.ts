@@ -248,6 +248,7 @@ async function handleSyncSingle(
       kind: "sync_single_success",
       venue_id: venueId,
       action: result.action ?? "updated",
+      changed: result.changed ?? true,
       run_id: result.runId ?? null,
     });
   } catch (err) {

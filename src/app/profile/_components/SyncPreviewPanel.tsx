@@ -26,36 +26,42 @@ export function SyncPreviewPanel({
   const totalChanges =
     data.diff.add.length + data.diff.modify.length + data.diff.deactivate.length;
   const blocked = data.assertions.blocked;
-  const allPassed = data.assertions.results.every((a) => a.passed);
 
   return (
     <div className="border border-border rounded-md p-4 space-y-5">
-      <div className="grid gap-4 sm:grid-cols-2">
-        <SourceBlock metadata={data.metadata} />
-        <TargetBlock
-          active={data.db_active_count}
-          inactive={data.db_inactive_count}
-        />
+      <div className="grid gap-6 sm:grid-cols-2 sm:gap-8">
+        <div className="min-w-0">
+          <SourceBlock metadata={data.metadata} />
+        </div>
+        <div className="min-w-0">
+          <TargetBlock
+            active={data.db_active_count}
+            inactive={data.db_inactive_count}
+          />
+        </div>
       </div>
 
       <div>
-        <h4 className="font-sans text-[10px] tracking-widest uppercase text-muted mb-2">
-          Sanity Assertions {allPassed && "(all passed)"}
-        </h4>
         <AssertionsTable results={data.assertions.results} />
       </div>
 
-      <div className="pt-1 border-t border-border">
-        <DiffSummary diff={data.diff} />
-      </div>
+      {/* Hide the Changes section entirely when assertions blocked. The
+          diff in that state is empty for the wrong reason — sheet
+          couldn't be read — so showing zero counts implies "in sync"
+          when reality is "we don't know". Item 7 from the UI fixes pass. */}
+      {!blocked && (
+        <div className="pt-1 border-t border-border">
+          <DiffSummary diff={data.diff} />
+        </div>
+      )}
 
-      <div className="flex items-center gap-3 pt-1">
+      <div className="flex items-center gap-3 pt-1 flex-wrap">
         {blocked ? (
           <button
             type="button"
             onClick={onOverride}
             disabled={isApplying}
-            className="font-sans text-sm font-medium text-cream bg-burgundy hover:bg-burgundy-light disabled:bg-muted disabled:cursor-not-allowed transition-colors px-4 py-1.5 rounded-md"
+            className="font-sans text-sm font-medium text-cream bg-burgundy hover:bg-burgundy-light disabled:bg-muted disabled:cursor-not-allowed transition-colors px-4 py-1.5 rounded-md whitespace-nowrap"
           >
             {buttonLabels.overrideAssertions}
           </button>
@@ -64,7 +70,7 @@ export function SyncPreviewPanel({
             type="button"
             onClick={onApply}
             disabled={isApplying || totalChanges === 0}
-            className="font-sans text-sm font-medium text-cream bg-burgundy hover:bg-burgundy-light disabled:bg-muted disabled:cursor-not-allowed transition-colors px-4 py-1.5 rounded-md"
+            className="font-sans text-sm font-medium text-cream bg-burgundy hover:bg-burgundy-light disabled:bg-muted disabled:cursor-not-allowed transition-colors px-4 py-1.5 rounded-md whitespace-nowrap"
           >
             {isApplying
               ? "Applying…"

@@ -76,6 +76,35 @@ export class AssertionsBlockedError extends Error {
   }
 }
 
+/**
+ * Thrown when an override apply (`skipAssertions: true`) runs against a
+ * sheet that produced 0 rows. Without this guard the override path
+ * would happily record `status: 'success'` with all-zero counts, lying
+ * to the operator that a sync happened when nothing was actually read.
+ *
+ * Practically this fires when the operator overrides an assertion
+ * failure that prevented sheet reads — `Tab exists` failed and the data
+ * range therefore returned no rows, or `Headers present` failed so the
+ * transform produced no records. The check is "0 rows read, override
+ * was used" rather than "specific assertion X failed" so it stays
+ * robust to any future read-blocking assertion.
+ */
+export class OverrideEmptyReadError extends Error {
+  /** Audit run id; populated by runApply after recording. */
+  runId: string | null = null;
+
+  constructor(failedAssertionNames: string[]) {
+    const tail =
+      failedAssertionNames.length > 0
+        ? ` Failed assertion(s): ${failedAssertionNames.join(", ")}.`
+        : "";
+    super(
+      `Override applied, but the sheet read produced no data — likely a missing tab, missing headers, or unreachable sheet. The database was not modified.${tail}`
+    );
+    this.name = "OverrideEmptyReadError";
+  }
+}
+
 export interface DryRunResult {
   sheet: SheetMetadata;
   db: {
@@ -403,6 +432,39 @@ export async function applyPrepared(
   const startedAt = options.startedAt ?? new Date();
   const supabase = getServiceClient();
 
+  // Override-empty-read guard. If we got here with `prep.assertions.blocked`
+  // it means the caller already bypassed the assertion gate (CLI typed
+  // OVERRIDE; route sent override_assertions: 'OVERRIDE'). In that case
+  // a failure that prevented the sheet read (Tab exists, Headers present)
+  // produces a diff of zeros — applying it would record a misleading
+  // 'success' with all-zero counts. Fail loud instead. Catches the same
+  // bug from both CLI and route, since both go through this function.
+  if (prep.assertions.blocked) {
+    const sheetRowsRead =
+      prep.diff.unchanged +
+      prep.diff.add.length +
+      prep.diff.modify.length +
+      prep.diff.skipped.length;
+    if (sheetRowsRead === 0) {
+      const failed = prep.assertions.results
+        .filter((a) => !a.passed && a.severity === "block")
+        .map((a) => a.name);
+      const err = new OverrideEmptyReadError(failed);
+      err.runId = await safeRecord({
+        status: "failed",
+        errorMessage: err.message,
+        metadata: prep.sheet,
+        diff: prep.diff,
+        assertions: prep.assertions,
+        triggerSource: options.triggerSource,
+        triggeredBy: options.triggeredBy,
+        startedAt,
+        finishedAt: new Date(),
+      });
+      throw err;
+    }
+  }
+
   let applyResult: ApplyResult;
   try {
     applyResult = await runApplyLowLevel(
@@ -566,6 +628,12 @@ export interface SingleVenueResult {
   found: boolean;
   /** "inserted" or "updated" — set only when `found: true`. */
   action?: "inserted" | "updated";
+  /**
+   * True if the upsert produced a real field-level change. False on a
+   * forced no-op rewrite (existing DB row already matched the sheet).
+   * Always true when `action === 'inserted'`. Set only when `found: true`.
+   */
+  changed?: boolean;
   /** Run id from the audit table. Set on found rows; null if audit failed. */
   runId?: string | null;
   /** Validation/skip reason or apply error. Set on `found: false` or RPC failure. */
@@ -635,6 +703,10 @@ export async function runApplySingleVenue(
   const dbAsRow = dbBefore as Record<string, VenueCellValue> | null;
   const diff = computeDiff([sheetRecord], dbAsRow ? [dbAsRow] : []);
   const action: "inserted" | "updated" = dbAsRow ? "updated" : "inserted";
+  // `changed` is the operator-facing signal: did this resync actually
+  // alter the row, or was it a forced no-op rewrite? Inserts are always
+  // a change; updates are only a change if the diff has a modify entry.
+  const changed = action === "inserted" || diff.modify.length > 0;
 
   const sheetMeta = await fetchSheetMetadata(rows.length, []);
   const emptyAssertions: AssertionReport = { results: [], blocked: false };
@@ -673,5 +745,5 @@ export async function runApplySingleVenue(
     finishedAt: new Date(),
   });
 
-  return { found: true, action, runId };
+  return { found: true, action, changed, runId };
 }

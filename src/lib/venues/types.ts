@@ -293,6 +293,14 @@ export interface AdminSyncSingleSuccessResponse {
   kind: "sync_single_success";
   venue_id: string;
   action: "inserted" | "updated";
+  /**
+   * True if the upsert actually changed any field. False on a forced
+   * no-op rewrite — the operator hit "sync" but the sheet matched the
+   * existing DB row exactly. Always true when `action === 'inserted'`.
+   * The UI uses this to render accurate status copy instead of always
+   * claiming "Overwrote DB row".
+   */
+  changed: boolean;
   run_id: string | null;
 }
 
