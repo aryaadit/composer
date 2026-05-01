@@ -92,6 +92,35 @@ cadence (occasional, operator-driven) this is fine for years. If cadence
 increases or runs become noisy, add a retention policy (e.g., delete
 success rows older than 1 year, keep failures forever). Not urgent.
 
+## 6. Database cleanup (✅ complete)
+
+Landed 2026-05-01.
+
+**Dropped legacy tables:**
+- `composer_venues` (v1, 495 rows, replaced by `composer_venues_v2` during the venue import overhaul)
+- `composer_venues_v2_old` (May 1 wipe-and-replace backup, 1,458 rows)
+
+Both had zero FK references and zero dependent views/functions/triggers. Verified pre-drop. Source of truth for venue data is now exclusively `composer_venues_v2` plus the upstream Google Sheet. Post-drop sanity: `composer_venues_v2` still has 1,310 active rows; `npm run import-venues -- dry-run` shows the same in-sync baseline as before.
+
+**Security fix:**
+
+`user_admin` view had been over-granted to `anon` and `authenticated` roles via Supabase Studio's default permissive grants. The view exposed `auth.users.email`, `phone`, and `last_sign_in_at` joined with `composer_users` data — readable through the Supabase REST API by anyone with the publishable anon key. Revoked all grants from `anon` and `authenticated`. View remains accessible to `postgres` and `service_role` for admin queries.
+
+**Audit pass — anon/authenticated grants on every public-schema relation:**
+
+| Relation | Kind | RLS | Verdict |
+|---|---|---|---|
+| `composer_users` | table | on | Safe — `auth.uid() = id` scopes SELECT/INSERT; no UPDATE policy (Phase 4 lockdown — writes go through `PATCH /api/profile`) |
+| `composer_saved_itineraries` | table | on | Safe — all CRUD policies scope to `auth.uid() = user_id` |
+| `composer_shared_itineraries` | table | on | Safe — public SELECT is intentional (share-by-link); INSERT requires `auth.uid() IS NOT NULL` so anon can't pollute |
+| `composer_venues_v2` | table | on | Safe — public-readable venue catalog is intentional (app needs venue data to render itineraries) |
+| `composer_import_runs` | table | on | Safe — RLS on, no policies → default deny for anon/authenticated despite grants. Service-role bypasses for the importer |
+| `user_admin` | view | n/a | Now safe — revoked above |
+
+No materialized views in the public schema (matviews never enforce RLS, so absence is good). No "concerning" or "exposed" findings beyond `user_admin`, which is now closed.
+
+**Lesson captured.** Supabase Studio's default behavior when creating views grants permissions to `anon` and `authenticated`. Future views should be created via SQL migrations with an explicit `REVOKE ALL ON <view> FROM anon, authenticated;` immediately after `CREATE VIEW`. If you create a view through the Studio UI, audit grants right after.
+
 ## 5. Backfill empty `statements` arrays in schema_migrations (optional)
 
 Versions 20260501, 20260502, 20260503 (Phases 2/3/4 of the venue import
