@@ -13,7 +13,7 @@
 //   1. dry-run: read-only diff
 //   2. apply:   atomic upsert with sanity assertions and large-change guard
 //   3. orphan deactivation in the same transaction as upsert
-// Phase 4 will add the composer_import_runs audit trail.
+//   4. audit trail to composer_import_runs (success / failed / aborted)
 //
 // The legacy paths (scripts/import_venues_v2.py and the
 // /api/admin/sync-venues route) remain operational and untouched.
@@ -22,8 +22,12 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 import { ALL_NEIGHBORHOODS } from "@/config/generated/neighborhoods";
 
-import { runApply as runApplyLowLevel } from "./apply";
+import { LargeChangeError, runApply as runApplyLowLevel } from "./apply";
 import { runAssertions } from "./assertions";
+import {
+  recordImportRun,
+  type RecordImportRunInput,
+} from "./audit";
 import { ALL_WRITABLE_COLUMNS } from "./columns";
 import { VENUE_SHEET_TAB } from "./config";
 import { computeDiff } from "./diff";
@@ -41,6 +45,26 @@ import type {
   VenueCellValue,
   VenueRecord,
 } from "./types";
+
+/**
+ * Thrown by the high-level `runApply()` when sanity assertions block and
+ * the caller did not pass `skipAssertions: true`. Phase 5 (admin route)
+ * will catch this to render a structured response. The CLI doesn't go
+ * through `runApply()` so it never sees this — it inspects
+ * `prep.assertions.blocked` directly.
+ */
+export class AssertionsBlockedError extends Error {
+  constructor(public readonly assertions: AssertionReport) {
+    const failed = assertions.results
+      .filter((a) => !a.passed && a.severity === "block")
+      .map((a) => `${a.name}: ${a.detail}`)
+      .join("\n  ");
+    super(
+      `Apply blocked by failed sanity assertion(s):\n  ${failed}\n\nUse --skip-assertions to override (not recommended).`
+    );
+    this.name = "AssertionsBlockedError";
+  }
+}
 
 export interface DryRunResult {
   sheet: SheetMetadata;
@@ -161,14 +185,28 @@ interface LoadResult {
   diff: ImportDiff;
 }
 
-async function loadAndDiff(): Promise<LoadResult> {
-  const tabNames = await fetchTabNames();
+/**
+ * `loadAndDiff` options.
+ *
+ * `allowMissingTab` controls how a missing VENUE_SHEET_TAB is reported:
+ *   - `false` (default, used by dry-run): throw immediately with a
+ *     diagnostic listing the tabs present. Dry-run is read-only and a
+ *     misnamed tab would otherwise produce confusing "all DB rows are
+ *     orphans" output.
+ *   - `true` (used by the apply preparation): return a partial result
+ *     with empty rows/records/diff so the assertion-block code path can
+ *     surface the failure through `runAssertions` and produce an audit
+ *     row in `composer_import_runs` for post-mortem.
+ */
+interface LoadAndDiffOptions {
+  allowMissingTab?: boolean;
+}
 
-  // Fail loud BEFORE attempting to read rows. A missing tab would
-  // otherwise surface as an opaque "Unable to parse range" from the
-  // Sheets API. Both dry-run and apply paths benefit — the operator
-  // sees the actionable diagnostic either way.
-  if (!tabNames.includes(VENUE_SHEET_TAB)) {
+async function loadAndDiff(opts: LoadAndDiffOptions = {}): Promise<LoadResult> {
+  const tabNames = await fetchTabNames();
+  const tabExists = tabNames.includes(VENUE_SHEET_TAB);
+
+  if (!tabExists && !opts.allowMissingTab) {
     const present = tabNames.length > 0
       ? tabNames.map((t) => `'${t}'`).join(", ")
       : "(none)";
@@ -177,8 +215,21 @@ async function loadAndDiff(): Promise<LoadResult> {
     );
   }
 
-  const { headers, rows } = await readSheetRows();
-  const { records, skipped } = transformRows(headers, rows);
+  // When the tab is missing under allowMissingTab, skip the sheet read
+  // AND the diff entirely — we don't know what *should* be in the sheet,
+  // so treating "no rows read" as "deactivate everything" would be
+  // catastrophic. Return empty buckets and let assertions surface the
+  // tab-missing failure.
+  let headers: string[] = [];
+  let rows: string[][] = [];
+  let records: VenueRecord[] = [];
+  let skipped: ReturnType<typeof transformRows>["skipped"] = [];
+  let diff: ImportDiff = { add: [], modify: [], deactivate: [], unchanged: 0, skipped: [] };
+
+  if (tabExists) {
+    ({ headers, rows } = await readSheetRows());
+    ({ records, skipped } = transformRows(headers, rows));
+  }
 
   const dbVenues = await fetchAllDbVenues();
   const dbActive = dbVenues.filter((v) => v.active === true).length;
@@ -189,7 +240,9 @@ async function loadAndDiff(): Promise<LoadResult> {
     sampleNeighborhoods(records)
   );
 
-  const diff = computeDiff(records, dbVenues, skipped);
+  if (tabExists) {
+    diff = computeDiff(records, dbVenues, skipped);
+  }
 
   return {
     sheetMeta,
@@ -226,7 +279,10 @@ export async function runDryRun(): Promise<DryRunResult> {
  * single receipt (assertions + diff + prompt) before any DB write.
  */
 export async function prepareApply(): Promise<ApplyPreparation> {
-  const r = await loadAndDiff();
+  // Tolerate a missing tab so the failure flows through the assertion
+  // report (and gets recorded in the audit table) instead of throwing
+  // before assertions can run.
+  const r = await loadAndDiff({ allowMissingTab: true });
 
   const assertions = runAssertions(
     r.records,
@@ -258,55 +314,164 @@ export async function prepareApply(): Promise<ApplyPreparation> {
 }
 
 /**
- * Execute the apply step against an already-prepared payload. Throws
- * `LargeChangeError` (from apply.ts) if the diff exceeds the threshold
- * and `confirmLargeChange` is not set. Does NOT re-check assertions —
- * the caller is expected to have inspected `prep.assertions` already.
+ * Wrap a recordImportRun call so audit failures never block or mask the
+ * apply path. The apply already happened (or already failed) by the time
+ * we get here — losing an audit row is bad but recoverable; throwing
+ * would confuse the operator about whether the apply landed.
  */
-export async function applyPrepared(
-  prep: ApplyPreparation,
-  options: { confirmLargeChange?: boolean } = {}
-): Promise<ApplyResult> {
-  const supabase = getServiceClient();
-  return runApplyLowLevel(
-    supabase,
-    prep.diff,
-    prep.recordsToWrite,
-    prep.db.active,
-    { confirmLargeChange: options.confirmLargeChange }
-  );
+async function safeRecord(input: RecordImportRunInput): Promise<void> {
+  try {
+    await recordImportRun(input);
+  } catch (err) {
+    console.warn(
+      `[import] audit record failed (apply outcome was '${input.status}'): ${
+        err instanceof Error ? err.message : String(err)
+      }`
+    );
+  }
 }
 
 /**
- * End-to-end apply: dry-run → sanity assertions → atomic upsert.
+ * Record the assertions-blocked exit. Called by the CLI before exiting
+ * when `prep.assertions.blocked === true` and the operator hasn't used
+ * `--skip-assertions`. Also called by the high-level `runApply()` for
+ * non-CLI callers (route, cron).
+ */
+export async function recordAssertionsAbort(
+  prep: ApplyPreparation,
+  triggerSource: string,
+  startedAt: Date,
+  triggeredBy: string = "cli"
+): Promise<void> {
+  await safeRecord({
+    status: "aborted",
+    abortReason: "assertions",
+    metadata: prep.sheet,
+    diff: prep.diff,
+    assertions: prep.assertions,
+    triggerSource,
+    triggeredBy,
+    startedAt,
+    finishedAt: new Date(),
+  });
+}
+
+/**
+ * Execute the apply step against an already-prepared payload. Records the
+ * outcome to `composer_import_runs`:
+ *   - `success`              — RPC returned counts
+ *   - `aborted` / threshold  — LargeChangeError thrown by the low-level apply
+ *   - `failed`               — any other error from the RPC
  *
- * If any block-severity assertion fails, throws unless the caller passes
- * `skipAssertions: true`. If the diff exceeds the change threshold, the
- * underlying apply throws `LargeChangeError` unless `confirmLargeChange:
- * true` is passed.
+ * Throws `LargeChangeError` (from apply.ts) when the diff exceeds the
+ * configured threshold and `confirmLargeChange` is not set. Other failures
+ * propagate as-is. Does NOT re-check assertions — the caller is expected
+ * to have inspected `prep.assertions` already.
+ */
+export async function applyPrepared(
+  prep: ApplyPreparation,
+  options: {
+    confirmLargeChange?: boolean;
+    /** Free-form trigger label, e.g. "cli:apply --yes". */
+    triggerSource: string;
+    /** Defaults to "cli" — Phase 5 passes the user UUID. */
+    triggeredBy?: string;
+    /** Wall-clock start. Defaults to "now" if omitted. */
+    startedAt?: Date;
+  }
+): Promise<ApplyResult> {
+  const startedAt = options.startedAt ?? new Date();
+  const supabase = getServiceClient();
+
+  let applyResult: ApplyResult;
+  try {
+    applyResult = await runApplyLowLevel(
+      supabase,
+      prep.diff,
+      prep.recordsToWrite,
+      prep.db.active,
+      { confirmLargeChange: options.confirmLargeChange }
+    );
+  } catch (err) {
+    if (err instanceof LargeChangeError) {
+      await safeRecord({
+        status: "aborted",
+        abortReason: "threshold",
+        errorMessage: err.message,
+        metadata: prep.sheet,
+        diff: prep.diff,
+        assertions: prep.assertions,
+        triggerSource: options.triggerSource,
+        triggeredBy: options.triggeredBy,
+        startedAt,
+        finishedAt: new Date(),
+      });
+    } else {
+      await safeRecord({
+        status: "failed",
+        errorMessage: err instanceof Error ? err.message : String(err),
+        metadata: prep.sheet,
+        diff: prep.diff,
+        assertions: prep.assertions,
+        triggerSource: options.triggerSource,
+        triggeredBy: options.triggeredBy,
+        startedAt,
+        finishedAt: new Date(),
+      });
+    }
+    throw err;
+  }
+
+  await safeRecord({
+    status: "success",
+    metadata: prep.sheet,
+    diff: prep.diff,
+    applyResult,
+    assertions: prep.assertions,
+    triggerSource: options.triggerSource,
+    triggeredBy: options.triggeredBy,
+    startedAt,
+    finishedAt: new Date(),
+  });
+
+  return applyResult;
+}
+
+/**
+ * End-to-end apply: dry-run → sanity assertions → atomic upsert. Records
+ * to `composer_import_runs` at every exit (assertions block, threshold
+ * abort, RPC failure, success).
+ *
+ * If any block-severity assertion fails, throws `AssertionsBlockedError`
+ * unless the caller passes `skipAssertions: true`. If the diff exceeds
+ * the change threshold, the underlying apply throws `LargeChangeError`
+ * unless `confirmLargeChange: true` is passed.
  *
  * Convenience wrapper for non-CLI callers (route, cron). The CLI uses
  * `prepareApply()` + `applyPrepared()` so it can interleave the
- * confirmation prompt.
+ * confirmation prompt around the audit calls.
  */
 export async function runApply(options: {
   confirmLargeChange?: boolean;
   skipAssertions?: boolean;
-} = {}): Promise<ApplyRunResult> {
+  /** Free-form trigger label, e.g. "route:admin-button". Required so audit rows are searchable. */
+  triggerSource: string;
+  /** Defaults to "cli". The route should pass the user UUID. */
+  triggeredBy?: string;
+}): Promise<ApplyRunResult> {
+  const startedAt = new Date();
   const prep = await prepareApply();
 
   if (prep.assertions.blocked && !options.skipAssertions) {
-    const failed = prep.assertions.results
-      .filter((a) => !a.passed && a.severity === "block")
-      .map((a) => `${a.name}: ${a.detail}`)
-      .join("\n  ");
-    throw new Error(
-      `Apply blocked by failed sanity assertion(s):\n  ${failed}\n\nUse --skip-assertions to override (not recommended).`
-    );
+    await recordAssertionsAbort(prep, options.triggerSource, startedAt, options.triggeredBy);
+    throw new AssertionsBlockedError(prep.assertions);
   }
 
   const applyResult = await applyPrepared(prep, {
     confirmLargeChange: options.confirmLargeChange,
+    triggerSource: options.triggerSource,
+    triggeredBy: options.triggeredBy,
+    startedAt,
   });
 
   return {

@@ -137,3 +137,74 @@ export interface ApplyResult {
   total: number;
   durationMs: number;
 }
+
+// ─── Audit trail (Phase 4) ─────────────────────────────────────────────
+
+export type ImportRunStatus = "success" | "failed" | "aborted";
+
+/** Why an `aborted` run was aborted. NULL on `success` and `failed`. */
+export type ImportRunAbortReason = "assertions" | "threshold";
+
+/**
+ * Compact shape of one entry in `diff_payload.modify`. `before` and
+ * `after` carry only the changed fields, not the full row — enough to
+ * power a future undo without bloating the audit table.
+ */
+export interface DiffPayloadModification {
+  venue_id: string;
+  before: Record<string, VenueCellValue>;
+  after: Record<string, VenueCellValue>;
+}
+
+/**
+ * Shape of `composer_import_runs.diff_payload`. Built by `audit.ts` from
+ * an `ImportDiff` at the point the run is recorded.
+ */
+export interface DiffPayload {
+  add: string[];
+  modify: DiffPayloadModification[];
+  deactivate: string[];
+}
+
+/**
+ * One row of `composer_import_runs`, post-hydration. Returned by `getRun()`.
+ */
+export interface ImportRun {
+  id: string;
+  startedAt: Date;
+  finishedAt: Date | null;
+  durationMs: number | null;
+  status: ImportRunStatus;
+  abortReason: ImportRunAbortReason | null;
+  errorMessage: string | null;
+  sheetId: string;
+  sheetTitle: string | null;
+  sheetModifiedTime: Date | null;
+  triggeredBy: string;
+  triggerSource: string | null;
+  addedCount: number;
+  modifiedCount: number;
+  deactivatedCount: number;
+  unchangedCount: number;
+  skippedCount: number;
+  diffPayload: DiffPayload | null;
+  assertions: AssertionResult[] | null;
+}
+
+/**
+ * Compact shape used by the `history` CLI subcommand. Strips the heavy
+ * `diff_payload` and `assertions` fields so listing 100 rows isn't a
+ * megabyte of JSON.
+ */
+export interface ImportRunSummary {
+  id: string;
+  startedAt: Date;
+  status: ImportRunStatus;
+  abortReason: ImportRunAbortReason | null;
+  errorMessage: string | null;
+  added: number;
+  modified: number;
+  deactivated: number;
+  durationMs: number | null;
+  sheetTitle: string | null;
+}
