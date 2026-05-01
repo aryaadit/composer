@@ -2,7 +2,7 @@
 """
 Import venues from Reid's updated Google Sheet into composer_venues_v2.
 
-Reads:   Google Sheet 139gp-s2sBbEZbi4-6mrsMlhKykpoGWvuQdboMaAt20o, tab "NYC Venues"
+Reads:   Google Sheet 1EdJqvFKaGAAo5oKMXBXeXfZdzfdT9IsmLiQYA9whXVg, tab "NYC Venues"
 Writes:  SQL to stdout or file (--out), or directly to Supabase (--execute)
 
 Usage:
@@ -33,7 +33,7 @@ def read_sheet() -> tuple[list[str], list[list[str]]]:
         sys.exit(1)
 
     SCOPES = ["https://www.googleapis.com/auth/spreadsheets.readonly"]
-    SHEET_ID = "139gp-s2sBbEZbi4-6mrsMlhKykpoGWvuQdboMaAt20o"
+    SHEET_ID = "1EdJqvFKaGAAo5oKMXBXeXfZdzfdT9IsmLiQYA9whXVg"
 
     # Auth via env vars
     client_email = os.environ.get("GOOGLE_SHEETS_CLIENT_EMAIL")
@@ -343,7 +343,7 @@ def main():
                     key, _, val = line.partition("=")
                     os.environ.setdefault(key.strip(), val.strip())
 
-    EXPECTED_SHEET_ID = "139gp-s2sBbEZbi4-6mrsMlhKykpoGWvuQdboMaAt20o"
+    EXPECTED_SHEET_ID = "1EdJqvFKaGAAo5oKMXBXeXfZdzfdT9IsmLiQYA9whXVg"
     env_sheet_id = os.environ.get("GOOGLE_SHEET_ID", "")
     if env_sheet_id and env_sheet_id != EXPECTED_SHEET_ID:
         print(f"ERROR: GOOGLE_SHEET_ID in .env.local ({env_sheet_id}) does not match expected v2 sheet ({EXPECTED_SHEET_ID}).")

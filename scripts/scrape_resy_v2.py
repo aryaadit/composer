@@ -27,7 +27,7 @@ from urllib.error import HTTPError, URLError
 # Config
 # ═══════════════════════════════════════════════════════════════════════
 
-SHEET_ID = "139gp-s2sBbEZbi4-6mrsMlhKykpoGWvuQdboMaAt20o"
+SHEET_ID = "1EdJqvFKaGAAo5oKMXBXeXfZdzfdT9IsmLiQYA9whXVg"
 RESY_API_KEY = "VbWk7s3L4KiK5fzlO7JD3Q5EYolJI7n5"
 RESY_URL = "https://api.resy.com/3/venuesearch/search"
 

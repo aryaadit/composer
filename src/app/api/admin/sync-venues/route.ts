@@ -167,7 +167,7 @@ interface SyncRequestBody {
   venue_id?: string;
 }
 
-const EXPECTED_SHEET_ID = "139gp-s2sBbEZbi4-6mrsMlhKykpoGWvuQdboMaAt20o";
+const EXPECTED_SHEET_ID = "1EdJqvFKaGAAo5oKMXBXeXfZdzfdT9IsmLiQYA9whXVg";
 
 export async function POST(request: Request) {
   const auth = await requireAdmin();
