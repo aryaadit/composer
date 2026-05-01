@@ -22,6 +22,14 @@
   --font-sans: var(--font-dm-sans);
 }
 
+html {
+  /* Reserve scrollbar space on every page, scrollbar present or not.
+     Without this, mx-auto-centered headers shift ~7.5px horizontally
+     between routes with scrollbars (profile) and routes without
+     (home) — viewport width reflows when the scrollbar appears. */
+  scrollbar-gutter: stable;
+}
+
 body {
   background: var(--color-cream);
   color: var(--color-charcoal);

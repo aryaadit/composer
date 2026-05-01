@@ -35,7 +35,13 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="min-h-screen bg-cream">
+    // flex flex-col mirrors HomeScreen's wrapper. Without it the Header
+    // renders inside a block formatting context here vs a flex item in
+    // HomeScreen, producing a small but visible vertical offset of the
+    // logo when navigating between the two pages. Profile has no
+    // flex-1 children that need the column behavior; this is purely
+    // for symmetric formatting context.
+    <div className="min-h-screen flex flex-col bg-cream">
       <Header
         rightSlot={
           <Link
