@@ -208,3 +208,131 @@ export interface ImportRunSummary {
   durationMs: number | null;
   sheetTitle: string | null;
 }
+
+/**
+ * Why a particular apply tripped the large-change guard. Kept in `types.ts`
+ * (not `apply.ts`) so browser-side UI panels can import it without pulling
+ * in any server-only dependencies.
+ */
+export type LargeChangeReason =
+  | { kind: "total"; count: number; threshold: number; dbActiveCount: number }
+  | { kind: "deactivations"; count: number; threshold: number; dbActiveCount: number };
+
+// ─── Admin route (Phase 5a) ────────────────────────────────────────────
+//
+// Discriminated union for POST /api/admin/sync-venues. Both the route
+// handler and the admin UI key off `kind` to render the right state.
+// Defining these here (rather than inside the route module) lets the
+// browser-side panels import the same types without dragging in any
+// server-only code.
+//
+// `run_id` is `string | null` everywhere it can appear — null means the
+// audit write itself failed. The UI distinguishes this from "no audit
+// row" (sync_single_not_found, auth_failed, invalid_request).
+
+export type AdminSyncRequest =
+  | { action: "preflight" }
+  | { action: "preview" }
+  | {
+      action: "apply";
+      confirm_large_change?: boolean;
+      /** Must be the literal string "OVERRIDE" to bypass blocked assertions. */
+      override_assertions?: string;
+    }
+  | { action: "sync_single"; venue_id: string };
+
+export interface AdminPreflightResponse {
+  ok: true;
+  kind: "preflight";
+  metadata: SheetMetadata;
+  db_active_count: number;
+  db_inactive_count: number;
+}
+
+export interface AdminPreviewResponse {
+  ok: true;
+  kind: "preview";
+  metadata: SheetMetadata;
+  diff: ImportDiff;
+  assertions: AssertionReport;
+  db_active_count: number;
+  db_inactive_count: number;
+}
+
+export interface AdminApplySuccessResponse {
+  ok: true;
+  kind: "apply_success";
+  apply_result: ApplyResult;
+  diff: ImportDiff;
+  run_id: string | null;
+}
+
+export interface AdminApplyAssertionBlockedResponse {
+  ok: false;
+  kind: "apply_assertion_blocked";
+  assertions: AssertionReport;
+  run_id: string | null;
+}
+
+export interface AdminApplyThresholdBlockedResponse {
+  ok: false;
+  kind: "apply_threshold_blocked";
+  reasons: LargeChangeReason[];
+  run_id: string | null;
+}
+
+export interface AdminApplyFailedResponse {
+  ok: false;
+  kind: "apply_failed";
+  error: string;
+  run_id?: string | null;
+}
+
+export interface AdminSyncSingleSuccessResponse {
+  ok: true;
+  kind: "sync_single_success";
+  venue_id: string;
+  action: "inserted" | "updated";
+  run_id: string | null;
+}
+
+export interface AdminSyncSingleNotFoundResponse {
+  ok: false;
+  kind: "sync_single_not_found";
+  venue_id: string;
+  /** Reason — e.g. "row failed validation: missing neighborhood". */
+  error?: string;
+}
+
+export interface AdminSyncSingleFailedResponse {
+  ok: false;
+  kind: "sync_single_failed";
+  venue_id: string;
+  error: string;
+  run_id?: string | null;
+}
+
+export interface AdminAuthFailedResponse {
+  ok: false;
+  kind: "auth_failed";
+  reason: "unauthenticated" | "not_admin";
+}
+
+export interface AdminInvalidRequestResponse {
+  ok: false;
+  kind: "invalid_request";
+  error: string;
+}
+
+export type AdminSyncResponse =
+  | AdminPreflightResponse
+  | AdminPreviewResponse
+  | AdminApplySuccessResponse
+  | AdminApplyAssertionBlockedResponse
+  | AdminApplyThresholdBlockedResponse
+  | AdminApplyFailedResponse
+  | AdminSyncSingleSuccessResponse
+  | AdminSyncSingleNotFoundResponse
+  | AdminSyncSingleFailedResponse
+  | AdminAuthFailedResponse
+  | AdminInvalidRequestResponse;

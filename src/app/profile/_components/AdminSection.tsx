@@ -5,22 +5,67 @@
 // — see CLAUDE.md. RLS guarantees each session can only read its own
 // profile row, so this boolean can't be spoofed or inspected across
 // users from the client.
+//
+// Phase 5a: the venue-sync sub-section is a state machine across the
+// preflight → preview → apply flow. Each panel renders a discrete state;
+// transitions are operator-driven (no auto-fetching). All explanatory
+// copy lives in syncCopy.ts.
 
 import { useState } from "react";
 import Link from "next/link";
 import { useAuth } from "@/components/providers/AuthProvider";
+import type {
+  AdminApplyAssertionBlockedResponse,
+  AdminApplyFailedResponse,
+  AdminApplySuccessResponse,
+  AdminApplyThresholdBlockedResponse,
+  AdminPreflightResponse,
+  AdminPreviewResponse,
+  AdminSyncRequest,
+  AdminSyncResponse,
+} from "@/lib/venues/types";
+import { SyncPreflightPanel } from "./SyncPreflightPanel";
+import { SyncPreviewPanel } from "./SyncPreviewPanel";
+import {
+  SyncAssertionBlockedPanel,
+  SyncFailedPanel,
+  SyncSuccessPanel,
+  SyncThresholdBlockedPanel,
+} from "./SyncResultPanel";
+import { ThresholdOverrideDialog } from "./ThresholdOverrideDialog";
 import { VenueLookup } from "./VenueLookup";
+import { authFailedCopy, buttonLabels, sectionHeaders, stateExplanations } from "./syncCopy";
+
+// ─── Sync state machine ────────────────────────────────────────────────
 
 type SyncState =
-  | { status: "idle" }
-  | { status: "syncing" }
-  | { status: "done"; message: string }
-  | { status: "error"; message: string };
+  | { kind: "initial" }
+  | { kind: "loading_preflight" }
+  | { kind: "preflight_ready"; data: AdminPreflightResponse }
+  | { kind: "preflight_failed"; error: string }
+  | { kind: "loading_preview" }
+  | { kind: "preview_ready"; data: AdminPreviewResponse }
+  | { kind: "preview_failed"; error: string }
+  | { kind: "loading_apply" }
+  | { kind: "apply_success"; data: AdminApplySuccessResponse }
+  | { kind: "apply_assertion_blocked"; data: AdminApplyAssertionBlockedResponse }
+  | { kind: "apply_threshold_blocked"; data: AdminApplyThresholdBlockedResponse }
+  | { kind: "apply_failed"; data: AdminApplyFailedResponse }
+  | { kind: "auth_failed"; reason: "unauthenticated" | "not_admin" };
 
-// Shape the /api/health report is expected to match. Kept as a
-// structural type rather than imported from the route so we stay
-// tolerant to additive changes in the API — we just read the bits we
-// need for the summary line.
+async function callRoute(req: AdminSyncRequest): Promise<AdminSyncResponse> {
+  const res = await fetch("/api/admin/sync-venues", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(req),
+  });
+  // The route always returns the AdminSyncResponse shape; non-2xx is
+  // expected for blocked/failed/auth states and the body still parses.
+  return (await res.json()) as AdminSyncResponse;
+}
+
+// ─── Health check (unchanged from previous version) ────────────────────
+
 interface HealthReport {
   ok?: boolean;
   checks?: {
@@ -32,7 +77,7 @@ interface HealthReport {
 
 interface HealthSummary {
   ok: boolean;
-  failed: string[]; // names of failing checks, empty on success
+  failed: string[];
 }
 
 type HealthState =
@@ -53,37 +98,15 @@ function summarize(report: HealthReport): HealthSummary {
   };
 }
 
+// ─── Component ─────────────────────────────────────────────────────────
+
 export function AdminSection() {
   const { isAdmin } = useAuth();
   const [health, setHealth] = useState<HealthState>({ status: "idle" });
-  const [sync, setSync] = useState<SyncState>({ status: "idle" });
+  const [sync, setSync] = useState<SyncState>({ kind: "initial" });
+  const [overrideOpen, setOverrideOpen] = useState(false);
 
-  // Hooks-before-return rule: useState is declared unconditionally
-  // above; the admin check only gates rendering.
   if (!isAdmin) return null;
-
-  const runSync = async () => {
-    setSync({ status: "syncing" });
-    try {
-      const res = await fetch("/api/admin/sync-venues", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: "{}",
-      });
-      const json = (await res.json()) as Record<string, unknown>;
-      if (!res.ok) {
-        setSync({ status: "error", message: (json.error as string) ?? "Sync failed" });
-        return;
-      }
-      setSync({ status: "done", message: `Synced ${json.synced} venues` });
-      setTimeout(() => setSync({ status: "idle" }), 5000);
-    } catch (err) {
-      setSync({
-        status: "error",
-        message: err instanceof Error ? err.message : "Request failed",
-      });
-    }
-  };
 
   const runHealthCheck = async () => {
     setHealth({ status: "loading" });
@@ -101,6 +124,96 @@ export function AdminSection() {
         message: err instanceof Error ? err.message : "Request failed",
       });
     }
+  };
+
+  // ─── State transitions ──────────────────────────────────────────────
+
+  const handlePreflight = async () => {
+    setSync({ kind: "loading_preflight" });
+    try {
+      const res = await callRoute({ action: "preflight" });
+      if (res.ok && res.kind === "preflight") {
+        setSync({ kind: "preflight_ready", data: res });
+      } else if (res.kind === "auth_failed") {
+        setSync({ kind: "auth_failed", reason: res.reason });
+      } else if (!res.ok) {
+        setSync({
+          kind: "preflight_failed",
+          error: "error" in res ? (res.error as string) : "preflight failed",
+        });
+      }
+    } catch (err) {
+      setSync({
+        kind: "preflight_failed",
+        error: err instanceof Error ? err.message : "request failed",
+      });
+    }
+  };
+
+  const handlePreview = async () => {
+    setSync({ kind: "loading_preview" });
+    try {
+      const res = await callRoute({ action: "preview" });
+      if (res.ok && res.kind === "preview") {
+        setSync({ kind: "preview_ready", data: res });
+      } else if (res.kind === "auth_failed") {
+        setSync({ kind: "auth_failed", reason: res.reason });
+      } else if (!res.ok) {
+        setSync({
+          kind: "preview_failed",
+          error: "error" in res ? (res.error as string) : "preview failed",
+        });
+      }
+    } catch (err) {
+      setSync({
+        kind: "preview_failed",
+        error: err instanceof Error ? err.message : "request failed",
+      });
+    }
+  };
+
+  const handleApply = async (
+    flags: { override_assertions?: "OVERRIDE"; confirm_large_change?: boolean } = {}
+  ) => {
+    setSync({ kind: "loading_apply" });
+    setOverrideOpen(false);
+    try {
+      const res = await callRoute({ action: "apply", ...flags });
+      if (res.ok && res.kind === "apply_success") {
+        setSync({ kind: "apply_success", data: res });
+      } else if (!res.ok && res.kind === "apply_assertion_blocked") {
+        setSync({ kind: "apply_assertion_blocked", data: res });
+      } else if (!res.ok && res.kind === "apply_threshold_blocked") {
+        setSync({ kind: "apply_threshold_blocked", data: res });
+      } else if (!res.ok && res.kind === "apply_failed") {
+        setSync({ kind: "apply_failed", data: res });
+      } else if (res.kind === "auth_failed") {
+        setSync({ kind: "auth_failed", reason: res.reason });
+      } else {
+        setSync({
+          kind: "apply_failed",
+          data: {
+            ok: false,
+            kind: "apply_failed",
+            error: `unexpected response: ${JSON.stringify(res)}`,
+          },
+        });
+      }
+    } catch (err) {
+      setSync({
+        kind: "apply_failed",
+        data: {
+          ok: false,
+          kind: "apply_failed",
+          error: err instanceof Error ? err.message : "request failed",
+        },
+      });
+    }
+  };
+
+  const startOver = () => {
+    setSync({ kind: "initial" });
+    setOverrideOpen(false);
   };
 
   return (
@@ -142,28 +255,241 @@ export function AdminSection() {
           </pre>
         )}
 
-        <div className="mt-3 flex items-center gap-3">
-          <button
-            type="button"
-            onClick={() => void runSync()}
-            disabled={sync.status === "syncing"}
-            className="font-sans text-xs text-muted hover:text-charcoal transition-colors disabled:cursor-wait"
-          >
-            {sync.status === "syncing" ? "Syncing…" : "Sync all venues →"}
-          </button>
-          {sync.status === "done" && (
-            <span className="font-sans text-xs text-emerald-600">{sync.message}</span>
-          )}
-          {sync.status === "error" && (
-            <span className="font-sans text-xs text-burgundy">{sync.message}</span>
-          )}
+        <div className="mt-6 w-full">
+          <SyncSection
+            state={sync}
+            overrideOpen={overrideOpen}
+            onPreflight={handlePreflight}
+            onPreview={handlePreview}
+            onApply={handleApply}
+            onStartOver={startOver}
+            onOverrideOpen={() => setOverrideOpen(true)}
+            onOverrideCancel={() => setOverrideOpen(false)}
+          />
         </div>
 
-        <VenueLookup />
+        <div className="mt-6 w-full">
+          <h3 className="font-sans text-xs tracking-widest uppercase text-muted mb-3">
+            Single-venue resync
+          </h3>
+          <VenueLookup />
+        </div>
       </div>
     </section>
   );
 }
+
+// ─── Sync section render ───────────────────────────────────────────────
+
+interface SyncSectionProps {
+  state: SyncState;
+  overrideOpen: boolean;
+  onPreflight: () => void;
+  onPreview: () => void;
+  onApply: (flags?: {
+    override_assertions?: "OVERRIDE";
+    confirm_large_change?: boolean;
+  }) => void;
+  onStartOver: () => void;
+  onOverrideOpen: () => void;
+  onOverrideCancel: () => void;
+}
+
+function SyncSection({
+  state,
+  overrideOpen,
+  onPreflight,
+  onPreview,
+  onApply,
+  onStartOver,
+  onOverrideOpen,
+  onOverrideCancel,
+}: SyncSectionProps) {
+  const isApplying = state.kind === "loading_apply";
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <h3 className="font-display text-base text-charcoal mb-1">
+          {sectionHeaders.title}
+        </h3>
+        <p className="font-sans text-xs text-warm-gray leading-relaxed max-w-2xl">
+          {sectionHeaders.subtitle}
+        </p>
+      </div>
+
+      <CurrentStateExplanation state={state} />
+
+      <SyncBody
+        state={state}
+        isApplying={isApplying}
+        onPreflight={onPreflight}
+        onPreview={onPreview}
+        onApply={onApply}
+        onOverrideOpen={onOverrideOpen}
+      />
+
+      {state.kind !== "initial" && state.kind !== "loading_preflight" && (
+        <button
+          type="button"
+          onClick={onStartOver}
+          className="font-sans text-xs text-muted hover:text-charcoal transition-colors"
+        >
+          ← {buttonLabels.startOver}
+        </button>
+      )}
+
+      {overrideOpen && (
+        <ThresholdOverrideDialog
+          onCancel={onOverrideCancel}
+          onConfirm={() => onApply({ override_assertions: "OVERRIDE" })}
+        />
+      )}
+    </div>
+  );
+}
+
+function CurrentStateExplanation({ state }: { state: SyncState }) {
+  let text: string | null = null;
+  switch (state.kind) {
+    case "initial":
+      text = stateExplanations.initial;
+      break;
+    case "preflight_ready":
+      text = stateExplanations.preflightReady;
+      break;
+    case "preview_ready":
+      text = stateExplanations.previewReady;
+      break;
+    default:
+      return null;
+  }
+  return (
+    <p className="font-sans text-xs text-warm-gray leading-relaxed max-w-2xl">
+      {text}
+    </p>
+  );
+}
+
+function SyncBody({
+  state,
+  isApplying,
+  onPreflight,
+  onPreview,
+  onApply,
+  onOverrideOpen,
+}: {
+  state: SyncState;
+  isApplying: boolean;
+  onPreflight: () => void;
+  onPreview: () => void;
+  onApply: (flags?: {
+    override_assertions?: "OVERRIDE";
+    confirm_large_change?: boolean;
+  }) => void;
+  onOverrideOpen: () => void;
+}) {
+  switch (state.kind) {
+    case "initial":
+      return <PrimaryButton label={buttonLabels.checkSource} onClick={onPreflight} />;
+    case "loading_preflight":
+      return <p className="font-sans text-xs text-muted">Fetching source identity…</p>;
+    case "preflight_ready":
+      return (
+        <div className="space-y-3">
+          <SyncPreflightPanel
+            metadata={state.data.metadata}
+            dbActive={state.data.db_active_count}
+            dbInactive={state.data.db_inactive_count}
+          />
+          <PrimaryButton label={buttonLabels.runPreview} onClick={onPreview} />
+        </div>
+      );
+    case "preflight_failed":
+      return (
+        <ErrorBlock title="Preflight failed" message={state.error} />
+      );
+    case "loading_preview":
+      return <p className="font-sans text-xs text-muted">Computing diff and running assertions…</p>;
+    case "preview_ready":
+      return (
+        <SyncPreviewPanel
+          data={state.data}
+          isApplying={isApplying}
+          onApply={() => onApply()}
+          onOverride={onOverrideOpen}
+        />
+      );
+    case "preview_failed":
+      return <ErrorBlock title="Preview failed" message={state.error} />;
+    case "loading_apply":
+      return <p className="font-sans text-xs text-muted">Applying changes…</p>;
+    case "apply_success":
+      return <SyncSuccessPanel data={state.data} />;
+    case "apply_assertion_blocked":
+      return (
+        <SyncAssertionBlockedPanel
+          data={state.data}
+          isApplying={isApplying}
+          onOverride={onOverrideOpen}
+        />
+      );
+    case "apply_threshold_blocked":
+      return (
+        <SyncThresholdBlockedPanel
+          data={state.data}
+          isApplying={isApplying}
+          onConfirm={() => onApply({ confirm_large_change: true })}
+        />
+      );
+    case "apply_failed":
+      return <SyncFailedPanel data={state.data} />;
+    case "auth_failed":
+      return (
+        <ErrorBlock
+          title="Auth failed"
+          message={
+            state.reason === "unauthenticated"
+              ? authFailedCopy.unauthenticated
+              : authFailedCopy.notAdmin
+          }
+        />
+      );
+  }
+}
+
+function PrimaryButton({
+  label,
+  onClick,
+}: {
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="font-sans text-sm font-medium text-cream bg-burgundy hover:bg-burgundy-light transition-colors px-4 py-1.5 rounded-md"
+    >
+      {label}
+    </button>
+  );
+}
+
+function ErrorBlock({ title, message }: { title: string; message: string }) {
+  return (
+    <div className="border border-burgundy/30 bg-burgundy-tint rounded-md p-4">
+      <h4 className="font-sans text-sm font-medium text-burgundy mb-1">
+        {title}
+      </h4>
+      <pre className="font-mono text-xs text-charcoal whitespace-pre-wrap">
+        {message}
+      </pre>
+    </div>
+  );
+}
+
+// ─── Health banner (unchanged) ─────────────────────────────────────────
 
 function HealthStatusBanner({ summary }: { summary: HealthSummary }) {
   if (summary.ok) {

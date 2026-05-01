@@ -446,7 +446,7 @@ async function handleApply(args: Args): Promise<void> {
     console.log("");
     if (!args.skipAssertions) {
       // System-side block — record and exit.
-      await recordAssertionsAbort(prep, triggerSource, startedAt);
+      await recordAssertionsAbort(prep, triggerSource, startedAt, "cli");
       console.log("Apply blocked by failed assertions. Use --skip-assertions to override (not recommended).");
       process.exit(1);
     }
@@ -484,11 +484,12 @@ async function handleApply(args: Args): Promise<void> {
 
   let result: ApplyResult;
   try {
-    result = await applyPrepared(prep, {
+    ({ applyResult: result } = await applyPrepared(prep, {
       confirmLargeChange: args.confirmLargeChange,
       triggerSource,
+      triggeredBy: "cli",
       startedAt,
-    });
+    }));
   } catch (err) {
     if (err instanceof LargeChangeError) {
       // applyPrepared already recorded the abort/threshold row.

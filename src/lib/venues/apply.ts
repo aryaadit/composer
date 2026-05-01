@@ -19,26 +19,31 @@ import { CHANGE_THRESHOLDS } from "./config";
 import type {
   ApplyResult,
   ImportDiff,
+  LargeChangeReason,
   VenueCellValue,
   VenueRecord,
 } from "./types";
 
-/**
- * Why a particular apply tripped the large-change guard. The CLI uses
- * `kind` to render a tailored message; programmatic callers can branch
- * on it for differentiated retry policies.
- */
-export type LargeChangeReason =
-  | { kind: "total"; count: number; threshold: number; dbActiveCount: number }
-  | { kind: "deactivations"; count: number; threshold: number; dbActiveCount: number };
+// `LargeChangeReason` lives in types.ts so browser-side admin UI panels
+// can import it without transitively pulling SupabaseClient. Re-exported
+// here for callers (CLI, route) that already import everything else from
+// apply.ts.
+export type { LargeChangeReason };
 
 /**
  * Thrown when the diff exceeds either the total-changes ceiling or the
  * deactivations-only ceiling, and the caller did not pass
  * `confirmLargeChange: true`. Both reasons may appear; the CLI joins
  * them into a single message.
+ *
+ * `runId` is attached by `applyPrepared` after it records the
+ * `aborted/threshold` audit row, so callers (route, future tooling) can
+ * link the operator back to the run.
  */
 export class LargeChangeError extends Error {
+  /** Audit run id; populated by applyPrepared after recording. */
+  runId: string | null = null;
+
   constructor(public readonly reasons: LargeChangeReason[]) {
     super(LargeChangeError.formatMessage(reasons));
     this.name = "LargeChangeError";
@@ -188,10 +193,17 @@ export async function runApply(
   }
 
   const deactivateIds = diff.deactivate.map((d) => d.venue_id);
-  return executeApply(supabase, recordsToWrite, deactivateIds);
+  return callApplyRpc(supabase, recordsToWrite, deactivateIds);
 }
 
-async function executeApply(
+/**
+ * Low-level: build the SQL fragments and call the Postgres function.
+ * Bypasses every safety check — no threshold guard, no audit recording,
+ * no empty-payload short-circuit. Use only when you've already
+ * validated the input (e.g., `runApplySingleVenue`, which intentionally
+ * skips assertions and threshold guards).
+ */
+export async function callApplyRpc(
   supabase: SupabaseClient,
   recordsToWrite: VenueRecord[],
   deactivateIds: string[]

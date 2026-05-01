@@ -22,7 +22,11 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 import { ALL_NEIGHBORHOODS } from "@/config/generated/neighborhoods";
 
-import { LargeChangeError, runApply as runApplyLowLevel } from "./apply";
+import {
+  callApplyRpc,
+  LargeChangeError,
+  runApply as runApplyLowLevel,
+} from "./apply";
 import { runAssertions } from "./assertions";
 import {
   recordImportRun,
@@ -48,12 +52,18 @@ import type {
 
 /**
  * Thrown by the high-level `runApply()` when sanity assertions block and
- * the caller did not pass `skipAssertions: true`. Phase 5 (admin route)
- * will catch this to render a structured response. The CLI doesn't go
+ * the caller did not pass `skipAssertions: true`. The admin route catches
+ * this to render the assertion-blocked response. The CLI doesn't go
  * through `runApply()` so it never sees this — it inspects
  * `prep.assertions.blocked` directly.
+ *
+ * `runId` is attached after the `aborted/assertions` audit row is
+ * recorded, so callers can surface it back to the operator.
  */
 export class AssertionsBlockedError extends Error {
+  /** Audit run id; populated by runApply after recording. */
+  runId: string | null = null;
+
   constructor(public readonly assertions: AssertionReport) {
     const failed = assertions.results
       .filter((a) => !a.passed && a.severity === "block")
@@ -79,6 +89,8 @@ export interface DryRunResult {
 export interface ApplyRunResult extends DryRunResult {
   assertions: AssertionReport;
   applyResult: ApplyResult;
+  /** Audit run id; null when the audit write failed. */
+  runId: string | null;
 }
 
 /**
@@ -318,16 +330,20 @@ export async function prepareApply(): Promise<ApplyPreparation> {
  * apply path. The apply already happened (or already failed) by the time
  * we get here — losing an audit row is bad but recoverable; throwing
  * would confuse the operator about whether the apply landed.
+ *
+ * Returns the new run id, or `null` if the audit write failed.
  */
-async function safeRecord(input: RecordImportRunInput): Promise<void> {
+async function safeRecord(input: RecordImportRunInput): Promise<string | null> {
   try {
-    await recordImportRun(input);
+    const { runId } = await recordImportRun(input);
+    return runId;
   } catch (err) {
     console.warn(
       `[import] audit record failed (apply outcome was '${input.status}'): ${
         err instanceof Error ? err.message : String(err)
       }`
     );
+    return null;
   }
 }
 
@@ -335,15 +351,16 @@ async function safeRecord(input: RecordImportRunInput): Promise<void> {
  * Record the assertions-blocked exit. Called by the CLI before exiting
  * when `prep.assertions.blocked === true` and the operator hasn't used
  * `--skip-assertions`. Also called by the high-level `runApply()` for
- * non-CLI callers (route, cron).
+ * non-CLI callers (route, cron). Returns the new run id (or null on
+ * audit-write failure).
  */
 export async function recordAssertionsAbort(
   prep: ApplyPreparation,
   triggerSource: string,
   startedAt: Date,
-  triggeredBy: string = "cli"
-): Promise<void> {
-  await safeRecord({
+  triggeredBy: string
+): Promise<string | null> {
+  return safeRecord({
     status: "aborted",
     abortReason: "assertions",
     metadata: prep.sheet,
@@ -367,19 +384,22 @@ export async function recordAssertionsAbort(
  * configured threshold and `confirmLargeChange` is not set. Other failures
  * propagate as-is. Does NOT re-check assertions — the caller is expected
  * to have inspected `prep.assertions` already.
+ *
+ * The thrown errors carry `runId` (populated after audit recording) so
+ * the route can correlate the failure to its audit entry.
  */
 export async function applyPrepared(
   prep: ApplyPreparation,
   options: {
     confirmLargeChange?: boolean;
-    /** Free-form trigger label, e.g. "cli:apply --yes". */
+    /** Free-form trigger label, e.g. "cli:apply --yes" or "route:apply". */
     triggerSource: string;
-    /** Defaults to "cli" — Phase 5 passes the user UUID. */
-    triggeredBy?: string;
+    /** "cli" for CLI invocations; user UUID for route invocations. */
+    triggeredBy: string;
     /** Wall-clock start. Defaults to "now" if omitted. */
     startedAt?: Date;
   }
-): Promise<ApplyResult> {
+): Promise<{ applyResult: ApplyResult; runId: string | null }> {
   const startedAt = options.startedAt ?? new Date();
   const supabase = getServiceClient();
 
@@ -394,7 +414,7 @@ export async function applyPrepared(
     );
   } catch (err) {
     if (err instanceof LargeChangeError) {
-      await safeRecord({
+      err.runId = await safeRecord({
         status: "aborted",
         abortReason: "threshold",
         errorMessage: err.message,
@@ -407,7 +427,7 @@ export async function applyPrepared(
         finishedAt: new Date(),
       });
     } else {
-      await safeRecord({
+      const runId = await safeRecord({
         status: "failed",
         errorMessage: err instanceof Error ? err.message : String(err),
         metadata: prep.sheet,
@@ -418,11 +438,15 @@ export async function applyPrepared(
         startedAt,
         finishedAt: new Date(),
       });
+      // Attach for callers that want to surface the run id alongside
+      // the error. `Error` doesn't have a runId field by default, so
+      // we add it as an optional property.
+      (err as Error & { runId?: string | null }).runId = runId;
     }
     throw err;
   }
 
-  await safeRecord({
+  const runId = await safeRecord({
     status: "success",
     metadata: prep.sheet,
     diff: prep.diff,
@@ -434,7 +458,7 @@ export async function applyPrepared(
     finishedAt: new Date(),
   });
 
-  return applyResult;
+  return { applyResult, runId };
 }
 
 /**
@@ -454,20 +478,27 @@ export async function applyPrepared(
 export async function runApply(options: {
   confirmLargeChange?: boolean;
   skipAssertions?: boolean;
-  /** Free-form trigger label, e.g. "route:admin-button". Required so audit rows are searchable. */
+  /** Free-form trigger label, e.g. "route:apply". Required so audit rows are searchable. */
   triggerSource: string;
-  /** Defaults to "cli". The route should pass the user UUID. */
-  triggeredBy?: string;
+  /** "cli" or the operator's user UUID — required so audit rows are attributable. */
+  triggeredBy: string;
 }): Promise<ApplyRunResult> {
   const startedAt = new Date();
   const prep = await prepareApply();
 
   if (prep.assertions.blocked && !options.skipAssertions) {
-    await recordAssertionsAbort(prep, options.triggerSource, startedAt, options.triggeredBy);
-    throw new AssertionsBlockedError(prep.assertions);
+    const runId = await recordAssertionsAbort(
+      prep,
+      options.triggerSource,
+      startedAt,
+      options.triggeredBy
+    );
+    const err = new AssertionsBlockedError(prep.assertions);
+    err.runId = runId;
+    throw err;
   }
 
-  const applyResult = await applyPrepared(prep, {
+  const { applyResult, runId } = await applyPrepared(prep, {
     confirmLargeChange: options.confirmLargeChange,
     triggerSource: options.triggerSource,
     triggeredBy: options.triggeredBy,
@@ -480,5 +511,167 @@ export async function runApply(options: {
     diff: prep.diff,
     assertions: prep.assertions,
     applyResult,
+    runId,
   };
+}
+
+// ─── Preflight (Phase 5a) ──────────────────────────────────────────────
+
+export interface PreflightResult {
+  sheet: SheetMetadata;
+  db: { active: number; inactive: number; total: number };
+}
+
+/**
+ * Lightweight identity check for the admin UI's first panel. Fetches
+ * sheet metadata (title, modified time) and DB row counts but does NOT
+ * read sheet rows or compute a diff — that's preview's job.
+ *
+ * Costs: 1 Sheets API call (spreadsheets.get for title), 1 Drive API
+ * call (best-effort), 2 cheap COUNT queries against composer_venues_v2.
+ */
+export async function runPreflight(): Promise<PreflightResult> {
+  // rowCount=0 / sampleNeighborhoods=[] — we haven't read rows yet, and
+  // the preflight UI panel doesn't surface either field. Preview is
+  // where row-level info appears.
+  const sheetMeta = await fetchSheetMetadata(0, []);
+
+  const supabase = getServiceClient();
+  const [activeRes, inactiveRes] = await Promise.all([
+    supabase
+      .from("composer_venues_v2")
+      .select("*", { count: "exact", head: true })
+      .eq("active", true),
+    supabase
+      .from("composer_venues_v2")
+      .select("*", { count: "exact", head: true })
+      .eq("active", false),
+  ]);
+
+  if (activeRes.error) {
+    throw new Error(`composer_venues_v2 active count failed: ${activeRes.error.message}`);
+  }
+  if (inactiveRes.error) {
+    throw new Error(`composer_venues_v2 inactive count failed: ${inactiveRes.error.message}`);
+  }
+
+  const active = activeRes.count ?? 0;
+  const inactive = inactiveRes.count ?? 0;
+  return { sheet: sheetMeta, db: { active, inactive, total: active + inactive } };
+}
+
+// ─── Single-venue path (Phase 5a) ──────────────────────────────────────
+
+export interface SingleVenueResult {
+  found: boolean;
+  /** "inserted" or "updated" — set only when `found: true`. */
+  action?: "inserted" | "updated";
+  /** Run id from the audit table. Set on found rows; null if audit failed. */
+  runId?: string | null;
+  /** Validation/skip reason or apply error. Set on `found: false` or RPC failure. */
+  error?: string;
+}
+
+/**
+ * Sync a single venue from the sheet into the database. Skips sanity
+ * assertions and threshold guards by design — the operator targets one
+ * row by ID, so the safety machinery built for full-sheet operations
+ * doesn't apply.
+ *
+ * Records to `composer_import_runs` so single-venue runs show up in
+ * history alongside full applies (distinguishable by `trigger_source`).
+ */
+export async function runApplySingleVenue(
+  venueId: string,
+  options: {
+    triggeredBy: string;
+    triggerSource: string;
+  }
+): Promise<SingleVenueResult> {
+  const startedAt = new Date();
+
+  const tabNames = await fetchTabNames();
+  if (!tabNames.includes(VENUE_SHEET_TAB)) {
+    return {
+      found: false,
+      error: `'${VENUE_SHEET_TAB}' tab not found in spreadsheet (tabs present: ${tabNames.map((t) => `'${t}'`).join(", ") || "(none)"})`,
+    };
+  }
+
+  const { headers, rows } = await readSheetRows();
+  const { records, skipped } = transformRows(headers, rows);
+
+  const sheetRecord = records.find((r) => r.venue_id === venueId);
+  if (!sheetRecord) {
+    const skip = skipped.find((s) => s.venue_id === venueId);
+    if (skip) {
+      return {
+        found: false,
+        error: `row failed validation: ${skip.reason}`,
+      };
+    }
+    return { found: false };
+  }
+
+  const supabase = getServiceClient();
+
+  // Capture the before-image so the audit row's diff_payload carries
+  // enough data for a future undo. Cheap single-row read.
+  const cols = ["venue_id", ...ALL_WRITABLE_COLUMNS].filter(
+    (c, i, a) => a.indexOf(c) === i
+  );
+  const { data: dbBefore, error: readErr } = await supabase
+    .from("composer_venues_v2")
+    .select(cols.join(","))
+    .eq("venue_id", venueId)
+    .maybeSingle();
+  if (readErr) {
+    return { found: false, error: `db read failed: ${readErr.message}` };
+  }
+
+  // Build a one-venue diff so audit counts and diff_payload reflect the
+  // actual semantic change (or no-change). We always RPC regardless —
+  // single-venue is "force this row's sheet data into the DB".
+  const dbAsRow = dbBefore as Record<string, VenueCellValue> | null;
+  const diff = computeDiff([sheetRecord], dbAsRow ? [dbAsRow] : []);
+  const action: "inserted" | "updated" = dbAsRow ? "updated" : "inserted";
+
+  const sheetMeta = await fetchSheetMetadata(rows.length, []);
+  const emptyAssertions: AssertionReport = { results: [], blocked: false };
+
+  let applyResult: ApplyResult;
+  try {
+    applyResult = await callApplyRpc(supabase, [sheetRecord], []);
+  } catch (err) {
+    const runId = await safeRecord({
+      status: "failed",
+      errorMessage: err instanceof Error ? err.message : String(err),
+      metadata: sheetMeta,
+      diff,
+      assertions: emptyAssertions,
+      triggerSource: options.triggerSource,
+      triggeredBy: options.triggeredBy,
+      startedAt,
+      finishedAt: new Date(),
+    });
+    return {
+      found: true,
+      error: err instanceof Error ? err.message : String(err),
+      runId,
+    };
+  }
+
+  const runId = await safeRecord({
+    status: "success",
+    metadata: sheetMeta,
+    diff,
+    applyResult,
+    assertions: emptyAssertions,
+    triggerSource: options.triggerSource,
+    triggeredBy: options.triggeredBy,
+    startedAt,
+    finishedAt: new Date(),
+  });
+
+  return { found: true, action, runId };
 }
