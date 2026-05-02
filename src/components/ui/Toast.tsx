@@ -17,6 +17,7 @@ interface ToastInput {
   message: string;
   durationMs?: number;
   action?: { label: string; onClick: () => void };
+  onTimeout?: () => void;
 }
 
 interface ToastContextValue {
@@ -59,7 +60,13 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     setToast({ ...input, id });
     const ms = input.durationMs ?? 5000;
     timerRef.current = window.setTimeout(() => {
-      setToast((cur) => (cur?.id === id ? null : cur));
+      setToast((cur) => {
+        if (cur?.id === id) {
+          input.onTimeout?.();
+          return null;
+        }
+        return cur;
+      });
       timerRef.current = null;
     }, ms);
   }, []);

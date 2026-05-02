@@ -18,6 +18,7 @@ interface StopCardProps {
   date?: string;
   partySize?: number;
   onSwap?: () => void;
+  onRemove?: () => void;
   onVenueTap?: () => void;
   isSwapping?: boolean;
   swapError?: string | null;
@@ -54,6 +55,7 @@ export function StopCard({
   date,
   partySize = 2,
   onSwap,
+  onRemove,
   onVenueTap,
   isSwapping = false,
   swapError,
@@ -176,6 +178,15 @@ export function StopCard({
               >
                 {bookingPlatform!.label} →
               </a>
+            )}
+            {onRemove && (
+              <button
+                onClick={onRemove}
+                aria-label="Remove this stop"
+                className="text-muted hover:text-burgundy transition-colors"
+              >
+                Remove
+              </button>
             )}
             {onSwap && (
               <button
