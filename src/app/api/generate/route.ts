@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getSupabase } from "@/lib/supabase";
 import { getServerSupabase } from "@/lib/supabase/server";
 import { fetchWeather } from "@/lib/weather";
-import { composeItinerary, ROLE_AVG_DURATION_MIN } from "@/lib/composer";
+import { composeItinerary, composeAroundAnchor, ROLE_AVG_DURATION_MIN } from "@/lib/composer";
 import { generateCopy } from "@/lib/claude";
 import { walkTimeMinutes, walkDistanceKm, buildGoogleMapsUrl } from "@/lib/geo";
 import { buildWalkMapUrl } from "@/lib/mapbox";
@@ -21,6 +21,8 @@ import type {
   Venue,
   ItineraryResponse,
   ItineraryStop,
+  StopRole,
+  StopPattern,
   WalkSegment,
   WalkingMeta,
   WeatherInfo,
@@ -102,6 +104,7 @@ function computeWalkingMeta(
 interface AuthedPrefs {
   name: string | null;
   drinks: string | null;
+  savedVenueIds: string[];
 }
 
 /**
@@ -120,13 +123,14 @@ async function readAuthedPrefs(): Promise<AuthedPrefs | null> {
 
     const { data: profile } = await supabase
       .from("composer_users")
-      .select("name, drinks")
+      .select("name, drinks, saved_venue_ids")
       .eq("id", user.id)
       .maybeSingle();
 
     return {
       name: (profile?.name as string | null) ?? null,
       drinks: (profile?.drinks as string | null) ?? null,
+      savedVenueIds: (profile?.saved_venue_ids as string[] | null) ?? [],
     };
   } catch (err) {
     console.error("[generate] readAuthedPrefs failed:", err);
@@ -251,8 +255,28 @@ export async function POST(request: Request) {
     const random = createSeededRandom(seed);
     console.info(`[generate] seed=${seed} for ${body.occasion}/${body.vibe}/${body.budget}`);
 
-    // Plan the stop mix from the time window, then score + assemble stops
-    const composed = composeItinerary(venues, inputs, weather, undefined, random, dayColumn, body.timeBlock);
+    const savedSet = new Set(prefs?.savedVenueIds ?? []);
+
+    // Anchor mode: user pre-picked a venue. Compose around it.
+    const anchorVenueId = (body as Record<string, unknown>).anchorVenueId as string | undefined;
+    const anchorRole = ((body as Record<string, unknown>).anchorRole as string | undefined) ?? "main";
+    const fillRoles = ((body as Record<string, unknown>).fillRoles as string[] | undefined) ?? ["opener", "closer"];
+
+    let composed: { stops: ItineraryStop[]; pattern: StopPattern };
+
+    if (anchorVenueId) {
+      const anchor = venues.find((v) => v.id === anchorVenueId)
+        ?? (await getSupabase().from("composer_venues_v2").select("*").eq("id", anchorVenueId).maybeSingle()).data as Venue | null;
+      if (!anchor) {
+        return NextResponse.json({ error: "Anchor venue not found" }, { status: 404 });
+      }
+      composed = composeAroundAnchor(
+        anchor, anchorRole as StopRole, fillRoles as StopRole[],
+        venues, inputs, weather, undefined, random, dayColumn, body.timeBlock, savedSet
+      );
+    } else {
+      composed = composeItinerary(venues, inputs, weather, undefined, random, dayColumn, body.timeBlock, savedSet);
+    }
 
     if (composed.stops.length === 0) {
       return NextResponse.json(

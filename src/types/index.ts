@@ -184,6 +184,11 @@ export interface Venue {
   resy_venue_id: number | null;
   resy_slug: string | null;
 
+  // Provenance — 'curated' (default) or 'google_places' (provisional)
+  provenance?: string;
+  pending_curation?: boolean;
+  inferred_vibe?: string | null;
+
   // Timestamps
   created_at: string;
   updated_at: string;

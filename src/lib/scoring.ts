@@ -1,5 +1,3 @@
-// Tuning constants live in src/config/algorithm.ts — adjust there, not here.
-
 import {
   Venue,
   ScoredVenue,
@@ -53,7 +51,8 @@ function scoreVenue(
   jitter: number,
   random: () => number,
   dayColumn: DayColumn | null,
-  timeBlock: TimeBlock | null
+  timeBlock: TimeBlock | null,
+  savedVenueIds: ReadonlySet<string> = new Set()
 ): number {
   let score = 0;
 
@@ -112,6 +111,9 @@ function scoreVenue(
     const normalized = Math.max(0, (venue.google_rating - 3.5) / 1.5);
     score += Math.min(1, normalized) * W.googleRating;
   }
+
+  // Saved-venue boost — gentle (+5/~100), doesn't override discovery.
+  if (savedVenueIds.has(venue.id)) score += 5;
 
   // Random jitter for variety on regenerate
   score += random() * jitter;
@@ -180,36 +182,8 @@ function applyProximity(candidates: Venue[], anchor: Venue | null, maxKm: number
   return nearby.length > 0 ? nearby : [];
 }
 
-/**
- * Pick a venue for a given stop role.
- *
- * Cascade relaxation: strict (with `venueRoleHint`) → drop hint → drop
- * neighborhood. Proximity to `anchor` is always hard.
- *
- * After scoring + sort, samples from the top N candidates using
- * `weightedPickByRank` (top 5, weights `[5,4,3,2,1]`). When `jitter === 0`
- * — used by `/api/health` for determinism — falls back to top-1.
- *
- * Random jitter and the weighted sample both consume the seeded PRNG so
- * identical inputs produce identical picks. See `src/lib/itinerary/seed.ts`.
- *
- * @param venues         - Full venue pool (post candidate-filtering).
- * @param role           - The stop role being filled (opener, main, closer).
- * @param answers        - The user's questionnaire responses.
- * @param weather        - Current weather; null disables weather filtering.
- * @param usedIds        - Venue IDs already selected; excluded from candidates.
- * @param anchor         - Reference venue for proximity filtering (Main). Null for Main selection.
- * @param jitter         - Jitter magnitude from ALGORITHM.jitter.magnitude. 0 = deterministic top-1.
- * @param random         - Seeded PRNG function; defaults to Math.random.
- * @param usedCategories - Categories already used in this itinerary; triggers -20 penalty.
- * @param dayColumn      - Per-day column (e.g. "fri_blocks") for time relevance scoring.
- * @param timeBlock      - Time block (e.g. "evening") for time relevance scoring.
- * @param venueRoleHint  - Optional raw venue role to prefer (e.g. "drinks" for bar slots).
- *                         If no venues match the hint, falls back to any role-compatible venue.
- *
- * @returns `{ best, scored }` — the picked venue (or null if none qualify)
- *          and the full sorted list (used by composer for Plan B selection).
- */
+// Pick the best venue for a role. Cascade: strict → drop hint → drop hood.
+// Weighted top-N pick for variety; jitter=0 → deterministic top-1.
 export function pickBestForRole(
   venues: Venue[],
   role: StopRole,
@@ -222,7 +196,8 @@ export function pickBestForRole(
   usedCategories: Set<string> = new Set(),
   dayColumn: DayColumn | null = null,
   timeBlock: TimeBlock | null = null,
-  venueRoleHint?: VenueRole
+  venueRoleHint?: VenueRole,
+  savedVenueIds: ReadonlySet<string> = new Set()
 ): { best: ScoredVenue | null; scored: ScoredVenue[] } {
   const maxWalkKm = getMaxWalkKm(weather);
   const enforceNeighborhood = anchor === null;
@@ -243,7 +218,7 @@ export function pickBestForRole(
   }
 
   const scored: ScoredVenue[] = candidates.map((v) => {
-    let score = scoreVenue(v, answers, role, jitter, random, dayColumn, timeBlock);
+    let score = scoreVenue(v, answers, role, jitter, random, dayColumn, timeBlock, savedVenueIds);
     if (v.category && usedCategories.has(v.category)) {
       score -= ALGORITHM.penalties.categoryDuplicate;
     }

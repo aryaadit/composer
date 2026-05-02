@@ -98,7 +98,8 @@ export function composeItinerary(
   jitter: number = ALGORITHM.jitter.magnitude,
   random: () => number = Math.random,
   dayColumn: DayColumn | null = null,
-  timeBlock: TimeBlock | null = null
+  timeBlock: TimeBlock | null = null,
+  savedVenueIds: ReadonlySet<string> = new Set()
 ): { stops: ItineraryStop[]; pattern: StopPattern } {
   const pattern = planStopMix(answers, random);
   const usedIds = new Set<string>();
@@ -120,7 +121,8 @@ export function composeItinerary(
     usedCategories,
     dayColumn,
     timeBlock,
-    mainHint?.venueRoleHint
+    mainHint?.venueRoleHint,
+    savedVenueIds
   );
   if (!main) return { stops: [], pattern };
   usedIds.add(main.id);
@@ -152,7 +154,8 @@ export function composeItinerary(
       usedCategories,
       dayColumn,
       timeBlock,
-      hint.venueRoleHint
+      hint.venueRoleHint,
+      savedVenueIds
     );
     if (!best) continue;
     usedIds.add(best.id);
@@ -169,6 +172,71 @@ export function composeItinerary(
 
   const stops = positioned.filter((s): s is ItineraryStop => s !== null);
   return { stops, pattern };
+}
+
+// Compose an itinerary around a user-chosen anchor venue. The anchor
+// is pinned at the specified role — Composer fills the remaining slots.
+// Provisional venues (provenance=google_places, pending_curation=true)
+// are eligible ONLY as the anchor, never for fill roles.
+export function composeAroundAnchor(
+  anchor: Venue,
+  anchorRole: StopRole,
+  fillRoles: StopRole[],
+  venues: Venue[],
+  answers: QuestionnaireAnswers,
+  weather: WeatherInfo | null,
+  jitter: number = ALGORITHM.jitter.magnitude,
+  random: () => number = Math.random,
+  dayColumn: DayColumn | null = null,
+  timeBlock: TimeBlock | null = null,
+  savedVenueIds: ReadonlySet<string> = new Set()
+): { stops: ItineraryStop[]; pattern: StopPattern } {
+  const usedIds = new Set<string>([anchor.id]);
+  const usedCategories = new Set<string>();
+  if (anchor.category) usedCategories.add(anchor.category);
+
+  // Filter out provisional venues from fill candidates.
+  const fillPool = venues.filter(
+    (v) => v.provenance !== "google_places" || !v.pending_curation
+  );
+
+  const anchorStop = makeStop(
+    anchorRole, anchor, anchor.curation_note ?? "", true, null
+  );
+
+  const pattern: StopPattern = [
+    ...fillRoles.filter((r) => r !== anchorRole).map((r) => ({ role: r })),
+  ];
+  // Insert anchor at the right position.
+  const fullPattern: StopPattern = anchorRole === "opener"
+    ? [{ role: "opener" }, ...pattern]
+    : anchorRole === "closer"
+    ? [...pattern, { role: "closer" }]
+    : [
+        ...pattern.filter((h) => h.role === "opener"),
+        { role: "main" },
+        ...pattern.filter((h) => h.role === "closer"),
+      ];
+
+  const stops: ItineraryStop[] = [];
+  for (const hint of fullPattern) {
+    if (hint.role === anchorRole && !stops.some((s) => s.venue.id === anchor.id)) {
+      stops.push(anchorStop);
+      continue;
+    }
+    const { best, scored } = pickBestForRole(
+      fillPool, hint.role, answers, weather, usedIds, anchor,
+      jitter, random, usedCategories, dayColumn, timeBlock,
+      hint.venueRoleHint, savedVenueIds
+    );
+    if (!best) continue;
+    usedIds.add(best.id);
+    if (best.category) usedCategories.add(best.category);
+    const planB = scored.find((v) => v.id !== best.id) ?? null;
+    stops.push(makeStop(hint.role, best, best.curation_note ?? "", false, planB));
+  }
+
+  return { stops, pattern: fullPattern };
 }
 
 function makeStop(

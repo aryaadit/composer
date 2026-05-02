@@ -96,6 +96,14 @@ export function HomeScreen({ userName }: HomeScreenProps) {
             New plan →
           </span>
         </Link>
+        <Link
+          href="/compose/anchor"
+          className="block w-full py-3.5 mt-3 rounded-full border border-burgundy text-burgundy hover:bg-burgundy hover:text-cream transition-colors text-center"
+        >
+          <span className="font-sans text-sm font-medium tracking-wide">
+            I already have a spot →
+          </span>
+        </Link>
       </div>
 
       {/* Saved plans */}

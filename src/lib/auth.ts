@@ -105,6 +105,18 @@ export async function signOut(): Promise<void> {
   await getBrowserSupabase().auth.signOut();
 }
 
+// ─── Saved venues ─────────────────────────────────────────────────────
+
+export async function getSavedVenueIds(userId: string): Promise<string[]> {
+  const { data, error } = await getBrowserSupabase()
+    .from("composer_users")
+    .select("saved_venue_ids")
+    .eq("id", userId)
+    .maybeSingle();
+  if (error || !data) return [];
+  return (data.saved_venue_ids as string[]) ?? [];
+}
+
 // ─── Phone OTP ──────────────────────────────────────────────────────────
 
 interface AuthActionResult {

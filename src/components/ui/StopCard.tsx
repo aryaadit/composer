@@ -8,6 +8,7 @@ import { formatCategory } from "@/lib/format/category";
 import { detectBookingPlatform } from "@/lib/booking";
 import { getVenueHeroImageUrl } from "@/lib/venues/images";
 import { buildResyBookingUrl } from "@/lib/availability/booking-url";
+import { useSavedVenues } from "@/components/providers/SavedVenuesProvider";
 
 const BOOK_AHEAD_THRESHOLD = 3;
 
@@ -93,9 +94,12 @@ export function StopCard({
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, delay: index * 0.15 }}
     >
-      {/* Role label */}
-      <div className="font-sans text-[11px] tracking-widest uppercase text-muted mb-1.5">
-        {ROLE_LABELS[stop.role]}
+      {/* Role label + heart */}
+      <div className="flex items-center justify-between mb-1.5">
+        <span className="font-sans text-[11px] tracking-widest uppercase text-muted">
+          {ROLE_LABELS[stop.role]}
+        </span>
+        <HeartButton venueId={v.id} />
       </div>
 
       {isSwapping ? (
@@ -189,5 +193,40 @@ export function StopCard({
         </>
       )}
     </motion.div>
+  );
+}
+
+function HeartButton({ venueId }: { venueId: string }) {
+  let saved = false;
+  let toggle: ((id: string) => Promise<void>) | null = null;
+  try {
+    const ctx = useSavedVenues();
+    saved = ctx.savedIds.has(venueId);
+    toggle = ctx.toggle;
+  } catch {
+    return null;
+  }
+  return (
+    <button
+      type="button"
+      onClick={() => toggle?.(venueId)}
+      aria-label={saved ? "Unsave this place" : "Save this place"}
+      aria-pressed={saved}
+      className="w-11 h-11 flex items-center justify-center rounded-full hover:bg-burgundy/5 transition-colors"
+    >
+      <svg
+        viewBox="0 0 24 24"
+        width="18"
+        height="18"
+        fill={saved ? "currentColor" : "none"}
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className={saved ? "text-burgundy" : "text-muted"}
+      >
+        <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+      </svg>
+    </button>
   );
 }

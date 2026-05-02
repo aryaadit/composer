@@ -13,6 +13,8 @@ import { decodeParamsToInputs } from "@/lib/sharing";
 import { STORAGE_KEYS } from "@/config/storage";
 import { getRecentVenueIds } from "@/lib/exclusions";
 import { useAuth } from "@/components/providers/AuthProvider";
+import { SavedVenuesProvider } from "@/components/providers/SavedVenuesProvider";
+import { getSavedVenueIds } from "@/lib/auth";
 import { useSwapStop } from "@/hooks/useSwapStop";
 import { CompositionHeader } from "@/components/itinerary/CompositionHeader";
 import { ItineraryView } from "@/components/itinerary/ItineraryView";
@@ -36,6 +38,13 @@ function ItineraryContent() {
   const [error, setError] = useState<string | null>(null);
   const [regenerating, setRegenerating] = useState(false);
   const [regenError, setRegenError] = useState(false);
+
+  // Saved venues — hydrate once for the heart buttons.
+  const [savedVenueIds, setSavedVenueIds] = useState<string[]>([]);
+  useEffect(() => {
+    if (!user?.id) return;
+    void getSavedVenueIds(user.id).then(setSavedVenueIds);
+  }, [user?.id]);
 
   const updateItinerary = useCallback((next: ItineraryResponse) => {
     setItinerary(next);
@@ -168,6 +177,7 @@ function ItineraryContent() {
   }
 
   return (
+    <SavedVenuesProvider initialIds={savedVenueIds}>
     <main className="flex flex-1 flex-col items-center min-h-screen pb-8">
       <Header
         rightSlot={
@@ -214,6 +224,7 @@ function ItineraryContent() {
         isRegenerating={regenerating}
       />
     </main>
+    </SavedVenuesProvider>
   );
 }
 
