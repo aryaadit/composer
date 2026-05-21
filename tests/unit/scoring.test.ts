@@ -71,7 +71,7 @@ function makeVenue(overrides: Partial<Venue> = {}): Venue {
 }
 
 const BASE_ANSWERS: QuestionnaireAnswers = {
-  occasion: "dating",
+  occasion: "date",
   neighborhoods: ["west_village"],
   budget: "nice_out",
   vibe: "food_forward",
@@ -176,13 +176,31 @@ describe("pickBestForRole — scoring", () => {
     expect(best?.name).toBe("Match");
   });
 
-  it("prefers venues with matching occasion", () => {
+  it("prefers venues with matching occasion (bucket → any overlapping sheet slug)", () => {
     const match = makeVenue({ name: "Dating", occasion_tags: ["dating"], vibe_tags: [] });
     const noMatch = makeVenue({ name: "Solo", occasion_tags: ["solo"], vibe_tags: [] });
     const { best } = pickBestForRole(
       [match, noMatch], "main", BASE_ANSWERS, CLEAR_WEATHER, new Set(), null, 0
     );
     expect(best?.name).toBe("Dating");
+  });
+
+  it("occasion=date matches venues tagged with any of [first_date, dating, couple]", () => {
+    // Each venue carries exactly one of the sheet slugs the `date`
+    // bucket fans out to. All three should outscore a non-matching
+    // (solo-tagged) venue on the occasion signal alone.
+    const firstDate = makeVenue({ name: "FirstDate", occasion_tags: ["first_date"], vibe_tags: [] });
+    const dating = makeVenue({ name: "Dating", occasion_tags: ["dating"], vibe_tags: [] });
+    const couple = makeVenue({ name: "Couple", occasion_tags: ["couple"], vibe_tags: [] });
+    const solo = makeVenue({ name: "SoloOnly", occasion_tags: ["solo"], vibe_tags: [] });
+    const { scored } = pickBestForRole(
+      [firstDate, dating, couple, solo], "main", BASE_ANSWERS, CLEAR_WEATHER, new Set(), null, 0
+    );
+    const soloScore = scored.find((v) => v.name === "SoloOnly")!.score;
+    for (const name of ["FirstDate", "Dating", "Couple"]) {
+      const s = scored.find((v) => v.name === name)!.score;
+      expect(s).toBeGreaterThan(soloScore);
+    }
   });
 
   it("prefers venues in budget range", () => {

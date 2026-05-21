@@ -2,9 +2,10 @@
 //
 // Most step options are derived from the canonical taxonomy configs
 // (`vibes.ts`, `budgets.ts`). The `occasion` step is hand-written because
-// it intentionally groups the `first-date` and `second-date` taxonomy
-// values into a single "First / Second Date" card — that grouping is a
-// UX decision and doesn't belong in the taxonomy config.
+// the UI offers 3 buckets (`date` / `friends` / `solo`) that fan out to
+// the sheet-side occasion slugs at scoring time. The mapping lives in
+// `OCCASION_BUCKET_TO_SHEET_SLUGS` in `lib/scoring.ts`; the Gemini
+// framing lives in `OCCASION_BUCKET_TO_GEMINI_FRAMING` in `config/prompts.ts`.
 //
 // The `neighborhoods` step uses `NEIGHBORHOOD_GROUPS` (the 11 user-facing
 // groups), NOT the full 68-slug `NEIGHBORHOODS` list. Each group id maps
@@ -23,10 +24,8 @@ export const questionSteps: QuestionStep[] = [
     question: "What kind of night is this?",
     subtitle: "Who are we planning for?",
     options: [
-      { value: "dating", label: "Dating", description: "Meeting someone new" },
-      { value: "relationship", label: "Relationship", description: "Nights with my partner" },
-      { value: "friends", label: "Friends Night Out", description: "No rules" },
-      { value: "family", label: "Family", description: "Something for everyone, kids included" },
+      { value: "date", label: "Date Night", description: "Dating, partner, anything romantic" },
+      { value: "friends", label: "Friends Night Out", description: "Group night with friends or family" },
       { value: "solo", label: "Solo", description: "Just me" },
     ],
   },

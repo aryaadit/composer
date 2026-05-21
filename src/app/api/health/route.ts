@@ -24,11 +24,13 @@ export const dynamic = "force-dynamic";
 const GEMINI_TIMEOUT_MS = 8000;
 
 // Fixed test input for the scoring check. Chosen to be both common and
-// discriminating: first_date + West Village + nice_out + food_forward
+// discriminating: `date` bucket + West Village + nice_out + food_forward
 // should exercise the full stack of hard filters and produce a reliable
-// top venue every time.
+// top venue every time. The `date` bucket is the most common pick from
+// the questionnaire and fans out to first_date/dating/couple at scoring,
+// so this input mirrors a real user flow end-to-end.
 const SCORING_TEST_INPUT: QuestionnaireAnswers = {
-  occasion: "first_date",
+  occasion: "date",
   neighborhoods: ["west_village"],
   budget: "nice_out",
   vibe: "food_forward",

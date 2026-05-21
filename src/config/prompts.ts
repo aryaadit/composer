@@ -74,6 +74,18 @@ interface WeatherForPrompt {
 
 import { describeDay } from "@/lib/dateUtils";
 
+// Occasion bucket → human-readable framing for Gemini. Sending the
+// literal bucket slug (e.g. "date") into the prompt is a problem
+// because (a) the system prompt distinguishes voice for first-date vs
+// established couples vs solo, and (b) echoing "date" as the input
+// anchors the model on the word we're trying to keep out of generated
+// copy. The framing strings carry the voice cue without the slug.
+const OCCASION_BUCKET_TO_GEMINI_FRAMING: Record<string, string> = {
+  date: "an evening for two — could be a first date, an early dating connection, or an established couple. Lean warm, considered, and lightly romantic.",
+  friends: "a night out with friends or family. Lean social, upbeat, and inclusive.",
+  solo: "a solo evening — one person exploring the city. Lean grounded, self-directed, and personal.",
+};
+
 function durationMinutes(start: string, end: string): number {
   const [sh, sm] = start.split(":").map(Number);
   const [eh, em] = end.split(":").map(Number);
@@ -98,11 +110,17 @@ export function buildGenerationPrompt(
     .map((v) => `    "${v.name}": "1-2 sentence curation note"`)
     .join(",\n");
 
-  return `Generate copy for this NYC date night itinerary.
+  // Bucket-aware framing — keeps the header neutral and pushes the
+  // voice cue into the Occasion line. Falls back to the raw slug for
+  // any value not in the bucket map (e.g. legacy share links).
+  const occasionFraming =
+    OCCASION_BUCKET_TO_GEMINI_FRAMING[inputs.occasion] ?? inputs.occasion;
+
+  return `Generate copy for this NYC night-out itinerary.
 
 User preferences:
 - Name: ${userName || "(not provided)"}
-- Occasion: ${inputs.occasion}
+- Occasion: ${occasionFraming}
 - Neighborhoods: ${inputs.neighborhoods.join(", ") || "any"}
 - Budget: ${inputs.budget}
 - Vibe: ${inputs.vibe}

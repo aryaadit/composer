@@ -23,6 +23,19 @@ import { ROLE_EXPANSION as GEN_ROLE_EXPANSION } from "@/config/generated/stop-ro
 
 const ROLE_EXPANSION = GEN_ROLE_EXPANSION as Record<VenueRole, readonly StopRole[]>;
 
+// ─── Occasion bucket → sheet-side slugs ────────────────────────────────
+// The questionnaire offers 3 UI buckets; venue.occasion_tags use the
+// sheet-side slugs (couple, dating, first_date, friends, solo). Each
+// bucket fans out to one or more sheet slugs. An overlap between the
+// bucket's slug set and venue.occasion_tags scores the full occasion
+// weight (15 pts); no overlap scores 0. Bucket-to-Gemini-framing for
+// copy generation lives in `src/config/prompts.ts`.
+const OCCASION_BUCKET_TO_SHEET_SLUGS: Record<string, string[]> = {
+  date: ["first_date", "dating", "couple"],
+  friends: ["friends"],
+  solo: ["solo"],
+};
+
 /**
  * Check whether a venue can serve a given canonical composition role.
  *
@@ -71,8 +84,11 @@ function scoreVenue(
     else score += W.vibeMatch0;
   }
 
-  // Occasion match
-  if (venue.occasion_tags.includes(answers.occasion)) {
+  // Occasion match — UI bucket fans out to one or more sheet slugs.
+  // Any overlap between the bucket's slug set and venue.occasion_tags
+  // scores the full weight; no overlap scores 0.
+  const bucketSlugs = OCCASION_BUCKET_TO_SHEET_SLUGS[answers.occasion] ?? [];
+  if (bucketSlugs.some((s) => venue.occasion_tags.includes(s))) {
     score += W.occasion;
   }
 

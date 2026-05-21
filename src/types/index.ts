@@ -13,7 +13,17 @@ import type { StopRoleSlug } from "@/config/roles";
 import type { TimeBlock } from "@/lib/itinerary/time-blocks";
 import type { AvailabilitySlot } from "@/lib/availability/resy";
 
+// Sheet-side occasion taxonomy (entries in `venue.occasion_tags`).
+// Multiple sheet slugs collapse into one UI bucket — see `OccasionBucket`
+// below and the bucket-to-sheet-slugs map in `lib/scoring.ts`.
 export type Occasion = OccasionSlug;
+
+// UI-side occasion taxonomy. Three buckets the questionnaire offers;
+// each maps to a set of sheet-side slugs at the scoring boundary.
+// Bucket-to-slug mapping: `OCCASION_BUCKET_TO_SHEET_SLUGS` in scoring.ts.
+// Bucket-to-Gemini-framing: `OCCASION_BUCKET_TO_GEMINI_FRAMING` in prompts.ts.
+export type OccasionBucket = "date" | "friends" | "solo";
+
 export type Neighborhood = NeighborhoodSlug;
 export type Budget = BudgetSlug;
 export type Vibe = VibeSlug;
@@ -79,7 +89,7 @@ export function composerUserToPrefs(u: ComposerUser): UserPrefs {
 // function. `startTime` and `endTime` are computed server-side from
 // `timeBlock` — the client never fills them in.
 export interface QuestionnaireAnswers {
-  occasion: Occasion;
+  occasion: OccasionBucket;
   neighborhoods: Neighborhood[]; // expanded storage slugs
   budget: Budget;
   vibe: Vibe;
