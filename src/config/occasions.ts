@@ -38,10 +38,13 @@ export const OCCASION_BUCKET_LABELS: Record<string, string> = {
 };
 
 // Deprecated sheet-side slugs that may still appear in saved
-// itineraries written before the 2026-05-21 taxonomy collapse. Map
-// each to the bucket it would land in today so the display layer
-// renders a sensible label instead of the raw slug.
-const DEPRECATED_OCCASION_SLUG_TO_BUCKET: Record<string, string> = {
+// itineraries and legacy share links written before the 2026-05-21
+// taxonomy collapse. Map each to the bucket it would land in today.
+// Used by `occasionLabel()` below for display and by
+// `decodeParamsToInputs()` in `lib/sharing.ts` to translate legacy
+// share-URL `?occasion=...` values to the current bucket shape
+// before they hit the scoring pipeline.
+export const DEPRECATED_OCCASION_SLUG_TO_BUCKET: Record<string, string> = {
   relationship: "date",
   family: "friends",
   dating: "date",

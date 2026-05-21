@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { occasionLabel } from "@/config/occasions";
+import { decodeParamsToInputs } from "@/lib/sharing";
 
 // ── occasionLabel ─────────────────────────────────────────────
 //
@@ -50,5 +51,51 @@ describe("occasionLabel — fallback to raw slug for unknown values", () => {
 
   it("empty string returns empty string", () => {
     expect(occasionLabel("")).toBe("");
+  });
+});
+
+// ── decodeParamsToInputs — legacy share-link occasion translation ─
+//
+// Share URLs written before the 2026-05-21 taxonomy collapse carry
+// sheet-side slugs (dating, relationship, family, first_date, couple).
+// The decoder translates them to the current bucket shape so the
+// scoring pipeline only sees bucket values.
+
+function makeParams(occasion: string): URLSearchParams {
+  return new URLSearchParams({
+    occasion,
+    neighborhoods: "west_village",
+    budget: "nice_out",
+    vibe: "food_forward",
+    day: "2026-05-21",
+    timeBlock: "evening",
+  });
+}
+
+describe("decodeParamsToInputs — legacy occasion translation", () => {
+  it("legacy ?occasion=dating decodes to bucket 'date'", () => {
+    const result = decodeParamsToInputs(makeParams("dating"));
+    expect(result).not.toBeNull();
+    expect(result?.occasion).toBe("date");
+  });
+
+  it("legacy ?occasion=relationship decodes to bucket 'date'", () => {
+    const result = decodeParamsToInputs(makeParams("relationship"));
+    expect(result?.occasion).toBe("date");
+  });
+
+  it("legacy ?occasion=family decodes to bucket 'friends'", () => {
+    const result = decodeParamsToInputs(makeParams("family"));
+    expect(result?.occasion).toBe("friends");
+  });
+
+  it("current ?occasion=date passes through unchanged", () => {
+    const result = decodeParamsToInputs(makeParams("date"));
+    expect(result?.occasion).toBe("date");
+  });
+
+  it("current ?occasion=solo passes through unchanged", () => {
+    const result = decodeParamsToInputs(makeParams("solo"));
+    expect(result?.occasion).toBe("solo");
   });
 });

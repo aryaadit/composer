@@ -7,9 +7,11 @@
 import {
   GenerateRequestBody,
   Neighborhood,
+  OccasionBucket,
   TimeBlock,
 } from "@/types";
 import { TIME_BLOCKS } from "@/lib/itinerary/time-blocks";
+import { DEPRECATED_OCCASION_SLUG_TO_BUCKET } from "@/config/occasions";
 
 const BLOCK_IDS = new Set<string>(TIME_BLOCKS.map((b) => b.id));
 
@@ -50,8 +52,17 @@ export function decodeParamsToInputs(
     .split(",")
     .filter(Boolean) as Neighborhood[];
 
+  // Forward-compat for legacy share links: URLs written before the
+  // 2026-05-21 taxonomy collapse carry sheet-side slugs like `dating`
+  // or `relationship` instead of the current bucket slugs. Translate
+  // at the boundary so the rest of the pipeline only sees bucket
+  // values. Unknown slugs pass through unchanged — the scoring layer
+  // already no-ops gracefully on unrecognized buckets.
+  const occasionBucket = (DEPRECATED_OCCASION_SLUG_TO_BUCKET[occasion] ??
+    occasion) as OccasionBucket;
+
   return {
-    occasion: occasion as GenerateRequestBody["occasion"],
+    occasion: occasionBucket,
     neighborhoods,
     budget: budget as GenerateRequestBody["budget"],
     vibe: vibe as GenerateRequestBody["vibe"],
