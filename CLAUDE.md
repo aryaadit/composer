@@ -67,7 +67,7 @@ src/
 │   ├── itinerary/page.tsx                # Composition output
 │   ├── itinerary/saved/[id]/page.tsx     # Saved itinerary view
 │   ├── itinerary/share/[id]/page.tsx     # Public shared itinerary view
-│   ├── onboarding/page.tsx               # Profile builder (3 steps: name → context → prefs)
+│   ├── onboarding/page.tsx               # Profile builder (2 steps: name → prefs)
 │   ├── profile/page.tsx                  # Profile + saved plans + admin section
 │   ├── privacy/page.tsx                  # Privacy policy (public, for Twilio TFV)
 │   └── api/
@@ -194,7 +194,7 @@ Both have RLS on with `auth.uid()`-scoped policies. The anon client can only see
 composer_users (
   id uuid primary key references auth.users(id) on delete cascade,
   name text not null,
-  context text,
+  context text[] default '{}',          -- DEPRECATED 2026-05-20 (see note below)
   drinks text,
   dietary text[] default '{}',
   favorite_hoods text[] default '{}',
@@ -221,6 +221,8 @@ update composer_users set is_admin = true where id = (
 ```
 
 The existing RLS policy (`auth.uid() = id`) means each session can only read its own profile row, so admin status isn't leaked between users. `AuthProvider` exposes it as `useAuth().isAdmin`.
+
+**`context` column deprecated 2026-05-20** — onboarding no longer collects "What brings you here?", the profile no longer displays it, and scoring/Gemini never used it. Column retained for potential future use; safe to drop if confirmed unused after 90 days. Cleared via `migrations/data/2026-05-20_clear_onboarding_contexts.sql` (run by hand, not picked up by `supabase db push`).
 
 ---
 
@@ -322,17 +324,18 @@ Defined in `config/options.ts`. Five steps, each with an explicit "Next →" but
    Display labels: Meal, Drinks, Activity, Stroll, Variety
 5. **When** — day (7-day pills + custom date picker) + time block (morning / afternoon / evening / late_night)
 
-No auto-advance — every step requires an explicit button tap. Occasion pre-fills from `profile.context` via `CONTEXT_TO_OCCASION`. **Neighborhood prefill from `profile.favorite_hoods` no longer applies** — that data is no longer collected (see Onboarding Flow below).
+No auto-advance — every step requires an explicit button tap. **Occasion no longer auto-prefills** — the `CONTEXT_TO_OCCASION` map was removed 2026-05-20 with the onboarding context step. **Neighborhood prefill from `profile.favorite_hoods` no longer applies** — that data is no longer collected (see Onboarding Flow below).
 
 **Display labels are decoupled from slugs.** The slug values (`relationship`, `splurge`, `food_forward`, etc.) are stable; only the display strings change. Slug renames require coordinated updates to the venue sheet, taxonomy config, and any saved itineraries.
 
 ## Onboarding Flow
 
-Three steps, defined in `src/components/onboarding/OnboardingFlow.tsx`:
+Two steps, defined in `src/components/onboarding/OnboardingFlow.tsx`:
 
 1. **Name** — required, validated via `validateName` (≥2 chars, no profanity via the `obscenity` package)
-2. **Context** — multi-select from `CONTEXT_OPTIONS`, stored as `text[]` on `composer_users.context`
-3. **Preferences** — drinks (yes/sometimes/no) + dietary (`none` | `vegetarian` | `vegan` | `halal` | `kosher` | `gluten-free`)
+2. **Preferences** — drinks (yes/sometimes/no) + dietary (`none` | `vegetarian` | `vegan` | `halal` | `kosher` | `gluten-free`)
+
+**Context step removed 2026-05-20.** The "What brings you here?" multi-select was dropped because the data wasn't used for scoring or Gemini prompts — only fed a single-context occasion prefill on `/compose`, which itself was removed in the same change. The `composer_users.context` column is retained but no longer written; clear historical values via `migrations/data/2026-05-20_clear_onboarding_contexts.sql`. Safe to drop the column after 90 days if no future use materializes.
 
 The neighborhood-favorites step is **commented out, not deleted** — see `OnboardingFlow.tsx` for the doc block explaining why and how to restore. Existing users with populated `favorite_hoods` retain the data; it's just not collected for new users and no longer drives prefill.
 

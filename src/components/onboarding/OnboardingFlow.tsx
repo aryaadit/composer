@@ -4,7 +4,12 @@
 // (session exists, no profile row yet). Splash screen lives on the
 // root page — this component handles the profile steps only.
 //
-// Steps: 0 name, 1 context, 2 preferences → save → home
+// Steps: 0 name, 1 preferences → save → home
+//
+// Context step removed 2026-05-20 — onboarding no longer collects
+// "What brings you here?" because the data wasn't used for scoring or
+// Gemini prompts; only fed a single-context occasion prefill on /compose.
+// composer_users.context column is retained but no longer written.
 //
 // Neighborhood step removed 2026-04-28 — see commented-out block below.
 
@@ -17,7 +22,6 @@ import { useAuth } from "@/components/providers/AuthProvider";
 import { UserPrefs, DrinksPref } from "@/types";
 import { pillClass } from "@/lib/styles";
 import {
-  CONTEXT_OPTIONS,
   DRINK_OPTIONS,
   DIETARY_OPTIONS,
 } from "@/config/onboarding";
@@ -26,7 +30,7 @@ import { NeighborhoodPicker } from "@/components/shared/NeighborhoodPicker";
 import { Header } from "@/components/Header";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 
-const TOTAL_STEPS = 3; // 0–2
+const TOTAL_STEPS = 2; // 0–1
 
 export function OnboardingFlow() {
   const router = useRouter();
@@ -37,7 +41,6 @@ export function OnboardingFlow() {
   // Profile state
   const [name, setName] = useState("");
   const [nameError, setNameError] = useState<string | null>(null);
-  const [contexts, setContexts] = useState<string[]>([]);
   const [drinks, setDrinks] = useState<DrinksPref | "">("");
   const [dietary, setDietary] = useState<string[]>([]);
   const [favoriteHoods, setFavoriteHoods] = useState<string[]>([]);
@@ -47,12 +50,6 @@ export function OnboardingFlow() {
 
   const handleNext = () => setStep((s) => Math.min(s + 1, TOTAL_STEPS - 1));
   const handleBack = () => setStep((s) => Math.max(s - 1, 0));
-
-  const toggleContext = (id: string) => {
-    setContexts((prev) =>
-      prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id]
-    );
-  };
 
   const toggleDietary = (id: string) => {
     if (id === "none") {
@@ -84,7 +81,6 @@ export function OnboardingFlow() {
 
     const prefs: UserPrefs = {
       name: name.trim(),
-      context: contexts,
       drinks: (drinks || undefined) as DrinksPref | undefined,
       dietary,
       favoriteHoods,
@@ -198,40 +194,8 @@ export function OnboardingFlow() {
               </div>
             )}
 
-            {/* ── Step 1: Context (multi-select) ──────────── */}
+            {/* ── Step 1: Preferences ─────────────────────── */}
             {step === 1 && (
-              <div className="flex-1 flex flex-col justify-center">
-                <h1 className="font-sans text-2xl font-medium text-charcoal mb-2">
-                  What brings you here?
-                </h1>
-                <p className="font-sans text-sm text-warm-gray mb-8">
-                  Select all that apply.
-                </p>
-                <div className="flex flex-col gap-2">
-                  {CONTEXT_OPTIONS.map((opt) => (
-                    <button
-                      key={opt.id}
-                      onClick={() => toggleContext(opt.id)}
-                      className={`px-4 py-3 rounded-md border text-left transition-all ${
-                        contexts.includes(opt.id)
-                          ? "border-border bg-burgundy-tint shadow-[inset_3px_0_0_var(--color-burgundy)]"
-                          : "border-border bg-cream hover:border-charcoal/30"
-                      }`}
-                    >
-                      <div className="font-sans text-sm font-medium text-charcoal">
-                        {opt.label}
-                      </div>
-                      <div className="font-sans text-xs text-muted mt-0.5">
-                        {opt.description}
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* ── Step 2: Preferences ─────────────────────── */}
-            {step === 2 && (
               <div className="flex-1 flex flex-col pt-8">
                 <h1 className="font-sans text-2xl font-medium text-charcoal mb-2">
                   A couple quick things
@@ -292,8 +256,9 @@ export function OnboardingFlow() {
              *
              * The DB column composer_users.favorite_hoods is intact and
              * the NeighborhoodPicker component is unchanged. To restore:
-             * uncomment this block, set TOTAL_STEPS back to 4, and adjust
-             * the bottom action area step checks.
+             * uncomment this block, bump TOTAL_STEPS by 1, and adjust
+             * the bottom action area step checks. Step index in the
+             * block below assumes the current 2-step shape.
              *
              * We may surface this info differently in the future:
              *   - As a derived signal from the user's past itineraries
@@ -301,7 +266,7 @@ export function OnboardingFlow() {
              *   - As an optional polish step at the end of onboarding
              */}
             {/*
-            {step === 3 && (
+            {step === 2 && (
               <div className="flex-1 flex flex-col pt-8">
                 <h1 className="font-sans text-2xl font-medium text-charcoal mb-2">
                   Favorite neighborhoods?
@@ -324,29 +289,24 @@ export function OnboardingFlow() {
 
       {/* ── Bottom action area ──────────────────────────── */}
       <div className="relative z-10 px-6 pb-10 pt-4 max-w-lg w-full mx-auto">
-        {step >= 0 && step <= 1 && (
+        {step === 0 && (
           <Button
             variant="primary"
             onClick={() => {
-              if (step === 0) {
-                const err = validateName(name);
-                if (err) {
-                  setNameError(err);
-                  return;
-                }
+              const err = validateName(name);
+              if (err) {
+                setNameError(err);
+                return;
               }
               handleNext();
             }}
-            disabled={
-              (step === 0 && (validateName(name) !== null)) ||
-              (step === 1 && contexts.length === 0)
-            }
+            disabled={validateName(name) !== null}
             className="w-full"
           >
             Next →
           </Button>
         )}
-        {step === 2 && (
+        {step === 1 && (
           <Button
             variant="primary"
             onClick={() => void handleFinish()}

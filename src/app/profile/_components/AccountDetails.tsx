@@ -1,14 +1,12 @@
 "use client";
 
-// Four inline-editable fields backed by `composer_users`. Each field has
+// Inline-editable profile fields backed by `composer_users`. Each field has
 // its own local edit state (via `useFieldEditor`) so individual saves
 // feel independent and a mistake on one doesn't block the others.
 
 import {
-  CONTEXT_OPTIONS,
   DRINK_OPTIONS,
   DIETARY_OPTIONS,
-  FAVORITE_HOODS,
 } from "@/config/onboarding";
 import {
   FieldShell,
@@ -19,7 +17,6 @@ import {
   sameArray,
 } from "./FieldPrimitives";
 import { SinglePillSelectField } from "./SinglePillSelectField";
-import { NeighborhoodPicker } from "@/components/shared/NeighborhoodPicker";
 import type { ComposerUser } from "@/types";
 
 interface Props {
@@ -32,37 +29,18 @@ export function AccountDetails({ profile, userId, refreshProfile }: Props) {
   // Name + email have moved up into ProfileHeader as read-only identity
   // info. Everything remaining here is editable, so there's no visible
   // "Account" heading — the fields speak for themselves.
+  //
+  // "What brings you here?" (Context) field removed 2026-05-20 — the
+  // composer_users.context column is retained but no longer surfaced.
   return (
     <section className="mb-8">
       <div className="flex flex-col divide-y divide-border">
         <div className="pb-4">
-          <ContextField profile={profile} userId={userId} onSaved={refreshProfile} />
-        </div>
-        <div className="pt-4 pb-4">
           <DrinksField profile={profile} userId={userId} onSaved={refreshProfile} />
         </div>
         <div className="pt-4 pb-4">
           <DietaryField profile={profile} userId={userId} onSaved={refreshProfile} />
         </div>
-        {/*
-         * FAVORITE NEIGHBORHOODS — TEMPORARILY HIDDEN (2026-04-28)
-         *
-         * Hidden from the profile page because the underlying data
-         * (favorite_hoods) is no longer collected during onboarding.
-         * Showing an empty editable field would confuse users.
-         *
-         * The DB column, the HoodsField component, and the save logic
-         * are all intact. To restore: uncomment this block. To change
-         * how favorites are surfaced (e.g., derive from past itineraries
-         * instead of explicit selection), the field can be repurposed.
-         *
-         * Paired with onboarding step removal in OnboardingFlow.tsx.
-         */}
-        {/*
-        <div className="pt-5 pb-2">
-          <HoodsField profile={profile} userId={userId} onSaved={refreshProfile} />
-        </div>
-        */}
       </div>
     </section>
   );
@@ -72,57 +50,6 @@ interface FieldProps {
   profile: ComposerUser;
   userId: string;
   onSaved: () => Promise<void>;
-}
-
-function ContextField({ profile, userId, onSaved }: FieldProps) {
-  const f = useFieldEditor<string[]>(profile.context, userId, onSaved);
-  const canSave = !sameArray(f.draft, profile.context);
-
-  const toggle = (id: string) => {
-    f.setDraft((prev) =>
-      prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id]
-    );
-  };
-
-  const displayLabel =
-    profile.context.length === 0
-      ? "Not set"
-      : profile.context
-          .map((id) => CONTEXT_OPTIONS.find((o) => o.id === id)?.label ?? id)
-          .join(", ");
-
-  return (
-    <FieldShell label="Usually here for" editing={f.editing} onEdit={f.beginEdit}>
-      {f.editing ? (
-        <>
-          <div className="flex flex-wrap gap-2">
-            {CONTEXT_OPTIONS.map((opt) => (
-              <button
-                key={opt.id}
-                type="button"
-                onClick={() => toggle(opt.id)}
-                className={pillClass(f.draft.includes(opt.id))}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
-          <EditActions
-            onSave={() => void f.save("context", f.draft)}
-            onCancel={f.cancel}
-            saving={f.saving}
-            canSave={canSave}
-            error={f.error}
-          />
-        </>
-      ) : (
-        <>
-          <p className="font-sans text-base text-charcoal">{displayLabel}</p>
-          <SavedIndicator show={f.justSaved} />
-        </>
-      )}
-    </FieldShell>
-  );
 }
 
 function DrinksField({ profile, userId, onSaved }: FieldProps) {
@@ -198,50 +125,3 @@ function DietaryField({ profile, userId, onSaved }: FieldProps) {
   );
 }
 
-function HoodsField({ profile, userId, onSaved }: FieldProps) {
-  // Filter out stale group IDs (from old taxonomy) so they don't silently
-  // persist into saves. Only valid FAVORITE_HOODS entries are kept.
-  const validIds = new Set(FAVORITE_HOODS.map((h) => h.id));
-  const cleanHoods = profile.favorite_hoods.filter((id) => validIds.has(id));
-
-  const f = useFieldEditor<string[]>(cleanHoods, userId, onSaved);
-  const canSave = !sameArray(f.draft, cleanHoods);
-
-  const displayLabel =
-    cleanHoods.length === 0
-      ? "Not set"
-      : cleanHoods
-          .map((id) => FAVORITE_HOODS.find((h) => h.id === id)?.name ?? id)
-          .join(", ");
-
-  return (
-    <FieldShell
-      label="Favorite Neighborhoods"
-      editing={f.editing}
-      onEdit={f.beginEdit}
-    >
-      {f.editing ? (
-        <>
-          <NeighborhoodPicker
-            selected={f.draft}
-            onChange={f.setDraft}
-            groupByBorough={false}
-            animated={false}
-          />
-          <EditActions
-            onSave={() => void f.save("favorite_hoods", f.draft)}
-            onCancel={f.cancel}
-            saving={f.saving}
-            canSave={canSave}
-            error={f.error}
-          />
-        </>
-      ) : (
-        <>
-          <p className="font-sans text-base text-charcoal">{displayLabel}</p>
-          <SavedIndicator show={f.justSaved} />
-        </>
-      )}
-    </FieldShell>
-  );
-}

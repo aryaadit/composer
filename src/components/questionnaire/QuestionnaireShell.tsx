@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useReducer, useCallback, useRef } from "react";
+import { useReducer, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "motion/react";
 import { questionSteps } from "@/config/options";
@@ -9,13 +9,11 @@ import type {
   GenerateRequestBody,
   TimeBlock,
   Neighborhood,
-  Occasion,
 } from "@/types";
 import {
   expandNeighborhoodGroup,
   deriveGroupIds,
 } from "@/config/neighborhoods";
-import { CONTEXT_TO_OCCASION } from "@/config/onboarding";
 import {
   questionnaireReducer,
   initialState,
@@ -36,36 +34,10 @@ export function QuestionnaireShell() {
   const router = useRouter();
   const [state, dispatch] = useReducer(questionnaireReducer, initialState);
 
-  // Pre-fill the occasion step from the signed-in user's saved
-  // context. Runs once on mount (guarded by a ref) and only when the
-  // user hasn't already picked an occasion manually — the `!occasion`
-  // check respects back-nav and prior in-flight choices.
-  const { user, profile } = useAuth();
-  const prefilledOccasionRef = useRef(false);
-  useEffect(() => {
-    if (prefilledOccasionRef.current) return;
-    if (!profile?.context?.length) return;
-    // Multiple contexts → user explicitly chose plural, let them pick
-    // occasion fresh for this specific night.
-    if (profile.context.length > 1) {
-      prefilledOccasionRef.current = true;
-      return;
-    }
-    if (state.answers.occasion) {
-      prefilledOccasionRef.current = true;
-      return;
-    }
-    const occasion = CONTEXT_TO_OCCASION[profile.context[0]];
-    if (!occasion) return;
-    prefilledOccasionRef.current = true;
-    void Promise.resolve().then(() => {
-      dispatch({
-        type: "SET_FIELD",
-        field: "occasion",
-        value: occasion as Occasion,
-      });
-    });
-  }, [profile, state.answers.occasion]);
+  // Occasion no longer auto-prefills. The CONTEXT_TO_OCCASION map was
+  // removed 2026-05-20 when the onboarding context step was dropped —
+  // users now pick the occasion fresh each time.
+  const { user } = useAuth();
 
   const submitAnswers = useCallback(
     async (body: GenerateRequestBody) => {

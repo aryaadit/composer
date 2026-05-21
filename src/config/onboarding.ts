@@ -19,10 +19,11 @@ export interface ContextOption {
   description: string;
 }
 
-// Canonical context values. These are the slugs stored in
-// `composer_users.context` and mirror the questionnaire occasion
-// taxonomy via `CONTEXT_TO_OCCASION` below (both locations update
-// together when a value is added/removed).
+// Canonical context values. The onboarding "What brings you here?"
+// step was removed 2026-05-20 — these are no longer collected for new
+// users. The list is retained as the validation whitelist for any
+// historical values still on `composer_users.context` rows; remove
+// after the column is dropped.
 //
 // Emojis intentionally kept out — the text carries the meaning and
 // emojis on the context cards read as AI-app-ish.
@@ -33,18 +34,6 @@ export const CONTEXT_OPTIONS: ContextOption[] = [
   { id: "family", label: "Family", emoji: "", description: "Something for everyone, kids included" },
   { id: "solo", label: "Solo", emoji: "", description: "Just me exploring" },
 ];
-
-// Context → default occasion for questionnaire pre-fill. The
-// questionnaire's occasion step uses the slugs from `config/occasions`
-// (`first-date`, `established`, `friends`, `solo`), so we map
-// onboarding context to the most natural default here.
-export const CONTEXT_TO_OCCASION: Record<string, string> = {
-  dating: "dating",
-  relationship: "relationship",
-  friends: "friends",
-  family: "family",
-  solo: "solo",
-};
 
 export interface DrinkOption {
   id: DrinksPref;
