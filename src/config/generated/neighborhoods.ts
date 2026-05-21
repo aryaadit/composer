@@ -1,6 +1,6 @@
 // AUTO-GENERATED — DO NOT EDIT
 // Source: Google Sheet 1EdJqvFKaGAAo5oKMXBXeXfZdzfdT9IsmLiQYA9whXVg
-// Generated: 2026-05-01T10:19:33.444051+00:00
+// Generated: 2026-05-21T20:23:39.223493+00:00
 
 export interface NeighborhoodGroup {
   label: string;
@@ -20,7 +20,7 @@ export const NEIGHBORHOOD_GROUPS: Record<string, NeighborhoodGroup> = {
     label: "Greenwich Village",
     borough: "Manhattan",
     slugs: ["greenwich_village"],
-    venueCount: 32,
+    venueCount: 31,
   },
   east_village_les: {
     label: "East Village / LES",
@@ -44,7 +44,7 @@ export const NEIGHBORHOOD_GROUPS: Record<string, NeighborhoodGroup> = {
     label: "Flatiron / NoMad",
     borough: "Manhattan",
     slugs: ["flatiron", "nomad"],
-    venueCount: 81,
+    venueCount: 62,
   },
   gramercy_murray_hill: {
     label: "Gramercy / Murray Hill",
@@ -56,7 +56,7 @@ export const NEIGHBORHOOD_GROUPS: Record<string, NeighborhoodGroup> = {
     label: "Hell's Kitchen / Midtown West",
     borough: "Manhattan",
     slugs: ["midtown_west"],
-    venueCount: 29,
+    venueCount: 30,
   },
   midtown_east: {
     label: "Midtown East",
@@ -68,7 +68,7 @@ export const NEIGHBORHOOD_GROUPS: Record<string, NeighborhoodGroup> = {
     label: "Koreatown",
     borough: "Manhattan",
     slugs: ["koreatown"],
-    venueCount: 3,
+    venueCount: 41,
   },
   chinatown: {
     label: "Chinatown",
@@ -86,7 +86,7 @@ export const NEIGHBORHOOD_GROUPS: Record<string, NeighborhoodGroup> = {
     label: "Upper West Side",
     borough: "Manhattan",
     slugs: ["upper_west_side"],
-    venueCount: 32,
+    venueCount: 33,
   },
   upper_east_side: {
     label: "Upper East Side",
@@ -162,4 +162,4 @@ export const NEIGHBORHOOD_GROUPS: Record<string, NeighborhoodGroup> = {
   },
 };
 
-export const ALL_NEIGHBORHOODS: string[] = ["arthur_avenue", "astoria", "battery_park_city", "bed_stuy", "bowery", "bronx", "bronx_concourse", "bronx_fordham", "brooklyn_heights", "bushwick", "carroll_gardens", "chelsea", "chinatown", "city_island", "clinton_hill", "cobble_hill", "columbia_waterfront", "crown_heights", "dumbo", "east_village", "east_williamsburg", "fidi", "flatiron", "flushing", "fort_greene", "gowanus", "gramercy", "gramercy_kips_bay", "gravesend", "greenpoint", "greenwich_village", "harlem", "howard_beach", "hudson_square", "jackson_heights", "koreatown", "little_italy", "long_island_city", "lower_east_side", "lower_manhattan", "midtown", "midtown_east", "midtown_west", "mott_haven", "murray_hill", "noho", "nolita", "nomad", "nyc", "park_slope", "prospect_heights", "prospect_lefferts", "queens", "red_hook", "ridgewood", "sheepshead_bay", "soho_nolita", "south_ozone_park", "stapleton_heights", "staten_island", "sunnyside", "sunset_park", "tribeca", "upper_east_side", "upper_west_side", "washington_heights", "west_village", "williamsburg"];
+export const ALL_NEIGHBORHOODS: string[] = ["arthur_avenue", "astoria", "battery_park_city", "bed_stuy", "bowery", "bronx", "bronx_concourse", "bronx_fordham", "brooklyn_heights", "bushwick", "carroll_gardens", "chelsea", "chinatown", "city_island", "clinton_hill", "cobble_hill", "columbia_waterfront", "crown_heights", "dumbo", "east_village", "east_williamsburg", "fidi", "flatiron", "flushing", "fort_greene", "gowanus", "gramercy", "gravesend", "greenpoint", "greenwich_village", "harlem", "howard_beach", "hudson_square", "jackson_heights", "koreatown", "little_italy", "long_island_city", "lower_east_side", "lower_manhattan", "midtown_east", "midtown_west", "mott_haven", "murray_hill", "noho", "nolita", "nomad", "park_slope", "prospect_heights", "prospect_lefferts", "red_hook", "ridgewood", "sheepshead_bay", "soho_nolita", "south_ozone_park", "stapleton_heights", "staten_island", "sunnyside", "sunset_park", "tribeca", "upper_east_side", "upper_west_side", "washington_heights", "west_village", "williamsburg"];
