@@ -233,12 +233,13 @@ export const ALGORITHM = {
      * Higher = stricter; only well-populated groups appear. Lower = more
      * groups visible but some may produce thin itineraries.
      *
-     * Sane range: 30-75. Below 30, thin groups produce low-quality
-     * itineraries. Above 75, legitimate smaller groups get hidden.
+     * Sane range: 20-40. Below ~20 individual venues per bucket become
+     * too sparse for itinerary composition.
      *
-     * Calibrated 2026-04-29 at 50.
+     * Calibrated 2026-05-21 at 25 — lowered from 50 to expand
+     * CBS-relevant coverage (UWS, UES, Hell's Kitchen, Astoria, etc.)
      */
-    minGroupVenuesToRender: 50,
+    minGroupVenuesToRender: 25,
   },
 
   composition: {
