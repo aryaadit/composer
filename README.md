@@ -217,7 +217,7 @@ GOOGLE_SHEET_ID=1EdJqvFKaGAAo5oKMXBXeXfZdzfdT9IsmLiQYA9whXVg
 
 # Optional
 GOOGLE_PLACES_API_KEY=your_google_places_key
-MAPBOX_ACCESS_TOKEN=your_mapbox_token
+MAPBOX_TOKEN=your_mapbox_token
 ```
 
 Run the seed SQL in your Supabase project (Dashboard → SQL Editor):
@@ -272,7 +272,7 @@ For the full venue update workflow (sheet → configs → import → verify), se
 | `GOOGLE_SHEETS_PRIVATE_KEY` | Service account JSON key | Sheet sync |
 | `GOOGLE_SHEET_ID` | Venue sheet URL | Sheet sync |
 | `GOOGLE_PLACES_API_KEY` | GCP — Maps Platform | Photo + price-tier backfills |
-| `MAPBOX_ACCESS_TOKEN` | mapbox.com → Account → Access tokens | Optional (static walk maps) |
+| `MAPBOX_TOKEN` | mapbox.com → Account → Access tokens | Optional (static walk maps) |
 
 > **Production env vars must be set separately in the Vercel project dashboard.** Vercel does not read your local `.env.local`. If a value is missing in Vercel, the server will silently fall back: a missing `OPENWEATHERMAP_API_KEY` disables the weather gate (logged as a `[weather]` warning), and a missing `GEMINI_API_KEY` causes the copy generation to fall back to raw DB notes (logged as a `[gemini]` warning). Both fallbacks degrade gracefully — the itinerary still renders.
 
