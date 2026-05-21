@@ -474,7 +474,7 @@ chore(venues): add 12 new West Village venues to seed
 
 ### Updating Venue Data
 
-**Current sheet ID:** `1EdJqvFKaGAAo5oKMXBXeXfZdzfdT9IsmLiQYA9whXVg` (referenced in `.env.local` and Vercel env vars only — there are no longer hardcoded copies in code).
+**Current sheet ID:** `1ZH8CniJglou0A72e7U4b3nvtsa7tDRVMIAzNqMqEck8` (referenced in `.env.local` and Vercel env vars only — Python scripts still hold a hardcoded copy each, kept in sync manually).
 
 The canonical importer lives in `src/lib/venues/`. It runs upserts atomically against `composer_venues_v2` via the Postgres function `composer_apply_venue_import`, and records every apply attempt to `composer_import_runs` for audit. Two surfaces, one underlying module:
 

@@ -30,7 +30,7 @@ ROOT = Path(__file__).resolve().parent.parent
 OUT_DIR = ROOT / "src" / "config" / "generated"
 
 # Single source of truth for taxonomy. Update sheet, then run npm run generate-configs.
-SHEET_ID = "1EdJqvFKaGAAo5oKMXBXeXfZdzfdT9IsmLiQYA9whXVg"
+SHEET_ID = "1ZH8CniJglou0A72e7U4b3nvtsa7tDRVMIAzNqMqEck8"
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets.readonly"]
 KEY_FILE = ROOT / "docs" / "palate-composer-67baf1d883e3.json"
 
