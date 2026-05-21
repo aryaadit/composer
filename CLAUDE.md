@@ -48,7 +48,7 @@ GOOGLE_SHEET_ID                  # the venue sheet id (no hardcoded constant —
 
 # Optional enrichment
 GOOGLE_PLACES_API_KEY            # used by photo + price-tier backfill scripts
-MAPBOX_ACCESS_TOKEN              # static walk maps; itinerary still renders without it
+MAPBOX_TOKEN                     # static walk maps; itinerary still renders without it
 ```
 
 Never hardcode these. Never commit `.env.local`. Always use `process.env.*` server-side and `NEXT_PUBLIC_*` only when the value is safe to expose to the client.

@@ -20,6 +20,7 @@ const dmSans = DM_Sans({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://composer.onpalate.com"),
   title: "Composer — Curated NYC Nights Out",
   description:
     "A curated night out in New York City, built for you in under a minute.",
