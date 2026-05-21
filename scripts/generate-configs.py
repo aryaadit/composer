@@ -29,8 +29,32 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 OUT_DIR = ROOT / "src" / "config" / "generated"
 
-# Single source of truth for taxonomy. Update sheet, then run npm run generate-configs.
-SHEET_ID = "1ZH8CniJglou0A72e7U4b3nvtsa7tDRVMIAzNqMqEck8"
+
+def _load_dotenv() -> None:
+    """Populate os.environ from .env.local. Env-set values win (setdefault)."""
+    env_file = ROOT / ".env.local"
+    if not env_file.exists():
+        return
+    with open(env_file) as f:
+        for line in f:
+            line = line.strip()
+            if line and not line.startswith("#") and "=" in line:
+                key, _, val = line.partition("=")
+                val = val.strip().strip('"')
+                os.environ.setdefault(key.strip(), val)
+
+
+_load_dotenv()
+
+# Single source of truth for which sheet to read. Sourced from env
+# (.env.local locally, Vercel env vars in production). No hardcoded
+# fallback — sheet swaps require only env changes, not code edits.
+SHEET_ID = os.environ.get("GOOGLE_SHEET_ID") or ""
+if not SHEET_ID:
+    raise SystemExit(
+        "GOOGLE_SHEET_ID not set in environment. Set it in .env.local."
+    )
+
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets.readonly"]
 KEY_FILE = ROOT / "docs" / "palate-composer-67baf1d883e3.json"
 
@@ -542,18 +566,7 @@ OUTPUTS: list[tuple[str, callable]] = [
 
 
 def main() -> int:
-    # Load .env.local for Google Sheets credentials
-    env_file = ROOT / ".env.local"
-    if env_file.exists():
-        with open(env_file) as f:
-            for line in f:
-                line = line.strip()
-                if line and not line.startswith("#") and "=" in line:
-                    key, _, val = line.partition("=")
-                    # Strip surrounding quotes from values
-                    val = val.strip().strip('"')
-                    os.environ.setdefault(key.strip(), val)
-
+    # .env.local already loaded at module import time (see _load_dotenv above).
     print("Connecting to Google Sheet...", file=sys.stderr)
     service = get_sheets_service()
 

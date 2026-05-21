@@ -27,7 +27,29 @@ from urllib.error import HTTPError, URLError
 # Config
 # ═══════════════════════════════════════════════════════════════════════
 
-SHEET_ID = "1ZH8CniJglou0A72e7U4b3nvtsa7tDRVMIAzNqMqEck8"
+def load_env():
+    """Populate os.environ from .env.local. Env-set values win (setdefault)."""
+    env_file = os.path.join(os.path.dirname(__file__), "..", ".env.local")
+    if os.path.exists(env_file):
+        with open(env_file) as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith("#") and "=" in line:
+                    key, _, val = line.partition("=")
+                    os.environ.setdefault(key.strip(), val.strip())
+
+
+load_env()
+
+# Single source of truth for which sheet to read. Sourced from env
+# (.env.local locally, Vercel env vars in production). No hardcoded
+# fallback — sheet swaps require only env changes, not code edits.
+SHEET_ID = os.environ.get("GOOGLE_SHEET_ID") or ""
+if not SHEET_ID:
+    raise SystemExit(
+        "GOOGLE_SHEET_ID not set in environment. Set it in .env.local."
+    )
+
 RESY_API_KEY = "VbWk7s3L4KiK5fzlO7JD3Q5EYolJI7n5"
 RESY_URL = "https://api.resy.com/3/venuesearch/search"
 
@@ -40,16 +62,6 @@ CSV_OUT = os.path.join(os.path.dirname(__file__), "..", "docs", "debug", "resy-s
 # ═══════════════════════════════════════════════════════════════════════
 # Google Sheets
 # ═══════════════════════════════════════════════════════════════════════
-
-def load_env():
-    env_file = os.path.join(os.path.dirname(__file__), "..", ".env.local")
-    if os.path.exists(env_file):
-        with open(env_file) as f:
-            for line in f:
-                line = line.strip()
-                if line and not line.startswith("#") and "=" in line:
-                    key, _, val = line.partition("=")
-                    os.environ.setdefault(key.strip(), val.strip())
 
 
 def get_sheets_service():
@@ -184,7 +196,7 @@ def main():
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
 
-    load_env()
+    # .env.local already loaded at module import time (see load_env above).
 
     print("Connecting to Google Sheets...")
     service = get_sheets_service()
