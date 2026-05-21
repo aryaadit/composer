@@ -26,13 +26,9 @@ const VIBE_MESSAGES: Record<string, string[]> = {
 };
 
 const OCCASION_MESSAGES: Record<string, string[]> = {
-  dating: ["Planning your date night...", "Setting the mood..."],
-  relationship: ["Planning a night to remember...", "Making it special..."],
+  date: ["Setting the scene...", "Composing your night..."],
   friends: ["Getting the group sorted...", "Building a night out..."],
-  family: ["Finding something for everyone...", "Planning family time..."],
   solo: ["Curating your solo adventure...", "Building your night..."],
-  first_date: ["Making this first impression count...", "Setting the scene..."],
-  couple: ["Planning a surprise...", "Building your evening..."],
 };
 
 const GENERIC = [

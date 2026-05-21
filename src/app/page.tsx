@@ -96,10 +96,10 @@ function SplashScreen({
                 ],
               }}
             >
-              <span className="block h-[1.6em] flex items-center whitespace-nowrap">a first date</span>
+              <span className="block h-[1.6em] flex items-center whitespace-nowrap">meeting someone new</span>
               <span className="block h-[1.6em] flex items-center whitespace-nowrap">solo Sundays</span>
               <span className="block h-[1.6em] flex items-center whitespace-nowrap">group chats</span>
-              <span className="block h-[1.6em] flex items-center whitespace-nowrap">date night</span>
+              <span className="block h-[1.6em] flex items-center whitespace-nowrap">a night out</span>
               <span className="block h-[1.6em] flex items-center whitespace-nowrap">the girlies</span>
               <span className="block h-[1.6em] flex items-center whitespace-nowrap">the parents</span>
               <span className="block h-[1.6em] flex items-center whitespace-nowrap">family fun</span>
@@ -109,7 +109,7 @@ function SplashScreen({
               <span className="block h-[1.6em] flex items-center whitespace-nowrap">the boys</span>
               <span className="block h-[1.6em] flex items-center whitespace-nowrap">a rainy day</span>
               <span className="block h-[1.6em] flex items-center whitespace-nowrap">the birthday</span>
-              <span className="block h-[1.6em] flex items-center whitespace-nowrap">a first date</span>
+              <span className="block h-[1.6em] flex items-center whitespace-nowrap">meeting someone new</span>
             </motion.span>
           </span>
         </div>

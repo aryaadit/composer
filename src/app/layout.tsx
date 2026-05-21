@@ -20,13 +20,13 @@ const dmSans = DM_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "Composer — Curated NYC Date Nights",
+  title: "Composer — Curated NYC Nights Out",
   description:
-    "A curated date night in New York City, built for you in under a minute.",
+    "A curated night out in New York City, built for you in under a minute.",
   openGraph: {
-    title: "Composer — Curated NYC Date Nights",
+    title: "Composer — Curated NYC Nights Out",
     description:
-      "A curated date night in New York City, built for you in under a minute.",
+      "A curated night out in New York City, built for you in under a minute.",
     images: ["/og-image.png"],
   },
 };
