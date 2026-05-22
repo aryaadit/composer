@@ -1,6 +1,6 @@
 // AUTO-GENERATED — DO NOT EDIT
 // Source: Google Sheet 1ZH8CniJglou0A72e7U4b3nvtsa7tDRVMIAzNqMqEck8
-// Generated: 2026-05-21T22:48:10.371063+00:00
+// Generated: 2026-05-22T04:41:36.837886+00:00
 
 export interface BudgetTier {
   label: string;
@@ -14,15 +14,15 @@ export const BUDGET_TIERS: Record<string, BudgetTier> = {
   },
   nice_out: {
     label: "Nice Out ($$)",
-    tiers: [2],
+    tiers: [1, 2],
   },
   splurge: {
     label: "Splurge ($$$)",
-    tiers: [3],
+    tiers: [2, 3],
   },
   all_out: {
     label: "All Out ($$$$)",
-    tiers: [4],
+    tiers: [3, 4],
   },
   no_preference: {
     label: "No Preference",

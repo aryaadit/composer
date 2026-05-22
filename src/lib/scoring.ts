@@ -9,7 +9,7 @@ import {
   WeatherInfo,
 } from "@/types";
 import { walkDistanceKm } from "@/lib/geo";
-import { BUDGET_TIER_MAP } from "@/config/budgets";
+import { BUDGET_PRIMARY_TIER } from "@/config/budgets";
 import { VIBE_VENUE_TAGS } from "@/config/vibes";
 import { ALGORITHM } from "@/config/algorithm";
 import { weightedPickByRank } from "@/lib/itinerary/weighted-pick";
@@ -92,9 +92,13 @@ function scoreVenue(
     score += W.occasion;
   }
 
-  // Budget match
-  const allowedTiers = BUDGET_TIER_MAP[answers.budget] ?? [1, 2, 3];
-  if (allowedTiers.includes(venue.price_tier ?? 2)) {
+  // Budget match — exact-primary-tier only. BUDGET_TIER_MAP is
+  // downward-permissive (nice_out admits tier-1 too) at the filter layer;
+  // here we reward only the tier the user actually picked so that a
+  // tier-2 venue outranks a widened-in tier-1 venue by +15 pts. Null
+  // primary (no_preference) means no bonus — the signal cancels.
+  const primaryTier = BUDGET_PRIMARY_TIER[answers.budget];
+  if (primaryTier != null && (venue.price_tier ?? 2) === primaryTier) {
     score += W.budget;
   }
 

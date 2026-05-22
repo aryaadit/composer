@@ -204,13 +204,40 @@ describe("pickBestForRole — scoring", () => {
   });
 
   it("prefers venues in budget range", () => {
-    // nice_out typically maps to tier 2-3
+    // nice_out admits tiers 1 and 2 at the filter layer, but tier 4 is out.
     const affordable = makeVenue({ name: "Affordable", price_tier: 2 });
     const expensive = makeVenue({ name: "Expensive", price_tier: 4 });
     const { best } = pickBestForRole(
       [affordable, expensive], "main", BASE_ANSWERS, CLEAR_WEATHER, new Set(), null, 0
     );
     expect(best?.name).toBe("Affordable");
+  });
+
+  it("prefers exact-primary-tier over downward-admitted tier (nice_out: tier-2 beats tier-1)", () => {
+    // BUDGET_TIER_MAP[nice_out] is [1, 2] (downward-permissive), so both
+    // venues pass the filter. The +15 bonus goes only to tier 2 (the
+    // bucket's primary tier), keeping the user's intended center-of-mass
+    // dominant in the ranking. Strip vibe + occasion + neighborhood
+    // signals so the budget bonus is the only differentiator.
+    const tier1 = makeVenue({
+      name: "Tier1",
+      price_tier: 1,
+      vibe_tags: [],
+      occasion_tags: [],
+      neighborhood: "east_village",
+    });
+    const tier2 = makeVenue({
+      name: "Tier2",
+      price_tier: 2,
+      vibe_tags: [],
+      occasion_tags: [],
+      neighborhood: "east_village",
+    });
+    const answers = { ...BASE_ANSWERS, neighborhoods: [] as string[] };
+    const { best } = pickBestForRole(
+      [tier1, tier2], "main", answers, CLEAR_WEATHER, new Set(), null, 0
+    );
+    expect(best?.name).toBe("Tier2");
   });
 
   it("prefers higher quality_score all else equal", () => {

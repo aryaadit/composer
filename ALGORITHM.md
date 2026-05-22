@@ -45,7 +45,7 @@ Uses the hybrid per-day/global rule (`venueOpenForBlock` in `time-blocks.ts`): i
 
 ### Budget tier
 
-Hard filter with widening. Maps the user's budget slug to allowed tiers (casual → [1], splurge → [3], etc.) and drops venues outside those tiers. If the filtered pool drops below `ALGORITHM.pools.minBudgetWideningThreshold`, widens by ±1 tier (e.g., splurge [3] → [2,3,4]). Venues with null price_tier are treated as tier 2.
+Hard filter, **downward-permissive** by default. Maps the user's budget slug to a tier set that includes the picked tier and the one below (casual → [1], nice_out → [1,2], splurge → [2,3], all_out → [3,4], no_preference → [1,2,3,4]) and drops venues outside that set. If the filtered pool drops below `ALGORITHM.pools.minBudgetWideningThreshold`, widens **upward** by one tier (e.g., splurge [2,3] → [2,3,4]); no-op for all_out which is already at the max tier. Venues with null price_tier are treated as tier 2. The +15 scoring bonus (see "Budget match" below) still only fires on the bucket's exact primary tier so the user's intended center-of-mass dominates the ranking even after widening.
 
 ### Drinks preference
 
@@ -70,7 +70,9 @@ Binary: if the venue's `occasion_tags` includes the user's occasion (dating, fri
 
 ### Budget match (15 pts)
 
-Binary: if the venue's `price_tier` falls within the user's allowed tiers, full points. Low weight because budget is already a hard filter upstream — this tiebreaks between exact-match and widened-match venues.
+Binary: if the venue's `price_tier` equals the bucket's **primary tier** (`BUDGET_PRIMARY_TIER` — casual=1, nice_out=2, splurge=3, all_out=4), full points. Otherwise 0. `no_preference` has no primary tier so this signal cancels for those users.
+
+Because the upstream filter is downward-permissive, a tier-1 venue can survive a nice_out filter alongside tier-2 venues — this bonus is what makes the tier-2 venues outrank them: +15 vs 0 is roughly half a full vibe match.
 
 ### Neighborhood match (10 pts)
 
@@ -151,7 +153,7 @@ All live in `src/config/algorithm.ts`. See inline JSDoc there for sane ranges an
 |---|---|---|
 | vibeMatch2Plus | 35 | How much a strong vibe match dominates |
 | occasion | 15 | Occasion tag relevance |
-| budget | 15 | Budget tier tiebreaker weight |
+| budget | 15 | Exact-primary-tier bonus (filter is downward-permissive) |
 | neighborhood | 10 | In-neighborhood vs. relaxed preference |
 | timeRelevance | 10 | Schedule coverage importance |
 | qualityNormalize | 10 | Curator quality score weight |

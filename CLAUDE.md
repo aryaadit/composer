@@ -118,7 +118,7 @@ src/
 ├── config/
 │   ├── algorithm.ts                      # SINGLE source of truth for weights/thresholds/penalties
 │   ├── options.ts                        # Questionnaire step definitions
-│   ├── budgets.ts                        # BUDGET_TIERS + label overrides + widenBudgetTiers
+│   ├── budgets.ts                        # BUDGET_TIERS + BUDGET_PRIMARY_TIER + label overrides
 │   ├── vibes.ts                          # VIBES + label overrides + ALCOHOL_VIBE_TAGS
 │   ├── neighborhoods.ts                  # NEIGHBORHOOD_GROUPS + expand/derive helpers
 │   ├── onboarding.ts                     # CONTEXT_OPTIONS + CONTEXT_TO_OCCASION
@@ -262,7 +262,7 @@ All weights from `ALGORITHM.weights` in `src/config/algorithm.ts`:
 |---|---|---|
 | Vibe match (2+ tags) | 35 | Falls to 25 (1 tag), 10 (0 tags). `mix_it_up` baseline = 25. |
 | Occasion | 15 | Binary tag-include check |
-| Budget | 15 | Tiebreaker — budget is also a hard filter |
+| Budget | 15 | Exact-primary-tier bonus (filter is downward-permissive) |
 | Neighborhood | 10 | Binary in-neighborhood check |
 | Time relevance | 0–10 | `blockCoverageFraction()` × 10. 1.0/0.5/0.0 based on per-day + global block coverage |
 | Quality | 0–10 | `(quality_score / 10) × 10` |
@@ -282,7 +282,7 @@ Applied in this order in `route.ts` and `scoring.ts`:
 3. Drinks = "no" → drop alcohol vibe venues
 4. Time block coverage (`venueOpenForBlock` hybrid per-day/global rule)
 5. Closed status (`business_status NOT IN ('CLOSED_PERMANENTLY', 'CLOSED_TEMPORARILY')`)
-6. Budget tier — hard filter with widening (±1 tier if pool < `minBudgetWideningThreshold` = 30). Null `price_tier` treated as tier 2.
+6. Budget tier — hard filter, downward-permissive (nice_out admits tier-1 too, splurge admits tier-2, etc.). Thin pool (<`minBudgetWideningThreshold` = 30) widens UPWARD by one tier only (no-op for all_out). Null `price_tier` treated as tier 2. The +15 scoring bonus is exact-primary-tier only, so the bucket's intended tier still dominates.
 7. Neighborhood (in `pickBestForRole`, relaxes when zero candidates)
 8. Outdoor + bad weather → drop
 

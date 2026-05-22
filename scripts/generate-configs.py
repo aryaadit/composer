@@ -349,11 +349,17 @@ VIBE_SCORING_MATRIX = {
     "mix_it_up": {"label": "Mix It Up", "tags": []},
 }
 
+# Budget tier sets are downward-permissive: a user picking nice_out is OK
+# with nice_out OR cheaper venues. Picking splurge accepts splurge or one
+# step down. The +15 scoring bonus still only fires on exact-primary-tier
+# match (see BUDGET_PRIMARY_TIER in src/config/budgets.ts), so the bucket's
+# "center of mass" still dominates the ranking. Thin-pool upward widening
+# (route.ts) adds one tier above when the filter cuts the pool too thin.
 BUDGET_TIERS = [
     {"slug": "casual", "label": "Casual ($)", "tiers": [1]},
-    {"slug": "nice_out", "label": "Nice Out ($$)", "tiers": [2]},
-    {"slug": "splurge", "label": "Splurge ($$$)", "tiers": [3]},
-    {"slug": "all_out", "label": "All Out ($$$$)", "tiers": [4]},
+    {"slug": "nice_out", "label": "Nice Out ($$)", "tiers": [1, 2]},
+    {"slug": "splurge", "label": "Splurge ($$$)", "tiers": [2, 3]},
+    {"slug": "all_out", "label": "All Out ($$$$)", "tiers": [3, 4]},
     {"slug": "no_preference", "label": "No Preference", "tiers": [1, 2, 3, 4]},
 ]
 

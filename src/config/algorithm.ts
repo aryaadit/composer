@@ -86,15 +86,23 @@ export const ALGORITHM = {
     occasion: 15,
 
     /**
-     * Bonus when venue is within the user's budget tier.
+     * Bonus when venue's price_tier matches the bucket's *primary* tier
+     * (see BUDGET_PRIMARY_TIER in src/config/budgets.ts).
      *
-     * Low because budget is also a hard filter upstream — this is a
-     * tiebreaker for exact-match vs. widened-match venues.
+     * BUDGET_TIER_MAP is downward-permissive — nice_out admits tier-1
+     * venues too at the filter layer. This bonus is what makes a tier-2
+     * venue still outrank a widened-in tier-1 venue: +15 vs 0 on this
+     * signal alone is roughly half of a full vibe match.
      *
-     * Sane range: 0-15. Was 15 before budget became a hard filter;
-     * reduced to 5 to avoid double-weighting.
+     * no_preference has no primary tier → no bonus awarded → signal
+     * cancels for those users (which is what no_preference asks for).
      *
-     * Calibrated 2026-04-27.
+     * Sane range: 10-20. Lower than vibe (35) because budget is also
+     * a hard filter upstream — this is the tiebreaker that keeps the
+     * bucket's center-of-mass winning.
+     *
+     * Calibrated 2026-04-27. Semantics widened 2026-05-22 (filter
+     * became downward-permissive; bonus narrowed to exact-primary-tier).
      */
     budget: 15,
 
@@ -198,7 +206,10 @@ export const ALGORITHM = {
 
     /**
      * Below this venue count after the budget hard filter, widen the
-     * allowed tiers by ±1 (e.g., splurge [3] → [2,3,4]).
+     * allowed tiers UPWARD by 1 (e.g., splurge [2,3] → [2,3,4]). Downward
+     * widening is unnecessary because BUDGET_TIER_MAP is already
+     * downward-permissive (nice_out → [1,2], splurge → [2,3], etc.).
+     * No-op for all_out (already at max tier).
      *
      * Higher = more aggressive widening (more venues, less budget
      * precision). Lower = stricter budget adherence, more risk of

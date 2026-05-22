@@ -34,10 +34,26 @@ export const BUDGETS = Object.entries(GEN_TIERS).map(([slug, { label, tiers }]) 
 
 export type BudgetSlug = keyof typeof GEN_TIERS;
 
-// budget slug → allowed price tiers (used by `lib/scoring.ts` hard filter).
+// budget slug → allowed price tiers (used by the hard filter in route.ts).
+// Downward-permissive: nice_out accepts tier-1 too, splurge accepts tier-2,
+// etc. The +15 scoring bonus only fires on exact-primary-tier match (see
+// BUDGET_PRIMARY_TIER below) so the bucket's intended tier still dominates.
 export const BUDGET_TIER_MAP: Record<string, readonly number[]> = Object.fromEntries(
   BUDGETS.map((b) => [b.slug, b.tiers])
 );
+
+// Primary tier per bucket — the "center of mass" the user is really asking
+// for. Drives the +15 scoring bonus in lib/scoring.ts: a tier-N venue wins
+// over a tier-(N-1) venue (which is allowed by the filter but not the
+// intended pick). `no_preference` has no primary tier → no bonus, so the
+// signal cancels for those users (which is what no_preference asks for).
+export const BUDGET_PRIMARY_TIER: Record<string, number | null> = {
+  casual: 1,
+  nice_out: 2,
+  splurge: 3,
+  all_out: 4,
+  no_preference: null,
+};
 
 // Canonical price ranges by tier.
 //   Tier 1 = $    — casual, under $30/person
@@ -53,21 +69,10 @@ export const PRICE_TIER_RANGES: Record<number, readonly [number, number]> = {
 
 export const DEFAULT_PRICE_RANGE: readonly [number, number] = [30, 60];
 
-/**
- * Widen a budget tier set by one step in each direction.
- *   casual [1] → [1, 2]
- *   nice_out [2] → [1, 2, 3]
- *   splurge [3] → [2, 3, 4]
- *   all_out [4] → [3, 4]
- */
-export function widenBudgetTiers(tiers: readonly number[]): number[] {
-  if (tiers.length === 0) return [1, 2, 3, 4];
-  const min = Math.max(1, Math.min(...tiers) - 1);
-  const max = Math.min(4, Math.max(...tiers) + 1);
-  const widened: number[] = [];
-  for (let i = min; i <= max; i++) widened.push(i);
-  return widened;
-}
+// Note: `widenBudgetTiers` (±1 in each direction) was removed 2026-05-22
+// when BUDGET_TIER_MAP became downward-permissive by default. Thin-pool
+// widening now happens inline in /api/generate/route.ts as upward-only
+// (adds max_tier+1 to allowedTiers when pool < minBudgetWideningThreshold).
 
 function rangeForTier(tier: number): readonly [number, number] {
   return PRICE_TIER_RANGES[tier] ?? DEFAULT_PRICE_RANGE;

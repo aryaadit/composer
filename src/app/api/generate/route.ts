@@ -6,7 +6,7 @@ import { composeItinerary, ROLE_AVG_DURATION_MIN } from "@/lib/composer";
 import { generateCopy } from "@/lib/claude";
 import { walkTimeMinutes, walkDistanceKm, buildGoogleMapsUrl } from "@/lib/geo";
 import { buildWalkMapUrl } from "@/lib/mapbox";
-import { calculateTotalSpend, BUDGET_TIER_MAP, widenBudgetTiers } from "@/config/budgets";
+import { calculateTotalSpend, BUDGET_TIER_MAP } from "@/config/budgets";
 import { ALCOHOL_VIBE_TAGS } from "@/config/vibes";
 import {
   resolveTimeWindow,
@@ -226,21 +226,28 @@ export async function POST(request: Request) {
         v.business_status !== "CLOSED_TEMPORARILY"
     );
 
-    // Budget hard filter — keep venues in the user's price tier, widen by
-    // one tier if the pool drops below the threshold.
+    // Budget hard filter — keep venues whose tier is in the bucket's
+    // allowed set (downward-permissive: nice_out admits tier-1 too). If
+    // the pool drops below the threshold AND we can still widen up, add
+    // one tier above the bucket's max. Downward widening is no longer
+    // needed because BUDGET_TIER_MAP already includes the cheaper tier.
+    // Null price_tier defaults to tier 2 ("nice_out") — same as scoring.
     if (body.budget !== "no_preference") {
       const allowedTiers = BUDGET_TIER_MAP[body.budget] ?? [1, 2, 3, 4];
-      // Null price_tier defaults to tier 2 ("nice_out") — same as scoring.
       let budgetFiltered = venues.filter(
         (v) => allowedTiers.includes(v.price_tier ?? 2)
       );
-      if (budgetFiltered.length < ALGORITHM.pools.minBudgetWideningThreshold) {
-        const widened = widenBudgetTiers(allowedTiers);
+      const maxTier = Math.max(...allowedTiers);
+      if (
+        budgetFiltered.length < ALGORITHM.pools.minBudgetWideningThreshold &&
+        maxTier < 4
+      ) {
+        const widened = [...allowedTiers, maxTier + 1];
         budgetFiltered = venues.filter(
           (v) => widened.includes(v.price_tier ?? 2)
         );
         console.info(
-          `[generate] budget pool thin (${budgetFiltered.length} after widening from [${allowedTiers}] to [${widened}])`
+          `[generate] budget pool thin (${budgetFiltered.length} after upward widening from [${allowedTiers}] to [${widened}])`
         );
       }
       venues = budgetFiltered;
