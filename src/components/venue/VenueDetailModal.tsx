@@ -183,8 +183,13 @@ function VenueDetailContent({
             </p>
             <a
               href={
+                // Priority: curator override → Google business listing →
+                // coord fallback. The place_id form opens the actual
+                // venue page (reviews/hours/photos) instead of a bare pin.
                 venue.maps_url ??
-                `https://maps.google.com/?q=${venue.latitude},${venue.longitude}`
+                (venue.google_place_id
+                  ? `https://www.google.com/maps/place/?q=place_id:${venue.google_place_id}`
+                  : `https://maps.google.com/?q=${venue.latitude},${venue.longitude}`)
               }
               target="_blank"
               rel="noopener noreferrer"
