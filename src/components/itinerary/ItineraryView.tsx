@@ -1,6 +1,7 @@
 "use client";
 
 import { Fragment, useState } from "react";
+import Link from "next/link";
 import { motion } from "motion/react";
 import { ItineraryResponse } from "@/types";
 import { StopCard } from "@/components/ui/StopCard";
@@ -25,6 +26,10 @@ interface ItineraryViewProps {
   onSwapStop?: (index: number) => void;
   swappingIndex?: number | null;
   swapError?: { index: number; message: string } | null;
+  /** When true: hide per-stop availability sections, hide swap, hide
+   * reservation CTAs in StopCard, and replace add-stop with a
+   * "Plan a new night →" CTA pointing at /compose. */
+  isPast?: boolean;
 }
 
 export function ItineraryView({
@@ -38,6 +43,7 @@ export function ItineraryView({
   onSwapStop,
   swappingIndex,
   swapError,
+  isPast = false,
 }: ItineraryViewProps) {
   const [detailIndex, setDetailIndex] = useState<number | null>(null);
   const detailVenue =
@@ -84,7 +90,7 @@ export function ItineraryView({
 
   return (
     <>
-      {conflict && !conflictDismissed && (
+      {!isPast && conflict && !conflictDismissed && (
         <OrderingConflictBanner
           conflict={conflict}
           onSwap={handleSwapConflict}
@@ -100,12 +106,13 @@ export function ItineraryView({
                 index={i}
                 date={date}
                 partySize={partySize}
-                onSwap={onSwapStop ? () => onSwapStop(i) : undefined}
+                onSwap={!isPast && onSwapStop ? () => onSwapStop(i) : undefined}
                 onVenueTap={() => setDetailIndex(i)}
                 isSwapping={swappingIndex === i}
                 swapError={swapError?.index === i ? swapError.message : null}
+                isPast={isPast}
               />
-              {stop.availability && (
+              {!isPast && stop.availability && (
                 <div className="px-0 pb-6">
                   <StopAvailabilitySection
                     availability={stop.availability}
@@ -134,21 +141,37 @@ export function ItineraryView({
             )}
           </Fragment>
         ))}
-        {onAddStop && (
+        {isPast ? (
           <motion.div
             className="py-6 flex justify-center"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.4, delay: 0.6 }}
           >
-            <button
-              onClick={onAddStop}
-              disabled={isAddingStop}
-              className="inline-flex items-center gap-2 rounded-full border border-dashed border-burgundy/50 px-5 py-2.5 font-sans text-sm text-burgundy hover:bg-burgundy/5 hover:border-burgundy transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            <Link
+              href="/compose"
+              className="inline-flex items-center gap-2 rounded-full border border-dashed border-burgundy/50 px-5 py-2.5 font-sans text-sm text-burgundy hover:bg-burgundy/5 hover:border-burgundy transition-colors"
             >
-              {isAddingStop ? "Finding another spot…" : "+ Add another stop"}
-            </button>
+              Plan a new night →
+            </Link>
           </motion.div>
+        ) : (
+          onAddStop && (
+            <motion.div
+              className="py-6 flex justify-center"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.4, delay: 0.6 }}
+            >
+              <button
+                onClick={onAddStop}
+                disabled={isAddingStop}
+                className="inline-flex items-center gap-2 rounded-full border border-dashed border-burgundy/50 px-5 py-2.5 font-sans text-sm text-burgundy hover:bg-burgundy/5 hover:border-burgundy transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isAddingStop ? "Finding another spot…" : "+ Add another stop"}
+              </button>
+            </motion.div>
+          )
         )}
       </div>
       <VenueDetailModal

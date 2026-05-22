@@ -10,8 +10,10 @@ import Link from "next/link";
 import { getSupabase } from "@/lib/supabase";
 import { CompositionHeader } from "@/components/itinerary/CompositionHeader";
 import { ItineraryView } from "@/components/itinerary/ItineraryView";
+import { PastItineraryBanner } from "@/components/itinerary/PastItineraryBanner";
 import { Header } from "@/components/Header";
 import { Button } from "@/components/ui/Button";
+import { isPastDate } from "@/lib/dateUtils";
 import type { ItineraryResponse } from "@/types";
 
 type LoadState =
@@ -70,18 +72,21 @@ export default function SharedItineraryPage({
   }
 
   const { itinerary } = state;
+  const isPast = isPastDate(itinerary.inputs?.day);
   return (
     <main className="flex flex-1 flex-col items-center min-h-screen pb-8">
       <Header />
       <div className="w-full px-6 mt-6 flex flex-col items-center">
         <CompositionHeader header={itinerary.header} inputs={itinerary.inputs} />
-      <ItineraryView
-        stops={itinerary.stops}
-        walks={itinerary.walks}
-        timeBlock={itinerary.inputs?.timeBlock}
-        date={itinerary.inputs?.day}
-        partySize={2}
-      />
+        {isPast && <PastItineraryBanner day={itinerary.inputs?.day} />}
+        <ItineraryView
+          stops={itinerary.stops}
+          walks={itinerary.walks}
+          timeBlock={itinerary.inputs?.timeBlock}
+          date={itinerary.inputs?.day}
+          partySize={2}
+          isPast={isPast}
+        />
 
       {/* Minimal footer — Maps link + CTA to make their own */}
       <div className="w-full max-w-lg mx-auto mt-10 pt-4 border-t border-border">

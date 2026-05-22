@@ -20,6 +20,10 @@ interface StopCardProps {
   onVenueTap?: () => void;
   isSwapping?: boolean;
   swapError?: string | null;
+  /** When true, hide the reserve link (and Swap, by virtue of `onSwap`
+   * not being passed). Used on past-date itineraries where the data is
+   * stale and a reservation flow would be misleading. */
+  isPast?: boolean;
 }
 
 function SwapSkeleton() {
@@ -56,6 +60,7 @@ export function StopCard({
   onVenueTap,
   isSwapping = false,
   swapError,
+  isPast = false,
 }: StopCardProps) {
   const v = stop.venue;
   const activeNote = stop.curation_note;
@@ -66,7 +71,10 @@ export function StopCard({
     !!bookingPlatform
   );
 
-  const showInlineReserve = !!bookingPlatform && !!v.reservation_url;
+  // Past itineraries hide reservation CTAs entirely — the data behind
+  // them (slot availability, party-size links) is no longer accurate.
+  const showInlineReserve =
+    !isPast && !!bookingPlatform && !!v.reservation_url;
 
   // Build a date-aware reservation URL.
   // Prefer canonical slug URL; for Resy venues without a slug, append

@@ -12,6 +12,7 @@ import { useRouter } from "next/navigation";
 import { getBrowserSupabase } from "@/lib/supabase/browser";
 import { CompositionHeader } from "@/components/itinerary/CompositionHeader";
 import { ItineraryView } from "@/components/itinerary/ItineraryView";
+import { PastItineraryBanner } from "@/components/itinerary/PastItineraryBanner";
 import { ActionBar } from "@/components/itinerary/ActionBar";
 import { StepLoading } from "@/components/questionnaire/StepLoading";
 import { Button } from "@/components/ui/Button";
@@ -21,6 +22,7 @@ import {
   walkDistanceKm,
   buildGoogleMapsUrl,
 } from "@/lib/geo";
+import { isPastDate } from "@/lib/dateUtils";
 import { calculateTotalSpend } from "@/config/budgets";
 import { resolveTimeWindow } from "@/lib/itinerary/time-blocks";
 import type {
@@ -135,6 +137,7 @@ export default function SavedItineraryPage({
   }
 
   const noopRegenerate = () => {};
+  const isPast = isPastDate(itinerary.inputs.day);
   return (
     <main className="flex flex-1 flex-col items-center min-h-screen pb-8">
       <Header
@@ -149,13 +152,15 @@ export default function SavedItineraryPage({
       />
       <div className="w-full px-6 mt-6 flex flex-col items-center">
         <CompositionHeader header={itinerary.header} inputs={itinerary.inputs} />
-      <ItineraryView
-        stops={itinerary.stops}
-        walks={itinerary.walks}
-        timeBlock={itinerary.inputs.timeBlock}
-        date={itinerary.inputs.day}
-        partySize={2}
-      />
+        {isPast && <PastItineraryBanner day={itinerary.inputs.day} />}
+        <ItineraryView
+          stops={itinerary.stops}
+          walks={itinerary.walks}
+          timeBlock={itinerary.inputs.timeBlock}
+          date={itinerary.inputs.day}
+          partySize={2}
+          isPast={isPast}
+        />
       </div>
       <ActionBar
         itinerary={itinerary}
