@@ -22,7 +22,7 @@ export function SavedPlanRow({
   onDelete,
   onRenamed,
 }: SavedPlanRowProps) {
-  const displayName = plan.custom_name || plan.title || "Saved night";
+  const displayName = plan.custom_name || plan.title || "Saved plan";
   const stops = plan.stops ?? [];
   const firstStop = stops[0];
   const date = new Date(plan.created_at).toLocaleDateString("en-US", {

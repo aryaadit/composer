@@ -120,7 +120,7 @@ export function ActionBar({
           <span aria-hidden className="text-muted">→</span>
         </a>
 
-        {/* Right: Save · Regenerate · New Night · Share */}
+        {/* Right: Save · Regenerate · New plan · Share */}
         <div className="flex items-center gap-3">
           <button
             onClick={() => void handleSave()}
@@ -142,7 +142,7 @@ export function ActionBar({
             href="/compose"
             className="text-charcoal hover:text-burgundy transition-colors"
           >
-            New Night
+            New plan
           </a>
           <button
             onClick={() => void handleShare()}

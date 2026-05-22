@@ -53,7 +53,7 @@ function toItineraryResponse(saved: SavedItinerary): ItineraryResponse {
   const walks = rebuildWalks(stops);
   return {
     header: {
-      title: saved.custom_name || saved.title || "Saved night",
+      title: saved.custom_name || saved.title || "Saved plan",
       subtitle: saved.subtitle ?? "",
       occasion_tag: saved.occasion ?? "",
       vibe_tag: saved.vibe ?? "",

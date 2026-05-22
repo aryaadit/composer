@@ -167,7 +167,7 @@ export function WhenStep({
           onClick={() => onContinue(day, timeBlock)}
           className="w-full"
         >
-          Build my night
+          Build my plan
         </Button>
       </div>
     </div>

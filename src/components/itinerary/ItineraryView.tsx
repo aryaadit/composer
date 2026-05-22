@@ -28,7 +28,7 @@ interface ItineraryViewProps {
   swapError?: { index: number; message: string } | null;
   /** When true: hide per-stop availability sections, hide swap, hide
    * reservation CTAs in StopCard, and replace add-stop with a
-   * "Plan a new night →" CTA pointing at /compose. */
+   * "Plan another →" CTA pointing at /compose. */
   isPast?: boolean;
 }
 
@@ -152,7 +152,7 @@ export function ItineraryView({
               href="/compose"
               className="inline-flex items-center gap-2 rounded-full border border-dashed border-burgundy/50 px-5 py-2.5 font-sans text-sm text-burgundy hover:bg-burgundy/5 hover:border-burgundy transition-colors"
             >
-              Plan a new night →
+              Plan another →
             </Link>
           </motion.div>
         ) : (
