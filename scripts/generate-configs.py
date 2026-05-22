@@ -345,9 +345,13 @@ VIBE_SCORING_MATRIX = {
     "food_forward": {"label": "Food-Forward", "tags": ["food_forward", "tasting", "dinner", "bistro"]},
     "drinks_led": {"label": "Drinks-Led", "tags": ["cocktail_forward", "wine_bar", "speakeasy", "drinks"]},
     "activity_food": {"label": "Activity + Food", "tags": ["activity", "comedy", "karaoke", "games", "bowling"]},
-    "walk_explore": {"label": "Walk & Explore", "tags": ["walk", "gallery", "bookstore", "market", "park"]},
     "mix_it_up": {"label": "Mix It Up", "tags": []},
 }
+# walk_explore ("Stroll") removed 2026-05-22 — produced low-confidence
+# itineraries (sparse venue coverage for walk/gallery/bookstore tags) and
+# was misleading users into expecting a different kind of night. Its
+# venue tags (walk, gallery, bookstore, market, park) drop out of the
+# scored vibe set; they remain in venue.vibe_tags for cross-cutting use.
 
 # Budget tier sets are downward-permissive: a user picking nice_out is OK
 # with nice_out OR cheaper venues. Picking splurge accepts splurge or one

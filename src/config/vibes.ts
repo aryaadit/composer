@@ -28,7 +28,6 @@ const VIBE_LABEL_OVERRIDES: Record<string, string> = {
   food_forward: "Meal",
   drinks_led: "Drinks",
   activity_food: "Activity",
-  walk_explore: "Stroll",
   mix_it_up: "Variety",
 };
 
@@ -36,7 +35,6 @@ const VIBE_DESCRIPTIONS: Record<string, string> = {
   food_forward: "A great meal anchors it all",
   drinks_led: "Bars and cocktails are the focus",
   activity_food: "Something to do first, then eat",
-  walk_explore: "Galleries, parks, pacing the day",
   mix_it_up: "Food, drinks, and something to do",
 };
 

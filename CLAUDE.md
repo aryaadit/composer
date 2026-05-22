@@ -320,8 +320,8 @@ Defined in `config/options.ts`. Five steps, each with an explicit "Next →" but
 2. **Neighborhoods** — pick up to 3 from borough-grouped picker (25 groups; thin groups <50 venues are hidden)
 3. **Budget** — `casual` | `nice_out` | `splurge` | `all_out` | `no_preference`
    Display labels: Casual, Solid, Splurge, All Out, No Preference
-4. **Vibe** — `food_forward` | `drinks_led` | `activity_food` | `walk_explore` | `mix_it_up`
-   Display labels: Meal, Drinks, Activity, Stroll, Variety
+4. **Vibe** — `food_forward` | `drinks_led` | `activity_food` | `mix_it_up`
+   Display labels: Meal, Drinks, Activity, Variety
 5. **When** — day (7-day pills + custom date picker) + time block (morning / afternoon / evening / late_night)
 
 No auto-advance — every step requires an explicit button tap. **Occasion no longer auto-prefills** — the `CONTEXT_TO_OCCASION` map was removed 2026-05-20 with the onboarding context step. **Neighborhood prefill from `profile.favorite_hoods` no longer applies** — that data is no longer collected (see Onboarding Flow below).

@@ -21,7 +21,6 @@ const VIBE_MESSAGES: Record<string, string[]> = {
   food_forward: ["Lining up the food...", "Finding the best tables..."],
   drinks_led: ["Finding cocktail spots...", "Checking the bar scene..."],
   activity_food: ["Looking for something fun...", "Finding the action..."],
-  walk_explore: ["Mapping a good route...", "Finding hidden gems..."],
   mix_it_up: ["Mixing it up...", "Pulling together a little of everything..."],
 };
 

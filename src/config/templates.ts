@@ -62,39 +62,25 @@ export const VIBE_TEMPLATES: Record<VibeSlug, StopPattern[]> = {
       { role: "main" },
     ],
   ],
-  walk_explore: [
-    [
-      { role: "opener", venueRoleHint: "coffee" },
-      { role: "main", venueRoleHint: "activity" },
-      { role: "closer" },
-      { role: "closer" },
-    ],
-    [
-      { role: "opener", venueRoleHint: "coffee" },
-      { role: "main", venueRoleHint: "activity" },
-      { role: "closer" },
-    ],
-    [
-      { role: "opener", venueRoleHint: "coffee" },
-      { role: "main", venueRoleHint: "activity" },
-    ],
-  ],
-  mix_it_up: [], // resolved at runtime by random pick from other 4
+  mix_it_up: [], // resolved at runtime by random pick from a concrete vibe
 };
 
 const CONCRETE_VIBES: VibeSlug[] = [
   "food_forward",
   "drinks_led",
   "activity_food",
-  "walk_explore",
 ];
 
 /**
  * Get the stop pattern templates for a given vibe.
  *
- * For concrete vibes (food_forward, drinks_led, etc.), returns the
- * vibe's template list directly. For "mix_it_up" (empty templates),
- * randomly picks one of the four concrete vibes using the seeded PRNG.
+ * For concrete vibes (food_forward, drinks_led, activity_food), returns
+ * the vibe's template list directly. For "mix_it_up" (empty templates),
+ * randomly picks one of the concrete vibes using the seeded PRNG.
+ *
+ * Unknown vibes (e.g. legacy `walk_explore` in old share-links / saved
+ * itineraries) also fall through to the random concrete pick — degrades
+ * gracefully instead of throwing.
  *
  * @param vibe   - Vibe slug from the questionnaire.
  * @param random - Seeded PRNG for deterministic "mix_it_up" resolution.

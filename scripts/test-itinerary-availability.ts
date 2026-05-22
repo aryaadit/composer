@@ -163,7 +163,7 @@ async function main() {
     occasion: "couple",
     neighborhoods: ["soho_nolita"],
     budget: "splurge",
-    vibe: "walk_explore",
+    vibe: "mix_it_up",
     day: nextDay(0, 6),
     timeBlock: "morning",
   });
@@ -175,7 +175,7 @@ async function main() {
     occasion: "solo",
     neighborhoods: ["chelsea"],
     budget: "casual",
-    vibe: "walk_explore",
+    vibe: "mix_it_up",
     day: nextDay(1),
     timeBlock: "afternoon",
   });

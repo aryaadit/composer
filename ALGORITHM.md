@@ -57,7 +57,7 @@ Each venue that passes filtering gets scored by `scoreVenue` in `scoring.ts`. Th
 
 ### Vibe match (up to 35 pts)
 
-The dominant signal. The user picks a vibe (food_forward, drinks_led, activity_food, walk_explore, mix_it_up). Each vibe maps to a set of venue tags. The score counts how many of the venue's `vibe_tags` overlap:
+The dominant signal. The user picks a vibe (food_forward, drinks_led, activity_food, mix_it_up). Each vibe maps to a set of venue tags. The score counts how many of the venue's `vibe_tags` overlap:
 
 - 2+ overlaps → full weight (35)
 - 1 overlap → partial (25)
@@ -107,8 +107,7 @@ Each vibe maps to its own sequence of stop patterns in `src/config/templates.ts`
 - **food_forward**: opener → main → closer (standard)
 - **drinks_led**: opener (hint: drinks) → main → closer (hint: drinks) — bookends with bars
 - **activity_food**: opener (hint: activity) → main → closer — starts with something to do
-- **walk_explore**: opener (hint: coffee) → main (hint: activity) → closer — morning coffee → gallery → dinner
-- **mix_it_up**: randomly picks one of the four concrete vibes at runtime
+- **mix_it_up**: randomly picks one of the three concrete vibes at runtime
 
 Each slot has a canonical `role` (opener, main, closer) and an optional `venueRoleHint` that biases candidate selection. When the hinted pool is empty, `pickBestForRole` falls back gracefully via cascade relaxation: strict (with hint) → drop hint → drop neighborhood.
 
