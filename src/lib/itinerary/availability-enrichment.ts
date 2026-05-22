@@ -4,6 +4,7 @@
 
 import { getResyAvailability } from "@/lib/availability/resy";
 import { buildResyBookingUrl } from "@/lib/availability/booking-url";
+import { isValidReservationUrl } from "@/lib/booking";
 import { isSlotInBlock } from "@/lib/itinerary/time-blocks";
 import { haversineKm } from "@/lib/geo";
 import type { TimeBlock } from "@/types";
@@ -54,7 +55,9 @@ function buildAvailability(
     return {
       status: "unconfirmed",
       slots: [],
-      bookingUrlBase: venue.reservation_url ?? null,
+      bookingUrlBase: isValidReservationUrl(venue.reservation_url)
+        ? venue.reservation_url
+        : null,
       swapped: false,
     };
   }
@@ -189,7 +192,9 @@ export async function enrichWithAvailability(
           availability: {
             status: "unconfirmed",
             slots: [],
-            bookingUrlBase: venue.reservation_url ?? null,
+            bookingUrlBase: isValidReservationUrl(venue.reservation_url)
+              ? venue.reservation_url
+              : null,
             swapped: false,
           },
         };

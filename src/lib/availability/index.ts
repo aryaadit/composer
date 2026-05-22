@@ -10,6 +10,7 @@ import {
   buildOpenTableBookingUrl,
   getOpenTableRid,
 } from "./opentable";
+import { isValidReservationUrl } from "@/lib/booking";
 import type { AvailabilitySlot } from "./resy";
 
 export type { AvailabilitySlot };
@@ -89,6 +90,8 @@ export async function getVenueAvailability(
     platform,
     venueName: venue.name,
     slots: [],
-    bookingUrl: venue.reservation_url ?? null,
+    bookingUrl: isValidReservationUrl(venue.reservation_url)
+      ? venue.reservation_url
+      : null,
   };
 }

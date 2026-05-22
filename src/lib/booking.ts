@@ -15,8 +15,19 @@ export interface BookingPlatform {
 
 const GENERIC: BookingPlatform = { id: "generic", label: "Make a Reservation" };
 
+// Some sheet rows use the reservation_url column as a free-text status
+// (e.g. "Walk-in Only") rather than an actual URL. Treat anything that
+// isn't an http(s) URL as not-a-link so we don't render broken CTAs that
+// browsers resolve as relative paths.
+export function isValidReservationUrl(
+  url: string | null | undefined
+): url is string {
+  if (!url) return false;
+  return /^https?:\/\//i.test(url);
+}
+
 export function detectBookingPlatform(url: string | null | undefined): BookingPlatform | null {
-  if (!url) return null;
+  if (!isValidReservationUrl(url)) return null;
   const u = url.toLowerCase();
   if (u.includes("resy.com")) return { id: "resy", label: "Reserve on Resy" };
   if (u.includes("opentable.com")) return { id: "opentable", label: "Reserve on OpenTable" };

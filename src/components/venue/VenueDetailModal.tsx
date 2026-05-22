@@ -9,6 +9,7 @@ import type { Venue } from "@/types";
 import { neighborhoodLabel } from "@/config/neighborhoods";
 import { formatCategory } from "@/lib/format/category";
 import { getVenueImageUrls } from "@/lib/venues/images";
+import { isValidReservationUrl } from "@/lib/booking";
 
 interface VenueDetailModalProps {
   venue: Venue | null;
@@ -205,7 +206,7 @@ function VenueDetailContent({
 
         {/* Action buttons */}
         <div className="flex gap-3 mt-6">
-          {venue.reservation_url && (
+          {isValidReservationUrl(venue.reservation_url) && (
             <a
               href={venue.reservation_url}
               target="_blank"

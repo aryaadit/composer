@@ -5,7 +5,7 @@ import { ItineraryStop } from "@/types";
 import { ROLE_LABELS } from "@/config/roles";
 import { neighborhoodLabel } from "@/config/neighborhoods";
 import { formatCategory } from "@/lib/format/category";
-import { detectBookingPlatform } from "@/lib/booking";
+import { detectBookingPlatform, isValidReservationUrl } from "@/lib/booking";
 import { getVenueHeroImageUrl } from "@/lib/venues/images";
 import { buildResyBookingUrl } from "@/lib/availability/booking-url";
 
@@ -74,13 +74,17 @@ export function StopCard({
   // Past itineraries hide reservation CTAs entirely — the data behind
   // them (slot availability, party-size links) is no longer accurate.
   const showInlineReserve =
-    !isPast && !!bookingPlatform && !!v.reservation_url;
+    !isPast && !!bookingPlatform && isValidReservationUrl(v.reservation_url);
+
+  // Show muted "Walk-in only" text where the CTA would have been when
+  // the sheet uses reservation_url as a free-text status ("Walk-in Only").
+  const showWalkInLabel = !isPast && v.reservation_url === "Walk-in Only";
 
   // Build a date-aware reservation URL.
   // Prefer canonical slug URL; for Resy venues without a slug, append
   // date/seats params to the raw reservation_url so Resy opens the right day.
   const reserveHref = (() => {
-    if (!v.reservation_url) return null;
+    if (!isValidReservationUrl(v.reservation_url)) return null;
     if (bookingPlatform?.id === "resy" && date) {
       if (v.resy_slug) {
         return buildResyBookingUrl(v.resy_slug, date, partySize);
@@ -180,6 +184,9 @@ export function StopCard({
               >
                 {bookingPlatform!.label} →
               </a>
+            )}
+            {!showInlineReserve && showWalkInLabel && (
+              <span className="text-muted">Walk-in only</span>
             )}
             {onSwap && (
               <button
