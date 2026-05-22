@@ -29,8 +29,16 @@ interface NeighborhoodPickerProps {
   selected: string[];
   /** Called every time the selection set changes. */
   onChange: (selected: string[]) => void;
-  /** Max simultaneous selections. Omit for unlimited. */
+  /** Max simultaneous selections. Ignored when `singleSelect` is true. */
   maxSelections?: number;
+  /**
+   * Radio behavior: clicking a pill replaces the current selection
+   * instead of toggling it into a set. Clicking the currently-selected
+   * pill clears the selection. `onChange` always fires with an array of
+   * length 0 or 1 in this mode. The questionnaire uses this; the picker
+   * still supports multi-select for any future caller.
+   */
+  singleSelect?: boolean;
   /** Render borough section headers. Default `true`. */
   groupByBorough?: boolean;
   /** Stagger pill entrance animation. Default `true`. */
@@ -43,15 +51,25 @@ export function NeighborhoodPicker({
   selected,
   onChange,
   maxSelections,
+  singleSelect = false,
   groupByBorough = true,
   animated = true,
 }: NeighborhoodPickerProps) {
   const selectedSet = useMemo(() => new Set(selected), [selected]);
+  // `atMax` only applies to multi-select mode. In single-select, no pill
+  // is ever disabled — clicking a different pill replaces the selection.
   const atMax =
-    maxSelections != null && selectedSet.size >= maxSelections;
+    !singleSelect &&
+    maxSelections != null &&
+    selectedSet.size >= maxSelections;
 
   const toggle = useCallback(
     (value: string) => {
+      if (singleSelect) {
+        // Radio: clicking the active pill clears; any other click replaces.
+        onChange(selectedSet.has(value) ? [] : [value]);
+        return;
+      }
       const next = new Set(selectedSet);
       if (next.has(value)) {
         next.delete(value);
@@ -60,7 +78,7 @@ export function NeighborhoodPicker({
       }
       onChange(Array.from(next));
     },
-    [selectedSet, atMax, onChange]
+    [selectedSet, atMax, onChange, singleSelect]
   );
 
   const minVenues = ALGORITHM.pools.minGroupVenuesToRender;

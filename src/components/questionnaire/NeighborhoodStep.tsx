@@ -1,9 +1,14 @@
 "use client";
 
 // Questionnaire neighborhood step. The pill-selection grid lives in
-// the shared `NeighborhoodPicker`; this component adds the "Pick up
-// to 3" helper, the profile-prefill logic, the Continue CTA, and the
-// CitySwitcher drawer.
+// the shared `NeighborhoodPicker`; this component handles profile
+// prefill, the Continue CTA, and the CitySwitcher drawer.
+//
+// Single-select (radio): the algorithm only meaningfully uses one
+// neighborhood anyway, and a multi-select UI was misleading users.
+// The `neighborhoods` field stays an array (length 1) all the way
+// through the API + saved-itinerary shape so this change stays
+// reversible without a schema migration.
 
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/Button";
@@ -16,8 +21,6 @@ interface NeighborhoodStepProps {
   onContinue: (selected: string[]) => void;
 }
 
-const MAX_HOODS = 3;
-
 export function NeighborhoodStep({
   initialSelected = [],
   onContinue,
@@ -29,7 +32,11 @@ export function NeighborhoodStep({
   // only on the first session-level visit to this step (initialSelected
   // empty) and only once per mount. After the first change,
   // prefilledRef keeps the profile default from stomping on manual
-  // changes, including the legitimate "deselect all" case.
+  // changes, including the legitimate "deselect" case.
+  //
+  // Single-select takes the first favorite only. Existing accounts may
+  // have multiple favorites from the pre-2026 multi-select era; we just
+  // pick the top of the list.
   const { profile } = useAuth();
   const prefilledRef = useRef(false);
   const [didPrefill, setDidPrefill] = useState(false);
@@ -40,7 +47,7 @@ export function NeighborhoodStep({
       return;
     }
     if (!profile?.favorite_hoods?.length) return;
-    const prefill = profile.favorite_hoods.slice(0, MAX_HOODS);
+    const prefill = profile.favorite_hoods.slice(0, 1);
     if (prefill.length === 0) return;
     prefilledRef.current = true;
     void Promise.resolve().then(() => {
@@ -51,24 +58,19 @@ export function NeighborhoodStep({
 
   return (
     <div>
-      <p
-        aria-live="polite"
-        className={`text-center font-sans text-xs mb-4 tabular-nums ${
-          selected.length >= MAX_HOODS ? "text-burgundy" : "text-muted"
-        }`}
-      >
-        {selected.length}/{MAX_HOODS} selected
-        {didPrefill && (
-          <span className="block text-muted text-[11px] mt-0.5">
-            Pre-filled from your favorites
-          </span>
-        )}
-      </p>
+      {didPrefill && (
+        <p
+          aria-live="polite"
+          className="text-center font-sans text-[11px] text-muted mb-4"
+        >
+          Pre-filled from your favorites
+        </p>
+      )}
 
       <NeighborhoodPicker
         selected={selected}
         onChange={setSelected}
-        maxSelections={MAX_HOODS}
+        singleSelect
         groupByBorough
         animated
       />
@@ -79,7 +81,7 @@ export function NeighborhoodStep({
         <Button
           variant="primary"
           onClick={() => onContinue(selected)}
-          disabled={selected.length === 0}
+          disabled={selected.length !== 1}
           className="w-full"
         >
           Continue
