@@ -10,6 +10,7 @@ import {
   formatSlotTimeForDisplay,
 } from "@/lib/itinerary/time-blocks";
 import { buildResySlotBookingUrl } from "@/lib/availability/booking-url";
+import { detectBookingPlatform } from "@/lib/booking";
 import type {
   StopAvailability as StopAvailabilityType,
   StopRole,
@@ -29,6 +30,10 @@ interface StopAvailabilityProps {
   partySize: number;
   selectedSlot: AvailabilitySlot | null;
   onSelectSlot: (slot: AvailabilitySlot | null) => void;
+  /** Curation Swap action — when the slot grid is showing, Swap renders
+   * here (under the times) so booking and curation actions are visually
+   * separated. When undefined, Swap is hidden. */
+  onSwap?: () => void;
 }
 
 const PLATFORM_NAMES: Record<string, string> = {
@@ -50,6 +55,7 @@ export function StopAvailabilitySection({
   partySize,
   selectedSlot,
   onSelectSlot,
+  onSwap,
 }: StopAvailabilityProps) {
   const { status, slots, bookingUrlBase } = availability;
 
@@ -111,6 +117,7 @@ export function StopAvailabilitySection({
       partySize={partySize}
       selectedSlot={selectedSlot}
       onSelectSlot={onSelectSlot}
+      onSwap={onSwap}
     />
   );
 }
@@ -127,6 +134,7 @@ function HasSlotsView({
   partySize,
   selectedSlot,
   onSelectSlot,
+  onSwap,
 }: {
   slots: AvailabilitySlot[];
   role: StopRole;
@@ -139,6 +147,7 @@ function HasSlotsView({
   partySize: number;
   selectedSlot: AvailabilitySlot | null;
   onSelectSlot: (slot: AvailabilitySlot | null) => void;
+  onSwap?: () => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const deduped = dedupeSlots(slots);
@@ -191,11 +200,29 @@ function HasSlotsView({
     }
   }
 
+  // Venue-level Reserve link (right of "Available times"). Distinct from
+  // the slot-specific "Book TIME on Resy" pill below, which only shows
+  // after the user selects a slot. bookingUrlBase for has_slots is
+  // already the date-aware Resy URL from availability-enrichment.
+  const reservePlatform = detectBookingPlatform(bookingUrlBase);
+
   return (
     <div className="mt-3 space-y-3">
-      <p className="font-sans text-xs tracking-widest uppercase text-muted">
-        Available times
-      </p>
+      <div className="flex items-center justify-between gap-3">
+        <p className="font-sans text-xs tracking-widest uppercase text-muted">
+          Available times
+        </p>
+        {bookingUrlBase && reservePlatform && (
+          <a
+            href={bookingUrlBase}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-sans text-sm text-burgundy hover:text-burgundy-light transition-colors"
+          >
+            {reservePlatform.label} →
+          </a>
+        )}
+      </div>
       <div className="flex flex-wrap gap-2">
         {displayed.map((slot) => (
           <SlotChip
@@ -206,16 +233,31 @@ function HasSlotsView({
           />
         ))}
       </div>
-      {hasMore && (
-        <button
-          type="button"
-          onClick={() => setExpanded(!expanded)}
-          className="font-sans text-xs text-burgundy hover:underline transition-colors"
-        >
-          {expanded
-            ? "Show fewer times"
-            : `Show more times (${deduped.length - recommended.length} more)`}
-        </button>
+      {(hasMore || onSwap) && (
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            {hasMore && (
+              <button
+                type="button"
+                onClick={() => setExpanded(!expanded)}
+                className="font-sans text-xs text-burgundy hover:underline transition-colors"
+              >
+                {expanded
+                  ? "Show fewer times"
+                  : `Show more times (${deduped.length - recommended.length} more)`}
+              </button>
+            )}
+          </div>
+          {onSwap && (
+            <button
+              type="button"
+              onClick={onSwap}
+              className="font-sans text-xs text-muted hover:text-charcoal transition-colors"
+            >
+              Swap
+            </button>
+          )}
+        </div>
       )}
       {bookingHref && (
         <div className="pt-1">

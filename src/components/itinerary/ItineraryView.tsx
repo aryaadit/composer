@@ -128,6 +128,7 @@ export function ItineraryView({
                     onSelectSlot={(slot) =>
                       handleSelectSlot(stop.venue.id, slot)
                     }
+                    onSwap={onSwapStop ? () => onSwapStop(i) : undefined}
                   />
                 </div>
               )}

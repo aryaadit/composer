@@ -71,14 +71,26 @@ export function StopCard({
     !!bookingPlatform
   );
 
+  // When live availability shows a slot grid, Reserve + Swap render
+  // inside StopAvailabilitySection (next to "Available times" and "Show
+  // more times" respectively). Otherwise they live in this card's footer.
+  const hasSlots = stop.availability?.status === "has_slots";
+
   // Past itineraries hide reservation CTAs entirely — the data behind
   // them (slot availability, party-size links) is no longer accurate.
   const showInlineReserve =
-    !isPast && !!bookingPlatform && isValidReservationUrl(v.reservation_url);
+    !isPast &&
+    !hasSlots &&
+    !!bookingPlatform &&
+    isValidReservationUrl(v.reservation_url);
 
   // Show muted "Walk-in only" text where the CTA would have been when
   // the sheet uses reservation_url as a free-text status ("Walk-in Only").
-  const showWalkInLabel = !isPast && v.reservation_url === "Walk-in Only";
+  const showWalkInLabel =
+    !isPast && !hasSlots && v.reservation_url === "Walk-in Only";
+
+  const showInlineSwap = !!onSwap && !hasSlots;
+  const showActionsRow = showInlineReserve || showWalkInLabel || showInlineSwap;
 
   // Build a date-aware reservation URL.
   // Prefer canonical slug URL; for Resy venues without a slug, append
@@ -173,30 +185,36 @@ export function StopCard({
             {activeNote}
           </p>
 
-          {/* Actions row */}
-          <div className="flex items-center justify-end gap-4 font-sans text-sm">
-            {showInlineReserve && reserveHref && (
-              <a
-                href={reserveHref}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-burgundy hover:text-burgundy-light transition-colors"
-              >
-                {bookingPlatform!.label} →
-              </a>
-            )}
-            {!showInlineReserve && showWalkInLabel && (
-              <span className="text-muted">Walk-in only</span>
-            )}
-            {onSwap && (
-              <button
-                onClick={onSwap}
-                className="text-muted hover:text-charcoal transition-colors"
-              >
-                Swap
-              </button>
-            )}
-          </div>
+          {/* Actions row — booking on the left, curation (Swap) on the
+              right. Hidden entirely when the slot grid is showing; in
+              that case Reserve + Swap render inside StopAvailability. */}
+          {showActionsRow && (
+            <div className="flex items-center justify-between gap-4 font-sans">
+              <div className="text-sm">
+                {showInlineReserve && reserveHref && (
+                  <a
+                    href={reserveHref}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-burgundy hover:text-burgundy-light transition-colors"
+                  >
+                    {bookingPlatform!.label} →
+                  </a>
+                )}
+                {!showInlineReserve && showWalkInLabel && (
+                  <span className="text-muted">Walk-in only</span>
+                )}
+              </div>
+              {showInlineSwap && (
+                <button
+                  onClick={onSwap}
+                  className="text-xs text-muted hover:text-charcoal transition-colors"
+                >
+                  Swap
+                </button>
+              )}
+            </div>
+          )}
 
           {swapError && (
             <p className="font-sans text-xs text-muted mt-2">{swapError}</p>
