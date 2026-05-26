@@ -71,10 +71,15 @@ export function AuthScreen() {
   };
 
   // ── Verification ────────────────────────────────────────────
-  const [code, setCode] = useState<string[]>(Array(CODE_LENGTH).fill(""));
+  // Single input (not 6 split inputs): iOS Safari's "From Messages"
+  // one-time-code autofill fires an input event with the full code,
+  // which a maxLength=1 input would truncate to the first digit. A
+  // single input with autocomplete="one-time-code" gets both native
+  // autofill on iOS and Android plus normal paste for free.
+  const [code, setCode] = useState("");
   const [verifying, setVerifying] = useState(false);
   const [verifyError, setVerifyError] = useState<string | null>(null);
-  const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const inputRef = useRef<HTMLInputElement | null>(null);
   const [resendCooldown, setResendCooldown] = useState(RESEND_COOLDOWN_S);
   const cooldownRef = useRef(RESEND_COOLDOWN_S);
 
@@ -90,16 +95,15 @@ export function AuthScreen() {
     return () => clearInterval(interval);
   }, [view]);
 
-  // Focus first input on verify view mount
+  // Focus input on verify view mount
   useEffect(() => {
     if (view === "verify") {
-      inputRefs.current[0]?.focus();
+      inputRef.current?.focus();
     }
   }, [view]);
 
   const submitCode = useCallback(
-    async (digits: string[]) => {
-      const token = digits.join("");
+    async (token: string) => {
       if (token.length !== CODE_LENGTH) return;
       setVerifying(true);
       setVerifyError(null);
@@ -108,8 +112,8 @@ export function AuthScreen() {
       if (!result.ok || !result.user) {
         setVerifyError(result.error ?? "Invalid code. Try again.");
         setVerifying(false);
-        setCode(Array(CODE_LENGTH).fill(""));
-        inputRefs.current[0]?.focus();
+        setCode("");
+        inputRef.current?.focus();
         return;
       }
 
@@ -123,62 +127,21 @@ export function AuthScreen() {
       // Auth state change will trigger the root page gate to redirect.
       // The session is now live — AuthProvider picks it up via
       // onAuthStateChange and the root page routes accordingly.
-      // We don't need to router.replace here because the root gate
-      // handles it, but we set a brief submitting state so the UI
-      // doesn't flash back to the form.
       void profileRow;
     },
     [phone]
   );
 
-  const handleDigitChange = useCallback(
-    (index: number, value: string) => {
+  const handleCodeChange = useCallback(
+    (value: string) => {
       if (verifying) return;
-      // Only accept digits
-      const digit = value.replace(/\D/g, "").slice(-1);
-      const next = [...code];
-      next[index] = digit;
-      setCode(next);
-
-      if (digit && index < CODE_LENGTH - 1) {
-        inputRefs.current[index + 1]?.focus();
-      }
-
-      // Auto-submit on last digit
-      if (digit && index === CODE_LENGTH - 1 && next.every(Boolean)) {
-        void submitCode(next);
+      const digits = value.replace(/\D/g, "").slice(0, CODE_LENGTH);
+      setCode(digits);
+      if (digits.length === CODE_LENGTH) {
+        void submitCode(digits);
       }
     },
-    [code, verifying, submitCode]
-  );
-
-  const handleKeyDown = useCallback(
-    (index: number, e: React.KeyboardEvent) => {
-      if (e.key === "Backspace" && !code[index] && index > 0) {
-        inputRefs.current[index - 1]?.focus();
-      }
-    },
-    [code]
-  );
-
-  const handlePaste = useCallback(
-    (e: React.ClipboardEvent) => {
-      e.preventDefault();
-      const pasted = e.clipboardData.getData("text").replace(/\D/g, "");
-      if (!pasted) return;
-      const next = [...code];
-      for (let i = 0; i < CODE_LENGTH && i < pasted.length; i++) {
-        next[i] = pasted[i];
-      }
-      setCode(next);
-      if (next.every(Boolean)) {
-        void submitCode(next);
-      } else {
-        const firstEmpty = next.findIndex((d) => !d);
-        inputRefs.current[firstEmpty >= 0 ? firstEmpty : CODE_LENGTH - 1]?.focus();
-      }
-    },
-    [code, submitCode]
+    [verifying, submitCode]
   );
 
   const handleResend = async () => {
@@ -217,23 +180,21 @@ export function AuthScreen() {
               Sent to {formatPhone(phone)}
             </p>
 
-            <div className="flex gap-3 mb-6">
-              {code.map((digit, i) => (
-                <input
-                  key={i}
-                  ref={(el) => { inputRefs.current[i] = el; }}
-                  type="text"
-                  inputMode="numeric"
-                  autoComplete="one-time-code"
-                  maxLength={1}
-                  value={digit}
-                  onChange={(e) => handleDigitChange(i, e.target.value)}
-                  onKeyDown={(e) => handleKeyDown(i, e)}
-                  onPaste={i === 0 ? handlePaste : undefined}
-                  disabled={verifying}
-                  className="w-12 h-14 text-center text-xl font-sans font-medium text-charcoal bg-transparent border-b-2 border-border focus:border-charcoal focus:outline-none transition-colors disabled:opacity-50"
-                />
-              ))}
+            <div className="mb-6">
+              <input
+                ref={inputRef}
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                autoComplete="one-time-code"
+                maxLength={CODE_LENGTH}
+                value={code}
+                onChange={(e) => handleCodeChange(e.target.value)}
+                disabled={verifying}
+                aria-label={`${CODE_LENGTH}-digit verification code`}
+                placeholder="••••••"
+                className="w-full py-3 text-center text-3xl font-sans font-medium tracking-[0.5em] indent-[0.5em] text-charcoal bg-transparent border-b-2 border-border focus:border-charcoal focus:outline-none transition-colors disabled:opacity-50 placeholder:text-border"
+              />
             </div>
 
             {verifyError && (
@@ -263,7 +224,7 @@ export function AuthScreen() {
                 type="button"
                 onClick={() => {
                   setView("phone");
-                  setCode(Array(CODE_LENGTH).fill(""));
+                  setCode("");
                   setVerifyError(null);
                 }}
                 className="font-sans text-xs text-muted hover:text-charcoal transition-colors"
