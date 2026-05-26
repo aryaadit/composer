@@ -4,7 +4,7 @@
 // onContinue. The API route resolves timeBlock → concrete
 // startTime/endTime before scoring runs.
 
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { motion } from "motion/react";
 import { Button } from "@/components/ui/Button";
 import { pillClass } from "@/lib/styles";
@@ -64,25 +64,9 @@ export function WhenStep({
     initialTimeBlock ?? DEFAULT_TIME_BLOCK
   );
 
-  const dateInputRef = useRef<HTMLInputElement | null>(null);
-
   const builtInDates = useMemo(() => new Set(days.map((d) => d.date)), [days]);
   const customSelected = !builtInDates.has(day);
   const todayISO = days[0].date;
-
-  const openDatePicker = () => {
-    const el = dateInputRef.current;
-    if (!el) return;
-    if (typeof el.showPicker === "function") {
-      try {
-        el.showPicker();
-        return;
-      } catch {
-        // fallthrough
-      }
-    }
-    el.click();
-  };
 
   const handleDatePicked = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
@@ -114,28 +98,33 @@ export function WhenStep({
           );
         })}
 
-        <motion.button
+        {/* Custom date pill — the <input type="date"> is layered on top
+            of the visual pill at opacity 0 so a direct tap lands on the
+            input itself. iOS Safari opens the native picker only on a
+            trusted gesture on a real date input; proxying via a button
+            and showPicker()/click() does not work there. */}
+        <motion.label
           key="custom-date"
-          type="button"
-          onClick={openDatePicker}
-          className={pillClass(customSelected)}
+          htmlFor="custom-date-input"
+          className="relative inline-block cursor-pointer"
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.2, delay: days.length * 0.03 }}
           whileTap={{ scale: 0.97 }}
         >
-          {customSelected ? formatCustomDate(day) : "+ Pick a date"}
-        </motion.button>
-        <input
-          ref={dateInputRef}
-          type="date"
-          min={todayISO}
-          value={customSelected ? day : ""}
-          onChange={handleDatePicked}
-          className="sr-only"
-          aria-hidden
-          tabIndex={-1}
-        />
+          <span className={pillClass(customSelected)} aria-hidden>
+            {customSelected ? formatCustomDate(day) : "+ Pick a date"}
+          </span>
+          <input
+            id="custom-date-input"
+            type="date"
+            min={todayISO}
+            value={customSelected ? day : ""}
+            onChange={handleDatePicked}
+            aria-label="Pick a date"
+            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer appearance-none bg-transparent"
+          />
+        </motion.label>
       </div>
 
       {/* ── Time ────────────────────────────────────────────── */}
