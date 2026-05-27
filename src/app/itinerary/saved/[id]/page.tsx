@@ -6,10 +6,11 @@
 // this is a review surface, not a live planner. To remake the plan, the user
 // hits "New date plan" from home.
 
-import { use, useEffect, useState } from "react";
+import { use, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { getBrowserSupabase } from "@/lib/supabase/browser";
+import { track } from "@/lib/analytics";
 import { CompositionHeader } from "@/components/itinerary/CompositionHeader";
 import { ItineraryView } from "@/components/itinerary/ItineraryView";
 import { PastItineraryBanner } from "@/components/itinerary/PastItineraryBanner";
@@ -100,6 +101,9 @@ export default function SavedItineraryPage({
   const [itinerary, setItinerary] = useState<ItineraryResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
+  // Once-per-mount guard for itinerary_viewed (StrictMode double-invokes
+  // effects in dev; without this we'd fire twice on every page load).
+  const viewedFiredRef = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -122,6 +126,17 @@ export default function SavedItineraryPage({
       cancelled = true;
     };
   }, [id]);
+
+  // Fire itinerary_viewed once the itinerary is loaded.
+  useEffect(() => {
+    if (!itinerary || viewedFiredRef.current) return;
+    viewedFiredRef.current = true;
+    track("itinerary_viewed", {
+      source: "saved",
+      itinerary_id: id,
+      is_past: isPastDate(itinerary.inputs.day),
+    });
+  }, [itinerary, id]);
 
   if (!loaded) return <StepLoading />;
 
@@ -160,6 +175,7 @@ export default function SavedItineraryPage({
           date={itinerary.inputs.day}
           partySize={2}
           isPast={isPast}
+          surface="saved"
         />
       </div>
       <ActionBar

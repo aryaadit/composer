@@ -1,6 +1,6 @@
 "use client";
 
-import { useReducer, useCallback } from "react";
+import { useCallback, useEffect, useReducer, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "motion/react";
 import { questionSteps } from "@/config/options";
@@ -22,6 +22,7 @@ import {
 import { STORAGE_KEYS } from "@/config/storage";
 import { getRecentVenueIds } from "@/lib/exclusions";
 import { useAuth } from "@/components/providers/AuthProvider";
+import { track, getAnalyticsHeaders } from "@/lib/analytics";
 import { Header } from "@/components/Header";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 import { Button } from "@/components/ui/Button";
@@ -29,6 +30,38 @@ import { StepLoading } from "./StepLoading";
 import { NeighborhoodStep } from "./NeighborhoodStep";
 import { StandardStep } from "./StandardStep";
 import { WhenStep } from "./WhenStep";
+
+// Map QuestionStep.id → canonical analytics label (per taxonomy spec).
+const STEP_ANALYTICS_LABEL: Record<string, string> = {
+  occasion: "occasion",
+  neighborhoods: "neighborhood",
+  budget: "budget",
+  vibe: "focus",
+  day: "when",
+};
+
+function deriveEntrySource(): string {
+  if (typeof window === "undefined") return "direct";
+  try {
+    const referrer = document.referrer;
+    if (!referrer) return "direct";
+    const url = new URL(referrer);
+    if (url.origin !== window.location.origin) return "direct";
+    if (url.pathname.startsWith("/itinerary/share")) return "share_link";
+    if (url.pathname.startsWith("/itinerary/saved")) return "saved_itinerary";
+    if (url.pathname === "/" || url.pathname === "") return "home_cta";
+    return "internal";
+  } catch {
+    return "direct";
+  }
+}
+
+function dayOfWeekFromISO(iso: string): string | null {
+  if (!iso) return null;
+  const d = new Date(`${iso}T12:00:00`);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toLocaleDateString("en-US", { weekday: "long" }).toLowerCase();
+}
 
 export function QuestionnaireShell() {
   const router = useRouter();
@@ -38,6 +71,33 @@ export function QuestionnaireShell() {
   // removed 2026-05-20 when the onboarding context step was dropped —
   // users now pick the occasion fresh each time.
   const { user } = useAuth();
+
+  // Step timing — wall-clock at the start of the currently-displayed
+  // step. Reset on every advance so compose_step_completed reports
+  // time_on_step_ms accurately.
+  const stepStartMsRef = useRef<number>(0);
+  useEffect(() => {
+    // First mount: fire compose_started + initialize timer for step 1.
+    stepStartMsRef.current = performance.now();
+    track("compose_started", { entry_source: deriveEntrySource() });
+  }, []);
+
+  const trackStepCompleted = useCallback(
+    (stepId: string, stepValue: unknown) => {
+      const now = performance.now();
+      const label = STEP_ANALYTICS_LABEL[stepId] ?? stepId;
+      const index =
+        questionSteps.findIndex((s) => s.id === stepId) + 1; // 1-indexed
+      track("compose_step_completed", {
+        step: label,
+        step_value: stepValue,
+        step_index: index,
+        time_on_step_ms: Math.round(now - stepStartMsRef.current),
+      });
+      stepStartMsRef.current = now;
+    },
+    []
+  );
 
   const submitAnswers = useCallback(
     async (body: GenerateRequestBody) => {
@@ -51,10 +111,20 @@ export function QuestionnaireShell() {
         ? await getRecentVenueIds(user.id)
         : [];
 
+      track("compose_submitted", {
+        occasion: body.occasion,
+        neighborhoods: body.neighborhoods,
+        budget: body.budget,
+        vibe: body.vibe,
+        time_block: body.timeBlock,
+        day: body.day,
+        day_of_week: dayOfWeekFromISO(body.day),
+      });
+
       try {
         const res = await fetch("/api/generate", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", ...getAnalyticsHeaders() },
           body: JSON.stringify({ ...body, excludeVenueIds }),
         });
         if (!res.ok) throw new Error("Generation failed");
@@ -93,28 +163,33 @@ export function QuestionnaireShell() {
     if (!currentStep) return;
     const value = state.answers[currentStep.id];
     if (!value) return;
+    trackStepCompleted(currentStep.id, value);
     dispatch({
       type: "SET_FIELD",
       field: currentStep.id,
       value,
       advance: true,
     });
-  }, [state.currentStep, state.answers]);
+  }, [state.currentStep, state.answers, trackStepCompleted]);
 
-  const handleNeighborhoodContinue = useCallback((groupIds: string[]) => {
-    // The picker hands us NEIGHBORHOOD_GROUPS ids; expand to storage slugs
-    // (deduped) before committing to state. Downstream scoring only sees
-    // slugs, so this expansion is the one and only translation point.
-    const expanded = Array.from(
-      new Set(groupIds.flatMap((id) => expandNeighborhoodGroup(id)))
-    ) as Neighborhood[];
-    dispatch({
-      type: "SET_FIELD",
-      field: "neighborhoods",
-      value: expanded,
-      advance: true,
-    });
-  }, []);
+  const handleNeighborhoodContinue = useCallback(
+    (groupIds: string[]) => {
+      // The picker hands us NEIGHBORHOOD_GROUPS ids; expand to storage slugs
+      // (deduped) before committing to state. Downstream scoring only sees
+      // slugs, so this expansion is the one and only translation point.
+      const expanded = Array.from(
+        new Set(groupIds.flatMap((id) => expandNeighborhoodGroup(id)))
+      ) as Neighborhood[];
+      trackStepCompleted("neighborhoods", groupIds);
+      dispatch({
+        type: "SET_FIELD",
+        field: "neighborhoods",
+        value: expanded,
+        advance: true,
+      });
+    },
+    [trackStepCompleted]
+  );
 
   const handleWhenContinue = useCallback(
     (day: string, timeBlock: TimeBlock) => {
@@ -122,6 +197,7 @@ export function QuestionnaireShell() {
       // immediately. Reducer gets the update for consistency / back-nav,
       // but the fetch body is built from local values to avoid racing
       // the reducer's next render.
+      trackStepCompleted("day", `${day}|${timeBlock}`);
       dispatch({ type: "SET_FIELDS", values: { day, timeBlock } });
       submitAnswers({
         ...(state.answers as Omit<GenerateRequestBody, "day" | "timeBlock">),
@@ -129,7 +205,7 @@ export function QuestionnaireShell() {
         timeBlock,
       });
     },
-    [state.answers, submitAnswers]
+    [state.answers, submitAnswers, trackStepCompleted]
   );
 
   if (state.status === "loading") {

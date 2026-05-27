@@ -8,6 +8,7 @@ import { formatCategory } from "@/lib/format/category";
 import { detectBookingPlatform, isValidReservationUrl } from "@/lib/booking";
 import { getVenueHeroImageUrl } from "@/lib/venues/images";
 import { buildResyBookingUrl } from "@/lib/availability/booking-url";
+import { track } from "@/lib/analytics";
 
 const BOOK_AHEAD_THRESHOLD = 3;
 
@@ -196,6 +197,15 @@ export function StopCard({
                     href={reserveHref}
                     target="_blank"
                     rel="noopener noreferrer"
+                    onClick={() =>
+                      track("reservation_clicked", {
+                        venue_id: v.id,
+                        venue_name: v.name,
+                        platform: bookingPlatform!.id,
+                        stop_role: stop.role,
+                        from_surface: "stop_card",
+                      })
+                    }
                     className="text-burgundy hover:text-burgundy-light transition-colors"
                   >
                     {bookingPlatform!.label} →

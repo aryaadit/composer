@@ -2,6 +2,7 @@
 
 import { useCallback, useRef, useState } from "react";
 import { useToast } from "@/components/ui/Toast";
+import { getAnalyticsHeaders } from "@/lib/analytics";
 import type { ItineraryResponse, ItineraryStop, WalkSegment } from "@/types";
 
 interface SwapState {
@@ -34,7 +35,7 @@ export function useSwapStop(
       try {
         const res = await fetch("/api/swap-stop", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", ...getAnalyticsHeaders() },
           body: JSON.stringify({
             itinerary,
             stopIndex: index,

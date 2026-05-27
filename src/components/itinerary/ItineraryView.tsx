@@ -4,6 +4,7 @@ import { Fragment, useState } from "react";
 import Link from "next/link";
 import { motion } from "motion/react";
 import { ItineraryResponse } from "@/types";
+import { track } from "@/lib/analytics";
 import { StopCard } from "@/components/ui/StopCard";
 import { WalkConnector } from "@/components/ui/WalkConnector";
 import { VenueDetailModal } from "@/components/venue/VenueDetailModal";
@@ -14,6 +15,8 @@ import {
 } from "./OrderingConflictBanner";
 import type { AvailabilitySlot } from "@/lib/availability/resy";
 import type { TimeBlock } from "@/lib/itinerary/time-blocks";
+
+export type ItinerarySurface = "fresh_itinerary" | "saved" | "share";
 
 interface ItineraryViewProps {
   stops: ItineraryResponse["stops"];
@@ -30,6 +33,10 @@ interface ItineraryViewProps {
    * reservation CTAs in StopCard, and replace add-stop with a
    * "Plan another →" CTA pointing at /compose. */
   isPast?: boolean;
+  /** Surface this view is mounted on. Threaded into analytics events
+   * (venue_detail_opened, reservation_clicked) so we can segment
+   * engagement by where the user encountered the itinerary. */
+  surface?: ItinerarySurface;
 }
 
 export function ItineraryView({
@@ -44,10 +51,13 @@ export function ItineraryView({
   swappingIndex,
   swapError,
   isPast = false,
+  surface = "fresh_itinerary",
 }: ItineraryViewProps) {
   const [detailIndex, setDetailIndex] = useState<number | null>(null);
   const detailVenue =
     detailIndex !== null ? stops[detailIndex]?.venue ?? null : null;
+  const detailRole =
+    detailIndex !== null ? stops[detailIndex]?.role ?? null : null;
 
   // Slot selection state — ephemeral, not persisted
   const [selectedSlots, setSelectedSlots] = useState<
@@ -69,6 +79,17 @@ export function ItineraryView({
       return next;
     });
     setConflictDismissed(false);
+  };
+
+  const handleVenueTap = (i: number) => {
+    const stop = stops[i];
+    track("venue_detail_opened", {
+      venue_id: stop.venue.id,
+      venue_name: stop.venue.name,
+      stop_role: stop.role,
+      from_surface: surface,
+    });
+    setDetailIndex(i);
   };
 
   const conflict = detectOrderingConflict(stops, selectedSlots);
@@ -107,7 +128,7 @@ export function ItineraryView({
                 date={date}
                 partySize={partySize}
                 onSwap={!isPast && onSwapStop ? () => onSwapStop(i) : undefined}
-                onVenueTap={() => setDetailIndex(i)}
+                onVenueTap={() => handleVenueTap(i)}
                 isSwapping={swappingIndex === i}
                 swapError={swapError?.index === i ? swapError.message : null}
                 isPast={isPast}
@@ -119,6 +140,7 @@ export function ItineraryView({
                     role={stop.role}
                     timeBlock={timeBlock}
                     platform={stop.venue.reservation_platform}
+                    venueId={stop.venue.id}
                     venueName={stop.venue.name}
                     venueSlug={stop.venue.resy_slug}
                     venueResyId={stop.venue.resy_venue_id}
@@ -177,6 +199,7 @@ export function ItineraryView({
       </div>
       <VenueDetailModal
         venue={detailVenue}
+        stopRole={detailRole}
         onClose={() => setDetailIndex(null)}
       />
     </>

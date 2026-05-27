@@ -7,6 +7,7 @@
 import { NextResponse } from "next/server";
 import { getSupabase } from "@/lib/supabase";
 import { getServerSupabase } from "@/lib/supabase/server";
+import { trackServer } from "@/lib/analytics-server";
 import { fetchWeather } from "@/lib/weather";
 import { pickBestForRole } from "@/lib/scoring";
 import {
@@ -61,6 +62,9 @@ function buildWalk(from: Venue, to: Venue): WalkSegment {
 }
 
 export async function POST(request: Request) {
+  const distinctId = request.headers.get("x-ph-distinct-id");
+  const sessionId = request.headers.get("x-ph-session-id");
+
   try {
     const { itinerary, stopIndex, excludeVenueIds } =
       (await request.json()) as SwapRequest;
@@ -148,6 +152,31 @@ export async function POST(request: Request) {
     // Rebuild summary fields from the patched stop list.
     const patchedVenues = currentStops.map((s, i) =>
       i === stopIndex ? best : s.venue
+    );
+
+    // Track stop swap server-side so it's correlated with itinerary_generated.
+    const supabase = await getServerSupabase();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    const fromVenue = stopToReplace.venue;
+    void trackServer(
+      "stop_swapped",
+      { userId: user?.id ?? null, distinctId, sessionId },
+      {
+        stop_index: stopIndex,
+        stop_role: stopToReplace.role,
+        from_venue_id: fromVenue.id,
+        from_venue_name: fromVenue.name,
+        from_neighborhood: fromVenue.neighborhood,
+        from_category: fromVenue.category ?? null,
+        to_venue_id: best.id,
+        to_venue_name: best.name,
+        to_neighborhood: best.neighborhood,
+        to_category: best.category ?? null,
+        occasion: inputs.occasion,
+        vibe: inputs.vibe,
+      }
     );
 
     return NextResponse.json({

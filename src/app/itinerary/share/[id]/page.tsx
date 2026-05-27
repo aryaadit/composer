@@ -5,9 +5,11 @@
 // and renders using the same components as the authenticated view.
 // Read-only: no save, no regenerate, no add-stop.
 
-import { use, useEffect, useState } from "react";
+import { use, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { getSupabase } from "@/lib/supabase";
+import { track } from "@/lib/analytics";
+import { useAuth } from "@/components/providers/AuthProvider";
 import { CompositionHeader } from "@/components/itinerary/CompositionHeader";
 import { ItineraryView } from "@/components/itinerary/ItineraryView";
 import { PastItineraryBanner } from "@/components/itinerary/PastItineraryBanner";
@@ -27,7 +29,37 @@ export default function SharedItineraryPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
+  const { user } = useAuth();
   const [state, setState] = useState<LoadState>({ status: "loading" });
+  const visitedFiredRef = useRef(false);
+  const viewedFiredRef = useRef(false);
+
+  // share_link_visited fires once per mount, the moment we know if the
+  // record exists. is_owner is always false today — composer_shared_
+  // itineraries doesn't store a user_id (see migration 20260420). If we
+  // ever add ownership, compare here against user.id.
+  useEffect(() => {
+    if (state.status === "loading" || visitedFiredRef.current) return;
+    visitedFiredRef.current = true;
+    track("share_link_visited", {
+      itinerary_id: id,
+      is_authenticated: !!user,
+      is_owner: false,
+      found: state.status === "found",
+    });
+  }, [state.status, id, user]);
+
+  // itinerary_viewed fires once per mount, after the share record
+  // resolves to a real itinerary. Skipped on not-found.
+  useEffect(() => {
+    if (state.status !== "found" || viewedFiredRef.current) return;
+    viewedFiredRef.current = true;
+    track("itinerary_viewed", {
+      source: "share",
+      itinerary_id: id,
+      is_past: isPastDate(state.itinerary.inputs?.day),
+    });
+  }, [state, id]);
 
   useEffect(() => {
     let cancelled = false;
@@ -86,6 +118,7 @@ export default function SharedItineraryPage({
           date={itinerary.inputs?.day}
           partySize={2}
           isPast={isPast}
+          surface="share"
         />
 
       {/* Minimal footer — Maps link + CTA to make their own */}
@@ -95,6 +128,12 @@ export default function SharedItineraryPage({
             href={itinerary.maps_url}
             target="_blank"
             rel="noopener noreferrer"
+            onClick={() =>
+              track("maps_opened", {
+                surface: "multi_stop_cta",
+                stop_count: itinerary.stops.length,
+              })
+            }
             className="text-charcoal hover:text-burgundy transition-colors inline-flex items-center gap-1"
           >
             Open in Maps

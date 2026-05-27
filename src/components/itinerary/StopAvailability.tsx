@@ -11,6 +11,7 @@ import {
 } from "@/lib/itinerary/time-blocks";
 import { buildResySlotBookingUrl } from "@/lib/availability/booking-url";
 import { detectBookingPlatform } from "@/lib/booking";
+import { track } from "@/lib/analytics";
 import type {
   StopAvailability as StopAvailabilityType,
   StopRole,
@@ -23,6 +24,7 @@ interface StopAvailabilityProps {
   role: StopRole;
   timeBlock: TimeBlock;
   platform: string | null;
+  venueId: string;
   venueName: string;
   venueSlug: string | null;
   venueResyId: number | null;
@@ -48,6 +50,7 @@ export function StopAvailabilitySection({
   role,
   timeBlock,
   platform,
+  venueId,
   venueName,
   venueSlug,
   venueResyId,
@@ -74,6 +77,15 @@ export function StopAvailabilitySection({
             href={bookingUrlBase}
             target="_blank"
             rel="noopener noreferrer"
+            onClick={() =>
+              track("reservation_clicked", {
+                venue_id: venueId,
+                venue_name: venueName,
+                platform: platform ?? "other",
+                stop_role: role,
+                from_surface: "availability_unconfirmed",
+              })
+            }
             className="inline-block font-sans text-sm text-burgundy hover:text-burgundy-light transition-colors"
           >
             Check availability →
@@ -94,6 +106,15 @@ export function StopAvailabilitySection({
             href={bookingUrlBase}
             target="_blank"
             rel="noopener noreferrer"
+            onClick={() =>
+              track("reservation_clicked", {
+                venue_id: venueId,
+                venue_name: venueName,
+                platform: platform ?? "other",
+                stop_role: role,
+                from_surface: "availability_no_slots",
+              })
+            }
             className="inline-block font-sans text-sm text-burgundy hover:text-burgundy-light transition-colors"
           >
             See other times →
@@ -110,6 +131,7 @@ export function StopAvailabilitySection({
       role={role}
       timeBlock={timeBlock}
       bookingUrlBase={bookingUrlBase}
+      venueId={venueId}
       venueName={venueName}
       venueSlug={venueSlug}
       venueResyId={venueResyId}
@@ -127,6 +149,7 @@ function HasSlotsView({
   role,
   timeBlock,
   bookingUrlBase,
+  venueId,
   venueName,
   venueSlug,
   venueResyId,
@@ -140,6 +163,7 @@ function HasSlotsView({
   role: StopRole;
   timeBlock: TimeBlock;
   bookingUrlBase: string | null;
+  venueId: string;
   venueName: string;
   venueSlug: string | null;
   venueResyId: number | null;
@@ -169,12 +193,18 @@ function HasSlotsView({
     return patched;
   })();
 
-  const handleSelect = (slot: AvailabilitySlot) => {
+  const handleSelect = (slot: AvailabilitySlot, position: number) => {
     if (selectedSlot?.token === slot.token) {
       onSelectSlot(null);
-    } else {
-      onSelectSlot(slot);
+      return;
     }
+    onSelectSlot(slot);
+    track("time_slot_selected", {
+      venue_id: venueId,
+      venue_name: venueName,
+      time: slot.time,
+      slot_position: position,
+    });
   };
 
   // Build slot-specific deep-link only when user has selected a time
@@ -217,6 +247,15 @@ function HasSlotsView({
             href={bookingUrlBase}
             target="_blank"
             rel="noopener noreferrer"
+            onClick={() =>
+              track("reservation_clicked", {
+                venue_id: venueId,
+                venue_name: venueName,
+                platform: reservePlatform.id,
+                stop_role: role,
+                from_surface: "availability_has_slots_header",
+              })
+            }
             className="font-sans text-sm text-burgundy hover:text-burgundy-light transition-colors"
           >
             {reservePlatform.label} →
@@ -224,12 +263,12 @@ function HasSlotsView({
         )}
       </div>
       <div className="flex flex-wrap gap-2">
-        {displayed.map((slot) => (
+        {displayed.map((slot, idx) => (
           <SlotChip
             key={slot.token}
             slot={slot}
             selected={selectedSlot?.token === slot.token}
-            onSelect={handleSelect}
+            onSelect={(s) => handleSelect(s, idx)}
           />
         ))}
       </div>
@@ -265,6 +304,16 @@ function HasSlotsView({
             href={bookingHref}
             target="_blank"
             rel="noopener noreferrer"
+            onClick={() =>
+              track("reservation_clicked", {
+                venue_id: venueId,
+                venue_name: venueName,
+                platform: "resy",
+                stop_role: role,
+                from_surface: "availability_slot_specific",
+                slot_time: selectedSlot?.time ?? null,
+              })
+            }
             className="inline-block px-5 py-2.5 rounded-full bg-burgundy text-cream font-sans text-sm font-medium hover:bg-burgundy-light transition-colors"
           >
             {buttonText}

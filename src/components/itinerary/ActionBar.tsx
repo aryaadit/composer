@@ -4,6 +4,7 @@ import { useState } from "react";
 import { motion } from "motion/react";
 import { getBrowserSupabase } from "@/lib/supabase/browser";
 import { useAuth } from "@/components/providers/AuthProvider";
+import { incrementPersonProperty, track } from "@/lib/analytics";
 import type { ItineraryResponse } from "@/types";
 
 interface ActionBarProps {
@@ -35,7 +36,7 @@ export function ActionBar({
     setSaveState("saving");
 
     const { inputs, header, stops, walking } = itinerary;
-    const { error } = await getBrowserSupabase()
+    const { data, error } = await getBrowserSupabase()
       .from("composer_saved_itineraries")
       .insert({
         user_id: user.id,
@@ -50,7 +51,9 @@ export function ActionBar({
         stops,
         walking,
         weather: header.weather,
-      });
+      })
+      .select("id")
+      .single();
 
     if (error) {
       console.error("[itinerary] save failed:", error.message);
@@ -58,6 +61,16 @@ export function ActionBar({
       setTimeout(() => setSaveState("idle"), 2500);
       return;
     }
+    track("itinerary_saved", {
+      itinerary_id: (data as { id: string } | null)?.id ?? null,
+      occasion: inputs.occasion,
+      neighborhoods: inputs.neighborhoods,
+      budget: inputs.budget,
+      vibe: inputs.vibe,
+      time_block: inputs.timeBlock,
+      stop_count: stops.length,
+    });
+    incrementPersonProperty("total_itineraries_saved", 1);
     setSaveState("saved");
   };
 
@@ -72,15 +85,26 @@ export function ActionBar({
         body: JSON.stringify(itinerary),
       });
       if (!res.ok) throw new Error("share failed");
-      const { url } = (await res.json()) as { id: string; url: string };
+      const { id, url } = (await res.json()) as { id: string; url: string };
 
       await navigator.clipboard.writeText(url);
+      track("share_link_copied", {
+        itinerary_id: id,
+        share_method: "button_click",
+      });
       setShareState("copied");
       setTimeout(() => setShareState("idle"), 3000);
     } catch {
       setShareState("error");
       setTimeout(() => setShareState("idle"), 2500);
     }
+  };
+
+  const handleMapsClick = () => {
+    track("maps_opened", {
+      surface: "multi_stop_cta",
+      stop_count: itinerary.stops.length,
+    });
   };
 
   const saveLabel =
@@ -114,6 +138,7 @@ export function ActionBar({
           href={itinerary.maps_url}
           target="_blank"
           rel="noopener noreferrer"
+          onClick={handleMapsClick}
           className="text-charcoal hover:text-burgundy transition-colors inline-flex items-center gap-1"
         >
           Open in Maps

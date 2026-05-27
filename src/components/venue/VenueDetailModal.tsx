@@ -5,18 +5,22 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import type { Venue } from "@/types";
+import type { StopRole, Venue } from "@/types";
 import { neighborhoodLabel } from "@/config/neighborhoods";
 import { formatCategory } from "@/lib/format/category";
 import { getVenueImageUrls } from "@/lib/venues/images";
-import { isValidReservationUrl } from "@/lib/booking";
+import { detectBookingPlatform, isValidReservationUrl } from "@/lib/booking";
+import { track } from "@/lib/analytics";
 
 interface VenueDetailModalProps {
   venue: Venue | null;
+  /** Stop role passed through from ItineraryView so reservation /
+   * maps events can attribute the click to its position in the night. */
+  stopRole?: StopRole | null;
   onClose: () => void;
 }
 
-export function VenueDetailModal({ venue, onClose }: VenueDetailModalProps) {
+export function VenueDetailModal({ venue, stopRole, onClose }: VenueDetailModalProps) {
   useEffect(() => {
     if (!venue) return;
     const handler = (e: KeyboardEvent) => {
@@ -60,7 +64,7 @@ export function VenueDetailModal({ venue, onClose }: VenueDetailModalProps) {
             exit={{ y: "100%", opacity: 0 }}
             transition={{ type: "spring", damping: 30, stiffness: 280 }}
           >
-            <VenueDetailContent venue={venue} onClose={onClose} />
+            <VenueDetailContent venue={venue} stopRole={stopRole ?? null} onClose={onClose} />
           </motion.div>
         </>
       )}
@@ -70,9 +74,11 @@ export function VenueDetailModal({ venue, onClose }: VenueDetailModalProps) {
 
 function VenueDetailContent({
   venue,
+  stopRole,
   onClose,
 }: {
   venue: Venue;
+  stopRole: StopRole | null;
   onClose: () => void;
 }) {
   // V2 venues have Google data as direct fields, not JSONB
@@ -194,6 +200,13 @@ function VenueDetailContent({
               }
               target="_blank"
               rel="noopener noreferrer"
+              onClick={() =>
+                track("maps_opened", {
+                  surface: "single_venue_modal",
+                  venue_id: venue.id,
+                  venue_name: venue.name,
+                })
+              }
               className="font-sans text-sm text-burgundy hover:text-burgundy-light transition-colors mt-1 inline-block"
             >
               Open in Maps →
@@ -211,6 +224,16 @@ function VenueDetailContent({
               href={venue.reservation_url}
               target="_blank"
               rel="noopener noreferrer"
+              onClick={() =>
+                track("reservation_clicked", {
+                  venue_id: venue.id,
+                  venue_name: venue.name,
+                  platform:
+                    detectBookingPlatform(venue.reservation_url)?.id ?? "other",
+                  stop_role: stopRole,
+                  from_surface: "venue_detail_modal",
+                })
+              }
               className="flex-1 text-center px-4 py-3 rounded-full bg-burgundy text-cream font-sans text-sm font-medium hover:bg-burgundy-light transition-colors"
             >
               Reserve

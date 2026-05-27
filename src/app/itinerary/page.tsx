@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import type {
@@ -14,12 +14,19 @@ import { STORAGE_KEYS } from "@/config/storage";
 import { getRecentVenueIds } from "@/lib/exclusions";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { useSwapStop } from "@/hooks/useSwapStop";
+import {
+  getAnalyticsHeaders,
+  incrementPersonProperty,
+  setPersonProperties,
+  track,
+} from "@/lib/analytics";
 import { CompositionHeader } from "@/components/itinerary/CompositionHeader";
 import { ItineraryView } from "@/components/itinerary/ItineraryView";
 import { ActionBar } from "@/components/itinerary/ActionBar";
 import { StepLoading } from "@/components/questionnaire/StepLoading";
 import { Button } from "@/components/ui/Button";
 import { Header } from "@/components/Header";
+import { isPastDate } from "@/lib/dateUtils";
 
 function persist(it: ItineraryResponse) {
   sessionStorage.setItem(
@@ -37,6 +44,13 @@ function ItineraryContent() {
   const [regenerating, setRegenerating] = useState(false);
   const [regenError, setRegenError] = useState(false);
 
+  // Bump on every fetchItinerary success — total_itineraries_generated
+  // gets +1 for each, and we forward the count to itinerary_regenerated
+  // so we can compare "how often do people regenerate."
+  const regenerationCountRef = useRef(0);
+  // Fire itinerary_viewed exactly once per mount (not on regen).
+  const viewedFiredRef = useRef(false);
+
   const updateItinerary = useCallback((next: ItineraryResponse) => {
     setItinerary(next);
     persist(next);
@@ -51,11 +65,16 @@ function ItineraryContent() {
     async (inputs: GenerateRequestBody, excludeVenueIds: string[] = []) => {
       const res = await fetch("/api/generate", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...getAnalyticsHeaders() },
         body: JSON.stringify({ ...inputs, excludeVenueIds }),
       });
       if (!res.ok) throw new Error("Generation failed");
-      return (await res.json()) as ItineraryResponse;
+      const data = (await res.json()) as ItineraryResponse;
+      // Person property bumps — done client-side per spec so they fire
+      // regardless of whether the server-side capture succeeded.
+      incrementPersonProperty("total_itineraries_generated", 1);
+      setPersonProperties({ last_active_at: new Date().toISOString() });
+      return data;
     },
     []
   );
@@ -88,6 +107,19 @@ function ItineraryContent() {
     load();
   }, [searchParams, fetchItinerary]);
 
+  // itinerary_viewed: fires once after the itinerary lands on this fresh
+  // surface. Skipped on the saved/share routes — they have their own
+  // page components that fire with the appropriate `source`.
+  useEffect(() => {
+    if (!itinerary || viewedFiredRef.current) return;
+    viewedFiredRef.current = true;
+    track("itinerary_viewed", {
+      source: "fresh",
+      itinerary_id: null,
+      is_past: isPastDate(itinerary.inputs?.day),
+    });
+  }, [itinerary]);
+
   // ── Regenerate ──────────────────────────────────────────────
   const handleRegenerate = async () => {
     if (!itinerary) return;
@@ -103,6 +135,16 @@ function ItineraryContent() {
       );
       const data = await fetchItinerary(itinerary.inputs, excludeVenueIds);
       updateItinerary(data);
+      regenerationCountRef.current += 1;
+      track("itinerary_regenerated", {
+        occasion: itinerary.inputs.occasion,
+        neighborhoods: itinerary.inputs.neighborhoods,
+        budget: itinerary.inputs.budget,
+        vibe: itinerary.inputs.vibe,
+        time_block: itinerary.inputs.timeBlock,
+        day: itinerary.inputs.day,
+        regeneration_count: regenerationCountRef.current,
+      });
     } catch {
       setRegenError(true);
       setTimeout(() => setRegenError(false), 3000);
@@ -121,7 +163,7 @@ function ItineraryContent() {
     try {
       const res = await fetch("/api/add-stop", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...getAnalyticsHeaders() },
         body: JSON.stringify({ itinerary }),
       });
       if (!res.ok) {
@@ -145,6 +187,14 @@ function ItineraryContent() {
         },
       };
       updateItinerary(next);
+      track("stop_added", {
+        new_stop_count: next.stops.length,
+        occasion: itinerary.inputs.occasion,
+        neighborhoods: itinerary.inputs.neighborhoods,
+        budget: itinerary.inputs.budget,
+        vibe: itinerary.inputs.vibe,
+        time_block: itinerary.inputs.timeBlock,
+      });
     } catch (err) {
       setAddStopError(
         err instanceof Error ? err.message : "Couldn't add a stop"

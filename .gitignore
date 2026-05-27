@@ -46,3 +46,7 @@ docs/*.json
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# wizard / agent leave-behinds (not source)
+.claude/skills/
+posthog-setup-report.md

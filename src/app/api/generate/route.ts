@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSupabase } from "@/lib/supabase";
 import { getServerSupabase } from "@/lib/supabase/server";
+import { trackServer } from "@/lib/analytics-server";
 import { fetchWeather } from "@/lib/weather";
 import { composeItinerary, ROLE_AVG_DURATION_MIN } from "@/lib/composer";
 import { generateCopy } from "@/lib/claude";
@@ -100,6 +101,7 @@ function computeWalkingMeta(
 }
 
 interface AuthedPrefs {
+  userId: string;
   name: string | null;
   drinks: string | null;
 }
@@ -125,6 +127,7 @@ async function readAuthedPrefs(): Promise<AuthedPrefs | null> {
       .maybeSingle();
 
     return {
+      userId: user.id,
       name: (profile?.name as string | null) ?? null,
       drinks: (profile?.drinks as string | null) ?? null,
     };
@@ -135,8 +138,18 @@ async function readAuthedPrefs(): Promise<AuthedPrefs | null> {
 }
 
 export async function POST(request: Request) {
+  // Analytics context — distinct_id / session_id come from the client's
+  // PostHog. Captured before the try so the catch can still attribute
+  // itinerary_generation_failed to the right person.
+  const distinctId = request.headers.get("x-ph-distinct-id");
+  const sessionId = request.headers.get("x-ph-session-id");
+  const generationStartMs = performance.now();
+  let analyticsInputs: Partial<GenerateRequestBody> = {};
+  let analyticsUserId: string | null = null;
+
   try {
     const body = (await request.json()) as GenerateRequestBody;
+    analyticsInputs = body;
 
     const excludeVenueIds = Array.isArray(body.excludeVenueIds)
       ? body.excludeVenueIds.filter((id): id is string => typeof id === "string")
@@ -155,6 +168,7 @@ export async function POST(request: Request) {
       fetchWeather(),
       getSupabase().from("composer_venues_v2").select("*").eq("active", true),
     ]);
+    analyticsUserId = prefs?.userId ?? null;
 
     if (venueResult.error) {
       return NextResponse.json(
@@ -253,6 +267,13 @@ export async function POST(request: Request) {
       venues = budgetFiltered;
     }
 
+    // Start "compose" timing here — all in-process CPU work below this
+    // line is what we mean by "the algorithm" (filtering already happened
+    // above; that's part of the pre-data setup we group with auth/weather).
+    // Compose ends after buildGoogleMapsUrl returns, before any external
+    // API calls (Gemini, Mapbox, Resy).
+    const composeStartMs = performance.now();
+
     // Seed jitter from request hash for deterministic itineraries.
     const seed = computeRequestSeed(body);
     const random = createSeededRandom(seed);
@@ -298,6 +319,12 @@ export async function POST(request: Request) {
     );
 
     const maps_url = buildGoogleMapsUrl(stops.map((s) => s.venue));
+
+    // Compose done; enrich starts here. Enrichment is dominated by external
+    // API latency (Gemini + Mapbox + Resy) — tracking it separately surfaces
+    // those bottlenecks without contaminating the algorithm signal.
+    const time_to_compose_ms = Math.round(performance.now() - composeStartMs);
+    const enrichStartMs = performance.now();
 
     // Enrich each walk with a Mapbox static image URL in parallel with copy
     // generation. Failures resolve to null and render text-only in the UI.
@@ -357,10 +384,67 @@ export async function POST(request: Request) {
       body.timeBlock,
       undefined
     );
+    const time_to_enrich_ms = Math.round(performance.now() - enrichStartMs);
+
+    // Track itinerary generation server-side for reliable funnel analytics.
+    // Fire-and-forget; the wrapper handles its own failures.
+    void trackServer(
+      "itinerary_generated",
+      { userId: analyticsUserId, distinctId, sessionId },
+      {
+        occasion: inputs.occasion,
+        vibe: inputs.vibe,
+        budget: inputs.budget,
+        time_block: inputs.timeBlock,
+        day: inputs.day,
+        neighborhoods: inputs.neighborhoods ?? [],
+        stop_count: enriched.stops.length,
+        venue_ids: enriched.stops.map((s) => s.venue.id),
+        venue_names: enriched.stops.map((s) => s.venue.name),
+        categories: enriched.stops.map((s) => s.venue.category ?? null),
+        neighborhoods_used: enriched.stops.map((s) => s.venue.neighborhood),
+        total_walk_min: enriched.walking?.total_walk_min ?? 0,
+        longest_walk_min: enriched.walking?.longest_walk_min ?? 0,
+        truncated_for_end_time: enriched.truncated_for_end_time ?? false,
+        time_total_ms: Math.round(performance.now() - generationStartMs),
+        time_to_compose_ms,
+        time_to_enrich_ms,
+      }
+    );
 
     return NextResponse.json(enriched);
   } catch (error) {
     console.error("Generation error:", error);
+
+    // Classify the error for the funnel. The catch swallows the
+    // underlying stack but the surface message is fine to ship — it
+    // never contains PII.
+    const message = error instanceof Error ? error.message : "Unknown error";
+    const reason: "no_venues_match" | "api_error" | "timeout" | "unknown" =
+      message.toLowerCase().includes("timeout")
+        ? "timeout"
+        : message.toLowerCase().includes("venue")
+        ? "no_venues_match"
+        : message.toLowerCase().includes("fetch") || message.toLowerCase().includes("api")
+        ? "api_error"
+        : "unknown";
+
+    void trackServer(
+      "itinerary_generation_failed",
+      { userId: analyticsUserId, distinctId, sessionId },
+      {
+        occasion: analyticsInputs.occasion ?? null,
+        vibe: analyticsInputs.vibe ?? null,
+        budget: analyticsInputs.budget ?? null,
+        time_block: analyticsInputs.timeBlock ?? null,
+        day: analyticsInputs.day ?? null,
+        neighborhoods: analyticsInputs.neighborhoods ?? [],
+        reason,
+        error_message: message.slice(0, 200),
+        time_to_fail_ms: Math.round(performance.now() - generationStartMs),
+      }
+    );
+
     return NextResponse.json(
       { error: "Failed to generate itinerary" },
       { status: 500 }

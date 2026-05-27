@@ -14,8 +14,11 @@
 // Neighborhood step removed 2026-04-28 — see commented-out block below.
 
 import { useRef, useState } from "react";
+// (no useEffect — startMs uses useState lazy init to capture mount time
+// without violating the react-hooks/purity rule on useRef arg evaluation)
 import { motion, AnimatePresence } from "motion/react";
 import { useRouter } from "next/navigation";
+import { track } from "@/lib/analytics";
 import { Button } from "@/components/ui/Button";
 import { upsertProfile } from "@/lib/auth";
 import { useAuth } from "@/components/providers/AuthProvider";
@@ -47,6 +50,13 @@ export function OnboardingFlow() {
 
   const [saving, setSaving] = useState(false);
   const savingRef = useRef(false);
+
+  // Wall-clock at onboarding mount — used to compute time_to_complete_ms
+  // on the onboarding_completed event. useState's lazy initializer runs
+  // exactly once on mount (before paint, no effect commit needed) and the
+  // value is stable across renders. Doesn't trigger re-renders because we
+  // never call the setter.
+  const [startMs] = useState(() => performance.now());
 
   const handleNext = () => setStep((s) => Math.min(s + 1, TOTAL_STEPS - 1));
   const handleBack = () => setStep((s) => Math.max(s - 1, 0));
@@ -89,6 +99,11 @@ export function OnboardingFlow() {
     try {
       const saved = await upsertProfile(user.id, prefs);
       if (saved) {
+        track("onboarding_completed", {
+          has_drinks_pref: !!prefs.drinks,
+          has_dietary_pref: (prefs.dietary?.length ?? 0) > 0,
+          time_to_complete_ms: Math.round(performance.now() - startMs),
+        });
         await refreshProfile();
         router.replace("/");
       } else {
