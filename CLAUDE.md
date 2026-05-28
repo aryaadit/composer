@@ -452,7 +452,17 @@ fix(weather): handle OpenWeatherMap timeout gracefully
 chore(venues): add 12 new West Village venues to seed
 ```
 
-**Never run `git commit`, `git push`, or `git add`.** When a task is complete, provide the suggested commit message in the format above and stop. The developer runs all git commands manually.
+**You ALWAYS draft commit messages; the developer ALWAYS runs git.** These are two separate behaviors — drafting is required, executing is forbidden.
+
+**Drafting rules (required behavior):**
+- When a task is ready to commit, output a `type(scope): description` message in a code block in the response itself — not buried in an exported doc.
+- If the work spans unrelated concerns, split into multiple drafted commits, each with its own one-line message and a brief note about which files belong in which commit.
+- Draft even when the user says "don't commit yet," "I'll commit later," or similar. Drafting is informational; the gate is on execution, not proposal.
+
+**Execution rules (forbidden behavior):**
+- Never run `git add`, `git commit`, `git push`, `git stash`, `git reset`, `git checkout -b`, `git remote set-url`, or any other write operation that mutates repo state.
+- Inspection-only commands are fine: `git status`, `git diff`, `git log`, `git remote -v`, `git branch`.
+- If the user says "commit it" / "run the commit" / "push it" in conversation, treat it as them narrating their next action. Re-state the drafted message and remind them you don't run git — do not execute.
 
 ---
 
@@ -551,7 +561,7 @@ npx tsc --noEmit
 - Don't TRUNCATE `composer_venues_v2` without snapshotting `image_keys` first — the column isn't in the sheet.
 - Don't add features that aren't in the PRD without flagging them first. Scope creep kills MVPs.
 - Don't assume desktop-first. Mobile is the primary surface.
-- Don't run `git commit`, `git push`, or `git add`. Provide the commit message and let the developer run it.
+- Don't run git write operations. Always draft the commit message instead. See "Git Commits" section above for full rules.
 
 ---
 
