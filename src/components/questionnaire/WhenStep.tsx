@@ -121,6 +121,19 @@ export function WhenStep({
             min={todayISO}
             value={customSelected ? day : ""}
             onChange={handleDatePicked}
+            onClick={(e) => {
+              // Desktop browsers don't auto-open the picker on a click that lands
+              // on the input's bounding box (only on the calendar icon, which
+              // appearance:none strips). showPicker() bridges that — requires user
+              // activation, which onClick provides. iOS Safari opens the picker
+              // natively before this fires; the call may then throw or no-op,
+              // either way harmless.
+              try {
+                e.currentTarget.showPicker?.();
+              } catch {
+                // iOS may throw NotAllowedError when picker is already open. Ignore.
+              }
+            }}
             aria-label="Pick a date"
             className="absolute inset-0 w-full h-full opacity-0 cursor-pointer appearance-none bg-transparent"
           />
