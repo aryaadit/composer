@@ -10,6 +10,7 @@ import { getServerSupabase } from "@/lib/supabase/server";
 import { trackServer } from "@/lib/analytics-server";
 import { fetchWeather } from "@/lib/weather";
 import { pickBestForRole } from "@/lib/scoring";
+import { enrichWithAvailability } from "@/lib/itinerary/availability-enrichment";
 import {
   walkTimeMinutes,
   walkDistanceKm,
@@ -139,6 +140,25 @@ export async function POST(request: Request) {
       plan_b: planB,
     };
 
+    // Enrich the new stop with Resy availability so the StopAvailability
+    // widget renders (status, slots, bookingUrlBase). Wrap-and-extract:
+    // enrichWithAvailability operates on a whole ItineraryResponse, so
+    // we build a minimal one containing just newStop, enrich it, and
+    // pull the enriched stop back out. candidatePool=undefined disables
+    // the recursive swap-on-empty-slots — we're already in a swap.
+    const fakeResponse: ItineraryResponse = {
+      ...itinerary,
+      stops: [newStop],
+    };
+    const enrichedFake = await enrichWithAvailability(
+      fakeResponse,
+      inputs.day,
+      2, // default party size — matches /api/generate
+      inputs.timeBlock,
+      undefined
+    );
+    const enrichedStop = enrichedFake.stops[0];
+
     // Recompute only the walks adjacent to the swapped stop.
     const walkBefore =
       stopIndex > 0
@@ -180,7 +200,7 @@ export async function POST(request: Request) {
     );
 
     return NextResponse.json({
-      stop: newStop,
+      stop: enrichedStop,
       walks: { before: walkBefore, after: walkAfter },
       maps_url: buildGoogleMapsUrl(patchedVenues),
       estimated_total: calculateTotalSpend(
