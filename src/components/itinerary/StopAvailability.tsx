@@ -66,12 +66,29 @@ export function StopAvailabilitySection({
   if (status === "walk_in") return null;
 
   if (status === "unconfirmed") {
-    const name = PLATFORM_NAMES[platform ?? ""] ?? "the venue";
+    // Derive platform from the URL (not the DB field) so venues with a
+    // null reservation_platform but an OpenTable URL still get the right
+    // copy. Falls back to the platform prop / "the venue" when the URL
+    // is missing.
+    const detected = bookingUrlBase ? detectBookingPlatform(bookingUrlBase) : null;
+    const detectedId = detected?.id;
+    const trackedPlatform = detectedId ?? platform ?? "other";
+
+    let copy: string;
+    if (detectedId === "opentable") {
+      copy = "OpenTable doesn't share live availability — book directly";
+    } else if (detectedId === "resy") {
+      copy = "Couldn't load times — check directly on Resy";
+    } else if (detectedId === "tock") {
+      copy = "Couldn't load times — check directly on Tock";
+    } else {
+      const name = PLATFORM_NAMES[platform ?? ""] ?? "the venue";
+      copy = `Couldn't load times — check directly on ${name}`;
+    }
+
     return (
       <div className="mt-3 space-y-2">
-        <p className="font-sans text-xs text-muted italic">
-          Couldn&apos;t load times — check directly on {name}
-        </p>
+        <p className="font-sans text-xs text-muted italic">{copy}</p>
         {bookingUrlBase && (
           <a
             href={bookingUrlBase}
@@ -81,7 +98,7 @@ export function StopAvailabilitySection({
               track("reservation_clicked", {
                 venue_id: venueId,
                 venue_name: venueName,
-                platform: platform ?? "other",
+                platform: trackedPlatform,
                 stop_role: role,
                 from_surface: "availability_unconfirmed",
               })

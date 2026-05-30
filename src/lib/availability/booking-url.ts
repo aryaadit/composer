@@ -3,6 +3,9 @@
 //   1. buildResyBookingUrl — venue page with date + seats pre-filled (fallback)
 //   2. buildResySlotBookingUrl — widget deep-link to "Complete reservation" with
 //      specific slot pre-selected (Corner's approach, confirmed via network capture)
+// Plus:
+//   3. buildOpenTableBookingUrl — append OpenTable's pre-fill params to the
+//      venue's reservation_url so the page opens with date + party set.
 
 import type { AvailabilitySlot } from "./resy";
 
@@ -16,6 +19,30 @@ export function buildResyBookingUrl(
   partySize: number
 ): string {
   return `https://resy.com/cities/ny/venues/${slug}?date=${date}&seats=${partySize}`;
+}
+
+/**
+ * Append OpenTable pre-fill query params to a venue's reservation_url so
+ * the page opens with date + party size pre-set. Uses OpenTable's
+ * canonical params (`dateTime` combined ISO local + `covers` party size).
+ * Verified against opentable.com/r/* on 2026-05-30.
+ *
+ * Falls back to the original string if URL parsing throws.
+ */
+export function buildOpenTableBookingUrl(
+  reservationUrl: string,
+  date: string,        // "2026-05-30"
+  partySize: number,
+  startTime: string    // "19:00" (24h, from resolveTimeWindow)
+): string {
+  try {
+    const url = new URL(reservationUrl);
+    url.searchParams.set("dateTime", `${date}T${startTime}`);
+    url.searchParams.set("covers", String(partySize));
+    return url.toString();
+  } catch {
+    return reservationUrl;
+  }
 }
 
 /**

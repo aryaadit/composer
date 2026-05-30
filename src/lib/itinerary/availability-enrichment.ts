@@ -3,9 +3,12 @@
 // attempts a swap if a Resy venue has no slots in the block.
 
 import { getResyAvailability } from "@/lib/availability/resy";
-import { buildResyBookingUrl } from "@/lib/availability/booking-url";
-import { isValidReservationUrl } from "@/lib/booking";
-import { isSlotInBlock } from "@/lib/itinerary/time-blocks";
+import {
+  buildResyBookingUrl,
+  buildOpenTableBookingUrl,
+} from "@/lib/availability/booking-url";
+import { detectBookingPlatform, isValidReservationUrl } from "@/lib/booking";
+import { isSlotInBlock, resolveTimeWindow } from "@/lib/itinerary/time-blocks";
 import { haversineKm } from "@/lib/geo";
 import type { TimeBlock } from "@/types";
 import type {
@@ -19,6 +22,30 @@ import type { AvailabilitySlot } from "@/lib/availability/resy";
 const RESY_TIMEOUT_MS = 5000;
 const MAX_SWAP_CANDIDATES = 3;
 const SWAP_RADIUS_KM = 1.6; // ~1 mile
+
+/**
+ * Choose the booking URL to expose to the client:
+ *   - OpenTable URL → pre-fill date + party via buildOpenTableBookingUrl
+ *   - Anything else valid → return as-is
+ *   - Invalid / missing → null
+ *
+ * Single place for the "do we know how to enrich this URL?" decision so
+ * the three unconfirmed-branches and the walk_in-rescue branch stay in
+ * sync.
+ */
+function upgradeUrlForPlatform(
+  url: string | null | undefined,
+  date: string,
+  partySize: number,
+  startTime: string
+): string | null {
+  if (!isValidReservationUrl(url)) return null;
+  const platform = detectBookingPlatform(url);
+  if (platform?.id === "opentable") {
+    return buildOpenTableBookingUrl(url, date, partySize, startTime);
+  }
+  return url;
+}
 
 async function fetchResyWithTimeout(
   resyVenueId: number,
@@ -43,7 +70,8 @@ function buildAvailability(
   slots: AvailabilitySlot[],
   timeBlock: TimeBlock,
   date: string,
-  partySize: number
+  partySize: number,
+  startTime: string
 ): StopAvailability {
   const platform = venue.reservation_platform ?? "none";
 
@@ -55,9 +83,12 @@ function buildAvailability(
     return {
       status: "unconfirmed",
       slots: [],
-      bookingUrlBase: isValidReservationUrl(venue.reservation_url)
-        ? venue.reservation_url
-        : null,
+      bookingUrlBase: upgradeUrlForPlatform(
+        venue.reservation_url,
+        date,
+        partySize,
+        startTime
+      ),
       swapped: false,
     };
   }
@@ -162,6 +193,7 @@ export async function enrichWithAvailability(
   timeBlock: TimeBlock,
   candidatePool?: Venue[]
 ): Promise<ItineraryResponse> {
+  const { startTime } = resolveTimeWindow(timeBlock);
   const usedIds = new Set(response.stops.map((s) => s.venue.id));
 
   const enrichedStops = await Promise.all(
@@ -169,8 +201,29 @@ export async function enrichWithAvailability(
       const venue = stop.venue;
       const platform = venue.reservation_platform ?? "none";
 
-      // Skip non-Resy venues
+      // Skip non-Resy venues — but rescue OpenTable venues whose
+      // reservation_platform is null (60 such rows in the DB as of
+      // 2026-05-30). detectBookingPlatform reads the URL, so a venue
+      // with reservation_url=opentable.com/... still surfaces a booking
+      // link instead of silently routing to walk_in.
       if (platform === "none") {
+        const detected = detectBookingPlatform(venue.reservation_url);
+        if (detected?.id === "opentable") {
+          return {
+            ...stop,
+            availability: {
+              status: "unconfirmed",
+              slots: [],
+              bookingUrlBase: upgradeUrlForPlatform(
+                venue.reservation_url,
+                date,
+                partySize,
+                startTime
+              ),
+              swapped: false,
+            },
+          };
+        }
         return {
           ...stop,
           availability: {
@@ -192,9 +245,12 @@ export async function enrichWithAvailability(
           availability: {
             status: "unconfirmed",
             slots: [],
-            bookingUrlBase: isValidReservationUrl(venue.reservation_url)
-              ? venue.reservation_url
-              : null,
+            bookingUrlBase: upgradeUrlForPlatform(
+              venue.reservation_url,
+              date,
+              partySize,
+              startTime
+            ),
             swapped: false,
           },
         };
@@ -233,7 +289,8 @@ export async function enrichWithAvailability(
         slots,
         timeBlock,
         date,
-        partySize
+        partySize,
+        startTime
       );
 
       if (
