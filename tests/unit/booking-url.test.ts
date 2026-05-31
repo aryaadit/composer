@@ -53,7 +53,7 @@ describe("buildResyBookingUrl", () => {
   it("builds venue page URL with date and seats", () => {
     const url = buildResyBookingUrl("lelabar", "2026-04-25", 2);
     expect(url).toBe(
-      "https://resy.com/cities/ny/venues/lelabar?date=2026-04-25&seats=2"
+      "https://resy.com/cities/new-york-ny/venues/lelabar?date=2026-04-25&seats=2"
     );
   });
 

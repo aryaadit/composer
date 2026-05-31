@@ -18,7 +18,7 @@ export function buildResyBookingUrl(
   date: string,
   partySize: number
 ): string {
-  return `https://resy.com/cities/ny/venues/${slug}?date=${date}&seats=${partySize}`;
+  return `https://resy.com/cities/new-york-ny/venues/${slug}?date=${date}&seats=${partySize}`;
 }
 
 /**
