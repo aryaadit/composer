@@ -77,11 +77,22 @@ export function StopCard({
   // more times" respectively). Otherwise they live in this card's footer.
   const hasSlots = stop.availability?.status === "has_slots";
 
+  // StopAvailability renders its own contextual CTA for has_slots,
+  // unconfirmed, and no_slots_in_block (e.g., "Check availability →",
+  // "See other times →"). When any of those will fire, suppress the
+  // StopCard footer link to avoid a redundant CTA. The footer link
+  // still renders when availability is undefined (no enrichment data —
+  // old saved itineraries) or walk_in (StopAvailability returns null).
+  const hasAvailabilityCta =
+    stop.availability?.status === "has_slots" ||
+    stop.availability?.status === "unconfirmed" ||
+    stop.availability?.status === "no_slots_in_block";
+
   // Past itineraries hide reservation CTAs entirely — the data behind
   // them (slot availability, party-size links) is no longer accurate.
   const showInlineReserve =
     !isPast &&
-    !hasSlots &&
+    !hasAvailabilityCta &&
     !!bookingPlatform &&
     isValidReservationUrl(v.reservation_url);
 
