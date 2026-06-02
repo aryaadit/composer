@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import Link from "next/link";
 import { motion } from "motion/react";
 import { ItineraryResponse } from "@/types";
@@ -8,6 +8,7 @@ import { track } from "@/lib/analytics";
 import { StopCard } from "@/components/ui/StopCard";
 import { WalkConnector } from "@/components/ui/WalkConnector";
 import { VenueDetailModal } from "@/components/venue/VenueDetailModal";
+import { ItineraryMap } from "./ItineraryMap";
 import { StopAvailabilitySection } from "./StopAvailability";
 import {
   OrderingConflictBanner,
@@ -15,6 +16,8 @@ import {
 } from "./OrderingConflictBanner";
 import type { AvailabilitySlot } from "@/lib/availability/resy";
 import type { TimeBlock } from "@/lib/itinerary/time-blocks";
+
+const HIGHLIGHT_DURATION_MS = 1500;
 
 export type ItinerarySurface = "fresh_itinerary" | "saved" | "share";
 
@@ -65,6 +68,18 @@ export function ItineraryView({
   >({});
   const [conflictDismissed, setConflictDismissed] = useState(false);
 
+  // Pin-tap highlight: set by ItineraryMap when the user taps a pin,
+  // passed into the matching StopCard for a transient ring pulse,
+  // cleared after HIGHLIGHT_DURATION_MS so the visual is brief.
+  const [highlightedStopIndex, setHighlightedStopIndex] = useState<
+    number | null
+  >(null);
+  useEffect(() => {
+    if (highlightedStopIndex === null) return;
+    const t = setTimeout(() => setHighlightedStopIndex(null), HIGHLIGHT_DURATION_MS);
+    return () => clearTimeout(t);
+  }, [highlightedStopIndex]);
+
   const handleSelectSlot = (
     venueId: string,
     slot: AvailabilitySlot | null
@@ -111,6 +126,11 @@ export function ItineraryView({
 
   return (
     <>
+      <ItineraryMap
+        stops={stops}
+        surface={surface}
+        onHighlightStop={setHighlightedStopIndex}
+      />
       {!isPast && conflict && !conflictDismissed && (
         <OrderingConflictBanner
           conflict={conflict}
@@ -132,6 +152,7 @@ export function ItineraryView({
                 isSwapping={swappingIndex === i}
                 swapError={swapError?.index === i ? swapError.message : null}
                 isPast={isPast}
+                highlighted={highlightedStopIndex === i}
               />
               {!isPast && stop.availability && (
                 <div className="px-0 pb-6">

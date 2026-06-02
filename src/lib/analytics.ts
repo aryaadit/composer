@@ -45,6 +45,8 @@ export const EVENTS = {
   RESERVATION_CLICKED: "reservation_clicked",
   MAPS_OPENED: "maps_opened",
   VENUE_DETAIL_OPENED: "venue_detail_opened",
+  ITINERARY_MAP_PIN_TAPPED: "itinerary_map_pin_tapped",
+  ITINERARY_MAP_EXPANDED: "itinerary_map_expanded",
 
   // Save / share
   ITINERARY_SAVED: "itinerary_saved",

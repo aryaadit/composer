@@ -25,6 +25,10 @@ interface StopCardProps {
    * not being passed). Used on past-date itineraries where the data is
    * stale and a reservation flow would be misleading. */
   isPast?: boolean;
+  /** Briefly applied (~1.5s) when the user taps the matching pin on
+   * ItineraryMap. Renders a burgundy ring around the card to surface
+   * where the user just jumped. Cleared by the parent via timeout. */
+  highlighted?: boolean;
 }
 
 function SwapSkeleton() {
@@ -62,6 +66,7 @@ export function StopCard({
   isSwapping = false,
   swapError,
   isPast = false,
+  highlighted = false,
 }: StopCardProps) {
   const v = stop.venue;
   const activeNote = stop.curation_note;
@@ -124,7 +129,10 @@ export function StopCard({
 
   return (
     <motion.div
-      className="py-5"
+      data-stop-index={index}
+      className={`py-5 transition-all duration-300 ${
+        highlighted ? "ring-2 ring-burgundy/40 rounded-lg" : ""
+      }`}
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, delay: index * 0.15 }}
