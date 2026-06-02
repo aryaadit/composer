@@ -6,10 +6,14 @@
 //   1. Directions API (walking profile) → encoded polyline
 //   2. Static Images API → URL with the polyline + two pins as overlays
 //
-// Token is MAPBOX_TOKEN (server-side only). When missing, we short-circuit to
-// null and log once per request so dev without a token still works.
+// Token is NEXT_PUBLIC_MAPBOX_TOKEN. Same token is used by the interactive
+// client-side ItineraryMap (Mapbox GL JS), so it must be NEXT_PUBLIC_-prefixed.
+// The token is already de facto public — embedded in every <img src> URL this
+// helper renders — so the NEXT_PUBLIC_ prefix just makes that explicit.
+// When missing, we short-circuit to null and log once per request so dev
+// without a token still works.
 
-const TOKEN = process.env.MAPBOX_TOKEN ?? "";
+const TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN ?? "";
 const STYLE = "mapbox/light-v11";
 const STROKE = "6B1E2E"; // brand burgundy
 const WIDTH = 512;
@@ -48,7 +52,7 @@ export async function buildWalkMapUrl(
   toLon: number
 ): Promise<string | null> {
   if (!TOKEN) {
-    console.warn("[mapbox] MAPBOX_TOKEN not set; walk maps disabled");
+    console.warn("[mapbox] NEXT_PUBLIC_MAPBOX_TOKEN not set; walk maps disabled");
     return null;
   }
 

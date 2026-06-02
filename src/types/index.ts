@@ -226,8 +226,9 @@ export interface WalkSegment {
   to: string;
   distance_km: number;
   walk_minutes: number;
-  // Mapbox static image URL showing the walking route. Null when MAPBOX_TOKEN
-  // is missing or Directions failed; WalkConnector then renders text-only.
+  // Mapbox static image URL showing the walking route. Null when
+  // NEXT_PUBLIC_MAPBOX_TOKEN is missing or Directions failed; WalkConnector
+  // then renders text-only.
   map_url?: string | null;
 }
 
