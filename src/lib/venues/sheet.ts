@@ -1,7 +1,7 @@
 // Sheets + Drive API wrapper for the venue importer.
 //
 // Owns:
-//   - service-account auth (env vars or local JSON key)
+//   - service-account auth from GOOGLE_SHEETS_CLIENT_EMAIL + GOOGLE_SHEETS_PRIVATE_KEY
 //   - reading the NYC Venues tab (headers + data rows)
 //   - fetching sheet identity for Layer 1 safety (title, last modified)
 //
@@ -9,8 +9,6 @@
 // (src/lib/google-sheets.ts) was deleted in Phase 5b — its only consumer
 // was the pre-cutover admin route, which now uses this module instead.
 
-import * as fs from "fs";
-import * as path from "path";
 import { google, type sheets_v4 } from "googleapis";
 
 import {
@@ -51,15 +49,6 @@ function getAuth(): InstanceType<typeof google.auth.GoogleAuth> {
       },
       scopes: SCOPES,
     });
-  }
-
-  // Local-dev fallback: service account JSON checked into docs/.
-  const keyFile = path.resolve(
-    process.cwd(),
-    "docs/palate-composer-67baf1d883e3.json"
-  );
-  if (fs.existsSync(keyFile)) {
-    return new google.auth.GoogleAuth({ keyFile, scopes: SCOPES });
   }
 
   throw new Error(
