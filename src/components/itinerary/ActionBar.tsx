@@ -47,11 +47,8 @@ export function ActionBar({
         budget: inputs.budget,
         vibe: inputs.vibe,
         day: inputs.day,
-        // time_block is a legacy NOT-NULL column. Phase 1 saves no
-        // longer carry a categorical block — write "evening" so the
-        // constraint holds. The saved view derives startTime via
-        // startTimeFromLegacyBlock for old rows; new rows have
-        // startTime baked into inputs via the stops snapshot.
+        start_time: inputs.startTime,
+        // Legacy NOT NULL column. The authoritative start time lives in `start_time`.
         time_block: "evening",
         stops,
         walking,

@@ -18,85 +18,9 @@ import { ActionBar } from "@/components/itinerary/ActionBar";
 import { StepLoading } from "@/components/questionnaire/StepLoading";
 import { Button } from "@/components/ui/Button";
 import { Header } from "@/components/Header";
-import {
-  walkTimeMinutes,
-  walkDistanceKm,
-  buildGoogleMapsUrl,
-} from "@/lib/geo";
 import { isPastDate } from "@/lib/dateUtils";
-import { calculateTotalSpend } from "@/config/budgets";
-import {
-  resolveTimeWindow,
-  startTimeFromLegacyBlock,
-} from "@/lib/itinerary/time-blocks";
-import type {
-  ItineraryResponse,
-  ItineraryStop,
-  SavedItinerary,
-  WalkSegment,
-} from "@/types";
-
-function rebuildWalks(stops: ItineraryStop[]): WalkSegment[] {
-  const walks: WalkSegment[] = [];
-  for (let i = 0; i < stops.length - 1; i++) {
-    const a = stops[i].venue;
-    const b = stops[i + 1].venue;
-    walks.push({
-      from: a.name,
-      to: b.name,
-      distance_km: walkDistanceKm(a.latitude, a.longitude, b.latitude, b.longitude),
-      walk_minutes: walkTimeMinutes(a.latitude, a.longitude, b.latitude, b.longitude),
-    });
-  }
-  return walks;
-}
-
-function toItineraryResponse(saved: SavedItinerary): ItineraryResponse {
-  const stops = saved.stops ?? [];
-  const walks = rebuildWalks(stops);
-  return {
-    header: {
-      title: saved.custom_name || saved.title || "Saved plan",
-      subtitle: saved.subtitle ?? "",
-      occasion_tag: saved.occasion ?? "",
-      vibe_tag: saved.vibe ?? "",
-      estimated_total: calculateTotalSpend(stops.map((s) => s.venue.price_tier ?? 2)),
-      weather: saved.weather,
-    },
-    stops,
-    walks,
-    walking:
-      saved.walking ?? {
-        longest_walk_min: walks.reduce((m, w) => Math.max(m, w.walk_minutes), 0),
-        total_walk_min: walks.reduce((s, w) => s + w.walk_minutes, 0),
-        any_over_cap: false,
-        cap_min: 15,
-      },
-    truncated_for_end_time: false,
-    maps_url: buildGoogleMapsUrl(stops.map((s) => s.venue)),
-    // Reconstruct inputs for display. Pre-Phase-1 saves carry a
-    // categorical `time_block` (morning/afternoon/late_night/evening);
-    // we map that to a sensible startTime via startTimeFromLegacyBlock
-    // and derive endTime from the standard 5-hour window. Saved
-    // itineraries never re-run the algorithm — this is display only.
-    // Budget is cast through the wider DB type since old saves can
-    // carry "all_out" / "no_preference"; ComposeBudget would reject
-    // them at the type level.
-    inputs: (() => {
-      const startTime = startTimeFromLegacyBlock(saved.time_block);
-      const { endTime } = resolveTimeWindow(startTime);
-      return {
-        occasion: (saved.occasion ?? "") as ItineraryResponse["inputs"]["occasion"],
-        neighborhoods: (saved.neighborhoods ?? []) as ItineraryResponse["inputs"]["neighborhoods"],
-        budget: (saved.budget ?? "") as ItineraryResponse["inputs"]["budget"],
-        vibe: (saved.vibe ?? "") as ItineraryResponse["inputs"]["vibe"],
-        day: saved.day ?? "",
-        startTime,
-        endTime,
-      };
-    })(),
-  };
-}
+import { hydrateSavedItinerary } from "@/lib/itinerary/saved-hydration";
+import type { ItineraryResponse, SavedItinerary } from "@/types";
 
 export default function SavedItineraryPage({
   params,
@@ -126,7 +50,7 @@ export default function SavedItineraryPage({
           setLoaded(true);
           return;
         }
-        setItinerary(toItineraryResponse(data));
+        setItinerary(hydrateSavedItinerary(data));
         setLoaded(true);
       });
     return () => {

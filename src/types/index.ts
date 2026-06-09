@@ -275,10 +275,13 @@ export interface ItineraryResponse {
   inputs: QuestionnaireAnswers;
 }
 
-// Row shape of the `composer_saved_itineraries` table. `time_block`
-// pre-dates the Phase 1 startTime refactor — new saves always write
-// "evening", old saves carry morning/afternoon/late_night/evening. The
-// saved view translates to a startTime via `startTimeFromLegacyBlock`.
+// Row shape of the `composer_saved_itineraries` table. The
+// authoritative start time lives in `start_time` (added 2026-06-09 as
+// part of Phase 1 fidelity). `time_block` pre-dates the refactor —
+// new saves write the literal "evening" to satisfy the NOT NULL
+// constraint; legacy saves carry morning/afternoon/late_night/evening
+// and are mapped via `startTimeFromLegacyBlock` only when `start_time`
+// is null.
 export interface SavedItinerary {
   id: string;
   user_id: string;
@@ -290,6 +293,7 @@ export interface SavedItinerary {
   budget: string | null;
   vibe: string | null;
   day: string | null;
+  start_time?: string | null;
   time_block: string;
   stops: ItineraryStop[];
   walking: WalkingMeta | null;

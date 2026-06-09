@@ -22,15 +22,17 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "No itinerary" }, { status: 400 });
     }
 
-    // composer_shared_itineraries.time_block is a pre-Phase-1 column.
-    // New shares carry startTime in itinerary.inputs; we still write
-    // "evening" to the column so the NOT-NULL constraint is satisfied
-    // and existing reporting queries don't break. Backlog: drop the
-    // column once nothing reads it.
+    // Hydration on /itinerary/share/[id] reads the full
+    // ItineraryResponse out of the `itinerary` JSONB column, so
+    // start_time is already preserved there. The denormalized
+    // `start_time` column is for parity with composer_saved_itineraries
+    // and future reporting queries. Legacy NOT NULL `time_block` is
+    // kept satisfied with "evening" until a future migration relaxes it.
     const { data, error } = await supabase
       .from("composer_shared_itineraries")
       .insert({
         itinerary,
+        start_time: itinerary.inputs?.startTime ?? null,
         time_block: "evening",
       })
       .select("id")
