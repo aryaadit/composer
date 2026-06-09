@@ -13,6 +13,17 @@
 
 const FLAG_KEY = "composer_compose_abandoned_flag";
 export const ABANDONMENT_CAP_MS = 60 * 60 * 1000;
+// Minimum age a flag must reach before it's considered "stale" enough
+// to emit compose_abandoned. AuthProvider's boot-check effect fires
+// ~microseconds after QuestionnaireShell's mount effect sets a fresh
+// flag (children-first effect ordering means the parent runs after
+// the child); without this guard, AuthProvider would consume the
+// freshly-set flag, fire a spurious compose_abandoned, and delete
+// the flag — breaking abandonment tracking for the rest of the
+// session. 2 seconds is comfortably larger than any plausible
+// effect-ordering gap and far smaller than any plausible real
+// abandonment.
+export const FLAG_MIN_AGE_MS = 2_000;
 
 export interface AbandonedFlag {
   compose_started_at: number;
@@ -109,6 +120,12 @@ export function checkAndEmitIfStale(
   const flag = readFlag(storage);
   if (!flag) return;
   const rawElapsed = Math.max(0, now - flag.compose_started_at);
+  // Don't eat flags that were set within the last FLAG_MIN_AGE_MS —
+  // they're almost certainly a flag QuestionnaireShell just set this
+  // commit, not a real abandonment. See FLAG_MIN_AGE_MS comment for
+  // context. Same guard handles the clock-skew case (now < flag.set_at)
+  // because Math.max(0, ...) means rawElapsed = 0 < FLAG_MIN_AGE_MS.
+  if (rawElapsed < FLAG_MIN_AGE_MS) return;
   const time_in_flow_ms = Math.min(rawElapsed, ABANDONMENT_CAP_MS);
   emit("compose_abandoned", {
     time_in_flow_ms,

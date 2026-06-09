@@ -84,13 +84,18 @@ export function QuestionnaireShell() {
   const stepStartMsRef = useRef<number>(0);
   useEffect(() => {
     // First mount: fire compose_started + initialize timer for step 1.
-    // Before setting a new abandonment flag, drain any stale one (covers
-    // the same-tab "abandon → restart compose" sequence — the boot
-    // check in AuthProvider only fires once per page load).
+    // Strict order is drain → set → fire so the abandonment flag is
+    // already in place by the time compose_started lands in PostHog,
+    // and so a stale flag (from a same-tab "abandon → restart" sequence)
+    // is reported via compose_abandoned BEFORE the new flow's events.
+    // AuthProvider also runs checkAndEmitIfStale at app boot; the
+    // FLAG_MIN_AGE_MS guard inside the helper stops it from eating
+    // the flag we just set on the same commit (children-first effect
+    // ordering means AuthProvider's check fires microseconds later).
     checkAndEmitIfStale(track);
+    setComposeAbandonedFlag();
     stepStartMsRef.current = performance.now();
     track("compose_started", { entry_source: deriveEntrySource() });
-    setComposeAbandonedFlag();
   }, []);
 
   const trackStepCompleted = useCallback(
