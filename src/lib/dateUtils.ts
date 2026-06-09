@@ -82,3 +82,66 @@ export function formatPastDateLabel(dayISO: string | undefined | null): string {
     day: "numeric",
   });
 }
+
+/**
+ * Short, scannable date label for the saved-plans list (Phase 5).
+ *
+ *   - "Wed Jun 10"            (same year as today)
+ *   - "Wed Jun 10, 2027"      (different year — appended for clarity)
+ *
+ * Built by composing the weekday + month parts independently because
+ * en-US `toLocaleDateString` injects a comma after the short weekday
+ * when combined ("Wed, Jun 10"). We want spec format without that
+ * comma. Noon-anchored to dodge DST. Returns "" on missing/malformed
+ * input so callers can conditionally include the segment.
+ */
+export function formatShortDateLabel(dayISO: string | undefined | null): string {
+  if (!dayISO || !/^\d{4}-\d{2}-\d{2}$/.test(dayISO)) return "";
+  const [y, m, d] = dayISO.split("-").map(Number);
+  const date = new Date(y, m - 1, d, 12, 0, 0);
+  const weekday = date.toLocaleDateString("en-US", { weekday: "short" });
+  const month = date.toLocaleDateString("en-US", { month: "short" });
+  const base = `${weekday} ${month} ${d}`;
+  const currentYear = new Date().getFullYear();
+  return y === currentYear ? base : `${base}, ${y}`;
+}
+
+/**
+ * Split a list of items with an itinerary `day` field into upcoming + past.
+ *
+ * "Past" matches the `isPastDate` definition: strictly before today's
+ * local date. Same-day itineraries land in Upcoming (matches Phase 1's
+ * "today is current" rule — same as the saved-page banner logic).
+ *
+ *   - Upcoming: ASC by day  (soonest first)
+ *   - Past:     DESC by day  (most-recently-past first, UX-natural)
+ *   - Rows with null/missing day always land in Upcoming (`isPastDate(null)
+ *     === false`) and sort to the END of their section.
+ *
+ * Generic over `T extends { day: string | null }` so the helper has no
+ * runtime dependency on SavedItinerary — the type-only constraint is
+ * structural and any compatible row shape works.
+ */
+export function splitPlansByDate<T extends { day: string | null }>(
+  plans: T[],
+): { upcoming: T[]; past: T[] } {
+  const upcoming: T[] = [];
+  const past: T[] = [];
+  for (const plan of plans) {
+    if (isPastDate(plan.day)) past.push(plan);
+    else upcoming.push(plan);
+  }
+  upcoming.sort((a, b) => {
+    if (!a.day && !b.day) return 0;
+    if (!a.day) return 1; // nulls to end
+    if (!b.day) return -1;
+    return a.day.localeCompare(b.day); // ASC — soonest first
+  });
+  past.sort((a, b) => {
+    if (!a.day && !b.day) return 0;
+    if (!a.day) return 1;
+    if (!b.day) return -1;
+    return b.day.localeCompare(a.day); // DESC — most-recently-past first
+  });
+  return { upcoming, past };
+}

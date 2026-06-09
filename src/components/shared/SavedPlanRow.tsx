@@ -7,6 +7,12 @@
 import { useRef, useState } from "react";
 import Link from "next/link";
 import type { SavedItinerary } from "@/types";
+import { formatShortDateLabel } from "@/lib/dateUtils";
+import {
+  formatStartTimeLabel,
+  startTimeFromLegacyBlock,
+} from "@/lib/itinerary/time-blocks";
+import { neighborhoodLabel } from "@/config/neighborhoods";
 
 interface SavedPlanRowProps {
   plan: SavedItinerary;
@@ -23,12 +29,24 @@ export function SavedPlanRow({
   onRenamed,
 }: SavedPlanRowProps) {
   const displayName = plan.custom_name || plan.title || "Saved plan";
-  const stops = plan.stops ?? [];
-  const firstStop = stops[0];
-  const date = new Date(plan.created_at).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-  });
+
+  // Phase 5 secondary line: WHEN the plan is for, not when it was saved.
+  // Format: "Wed Jun 10 · 9 PM · West Village". Each segment is omitted
+  // gracefully if its data is missing — formatShortDateLabel returns ""
+  // on null/malformed day, neighborhood segment is conditional on a
+  // non-empty array. start_time always resolves via the legacy fallback
+  // (time_block NOT NULL → startTimeFromLegacyBlock defaults to "19:00").
+  const dayLabel = formatShortDateLabel(plan.day);
+  const resolvedStartTime =
+    plan.start_time ?? startTimeFromLegacyBlock(plan.time_block);
+  const startLabel = formatStartTimeLabel(resolvedStartTime);
+  const firstNeighborhood = (plan.neighborhoods ?? [])[0];
+  const neighborhoodSegment = firstNeighborhood
+    ? neighborhoodLabel(firstNeighborhood)
+    : "";
+  const secondaryLine = [dayLabel, startLabel, neighborhoodSegment]
+    .filter((s) => s.length > 0)
+    .join(" · ");
 
   // ── Inline rename ───────────────────────────────────────────
   const [editing, setEditing] = useState(false);
@@ -124,9 +142,11 @@ export function SavedPlanRow({
             {plan.subtitle}
           </div>
         )}
-        <div className="font-sans text-xs text-muted mt-1">
-          {firstStop?.venue?.name ?? "—"} · {stops.length} stops · saved {date}
-        </div>
+        {secondaryLine && (
+          <div className="font-sans text-xs text-muted mt-1">
+            {secondaryLine}
+          </div>
+        )}
       </div>
 
       {confirming ? (

@@ -1,5 +1,10 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { isPastDate, formatPastDateLabel } from "@/lib/dateUtils";
+import {
+  isPastDate,
+  formatPastDateLabel,
+  formatShortDateLabel,
+  splitPlansByDate,
+} from "@/lib/dateUtils";
 
 // ── isPastDate ────────────────────────────────────────────────
 //
@@ -101,5 +106,136 @@ describe("formatPastDateLabel", () => {
     expect(formatPastDateLabel("")).toBe("");
     expect(formatPastDateLabel("not-a-date")).toBe("");
     expect(formatPastDateLabel("2026/05/11")).toBe("");
+  });
+});
+
+// ── Phase 5: formatShortDateLabel ─────────────────────────────
+//
+// Compact label for the saved-plans list. "Wed Jun 10" when the year
+// matches today's; "Wed Jun 10, 2027" otherwise. Noon-anchored to
+// dodge DST. Empty string on missing/malformed input.
+
+describe("formatShortDateLabel", () => {
+  beforeEach(() => {
+    // Pin "now" to 2026-06-09 so year comparisons are deterministic.
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 5, 9, 12, 0, 0));
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("formats a same-year date as 'Weekday Month Day' (no year)", () => {
+    // 2026-06-10 — same year as the pinned now (2026).
+    const label = formatShortDateLabel("2026-06-10");
+    // Shape: short weekday, short month, numeric day, no year.
+    expect(label).toMatch(/^[A-Z][a-z]{2} [A-Z][a-z]{2} \d{1,2}$/);
+    // Not containing the year as a literal.
+    expect(label).not.toContain("2026");
+  });
+
+  it("appends the year when the itinerary's year differs from today's", () => {
+    const label = formatShortDateLabel("2027-01-15");
+    // Shape: short weekday, short month, day, comma + year.
+    expect(label).toMatch(/^[A-Z][a-z]{2} [A-Z][a-z]{2} \d{1,2}, 2027$/);
+    expect(label).toContain("2027");
+  });
+
+  it("also appends year for past-year dates (e.g. legacy 2025 saves)", () => {
+    expect(formatShortDateLabel("2025-12-20")).toContain("2025");
+  });
+
+  it("returns empty string for null / undefined / empty / malformed", () => {
+    expect(formatShortDateLabel(null)).toBe("");
+    expect(formatShortDateLabel(undefined)).toBe("");
+    expect(formatShortDateLabel("")).toBe("");
+    expect(formatShortDateLabel("not-a-date")).toBe("");
+    expect(formatShortDateLabel("2026/06/10")).toBe("");
+  });
+});
+
+// ── Phase 5: splitPlansByDate ────────────────────────────────
+//
+// Partitions a list of plans into Upcoming + Past using isPastDate's
+// strict-before-today rule. Upcoming ASC (soonest first), Past DESC
+// (most-recently-past first). Null `day` lands in Upcoming, sorted to
+// the end.
+
+describe("splitPlansByDate", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 5, 9, 12, 0, 0)); // 2026-06-09
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  function plan(id: string, day: string | null) {
+    return { id, day };
+  }
+
+  it("partitions strictly-before-today as past; today and future as upcoming", () => {
+    const result = splitPlansByDate([
+      plan("yesterday", "2026-06-08"),
+      plan("today", "2026-06-09"),
+      plan("tomorrow", "2026-06-10"),
+      plan("last-week", "2026-06-02"),
+      plan("next-month", "2026-07-15"),
+    ]);
+    expect(result.upcoming.map((p) => p.id)).toEqual(["today", "tomorrow", "next-month"]);
+    expect(result.past.map((p) => p.id)).toEqual(["yesterday", "last-week"]);
+  });
+
+  it("sorts upcoming ASC by day (soonest first)", () => {
+    const result = splitPlansByDate([
+      plan("c", "2026-07-15"),
+      plan("a", "2026-06-09"),
+      plan("b", "2026-06-25"),
+    ]);
+    expect(result.upcoming.map((p) => p.id)).toEqual(["a", "b", "c"]);
+  });
+
+  it("sorts past DESC by day (most-recently-past first)", () => {
+    const result = splitPlansByDate([
+      plan("oldest", "2026-01-10"),
+      plan("middle", "2026-04-20"),
+      plan("newest", "2026-06-08"),
+    ]);
+    expect(result.past.map((p) => p.id)).toEqual(["newest", "middle", "oldest"]);
+  });
+
+  it("null day lands in upcoming, sorted to the end of its section", () => {
+    const result = splitPlansByDate([
+      plan("null-day", null),
+      plan("today", "2026-06-09"),
+      plan("future", "2026-07-15"),
+    ]);
+    expect(result.upcoming.map((p) => p.id)).toEqual([
+      "today",
+      "future",
+      "null-day",
+    ]);
+    expect(result.past).toEqual([]);
+  });
+
+  it("empty input returns empty sections", () => {
+    const result = splitPlansByDate([]);
+    expect(result.upcoming).toEqual([]);
+    expect(result.past).toEqual([]);
+  });
+
+  it("all-upcoming + all-past inputs each produce one empty section", () => {
+    expect(
+      splitPlansByDate([plan("a", "2026-07-01"), plan("b", "2026-08-01")]).past,
+    ).toEqual([]);
+    expect(
+      splitPlansByDate([plan("a", "2025-01-01"), plan("b", "2025-02-01")]).upcoming,
+    ).toEqual([]);
+  });
+
+  it("today counts as upcoming, not past (consistent with isPastDate)", () => {
+    const result = splitPlansByDate([plan("today", "2026-06-09")]);
+    expect(result.upcoming).toHaveLength(1);
+    expect(result.past).toHaveLength(0);
   });
 });

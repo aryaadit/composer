@@ -4,13 +4,14 @@
 // useSavedPlans hook and SavedPlanRow component for the saved
 // plans list, keeping behavior identical to the profile page.
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { Header } from "@/components/Header";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { useSavedPlans } from "@/hooks/useSavedPlans";
 import { SavedPlanRow } from "@/components/shared/SavedPlanRow";
+import { splitPlansByDate } from "@/lib/dateUtils";
 
 function UserIcon() {
   return (
@@ -59,6 +60,16 @@ export function HomeScreen({ userName }: HomeScreenProps) {
     limit: 10,
   });
 
+  // Phase 5: split by itinerary day, not save date. The hook still
+  // orders by created_at DESC (exclusions.ts depends on that), so the
+  // 10-row limit hits on save-recency — the split then partitions
+  // whichever subset Home is showing into Upcoming + Past sections.
+  const { upcoming, past } = useMemo(
+    () => splitPlansByDate(savedPlans),
+    [savedPlans],
+  );
+  const hasAnyPlans = savedPlans.length > 0;
+
   const totalStops = savedPlans.reduce(
     (sum, p) => sum + (p.stops?.length ?? 0),
     0
@@ -98,33 +109,66 @@ export function HomeScreen({ userName }: HomeScreenProps) {
         </Link>
       </div>
 
-      {/* Saved plans */}
+      {/* Saved plans — split into Upcoming + Past (Phase 5) */}
       <div className="px-6 flex-1 max-w-lg w-full mx-auto">
-        <h2 className="font-sans text-xs tracking-widest uppercase text-muted mb-4">
-          Your plans
-        </h2>
         {loading ? (
-          <div className="py-10 text-muted border-t border-border">
-            <p className="font-sans text-sm">Loading...</p>
-          </div>
-        ) : savedPlans.length === 0 ? (
-          <div className="py-10 text-muted border-t border-border">
-            <p className="font-sans text-sm">No saved plans yet.</p>
-            <p className="font-sans text-xs mt-1">
-              Compose your first night and save it.
-            </p>
-          </div>
+          <>
+            <h2 className="font-sans text-xs tracking-widest uppercase text-muted mb-4">
+              Your plans
+            </h2>
+            <div className="py-10 text-muted border-t border-border">
+              <p className="font-sans text-sm">Loading...</p>
+            </div>
+          </>
+        ) : !hasAnyPlans ? (
+          <>
+            <h2 className="font-sans text-xs tracking-widest uppercase text-muted mb-4">
+              Your plans
+            </h2>
+            <div className="py-10 text-muted border-t border-border">
+              <p className="font-sans text-sm">No saved plans yet.</p>
+              <p className="font-sans text-xs mt-1">
+                Compose your first night and save it.
+              </p>
+            </div>
+          </>
         ) : (
-          <div className="divide-y divide-border border-t border-border">
-            {savedPlans.map((plan) => (
-              <SavedPlanRow
-                key={plan.id}
-                plan={plan}
-                onDelete={deletePlan}
-                onRenamed={renamePlan}
-              />
-            ))}
-          </div>
+          <>
+            {upcoming.length > 0 && (
+              <section className="mb-8">
+                <h2 className="font-sans text-xs tracking-widest uppercase text-muted mb-4">
+                  Upcoming
+                </h2>
+                <div className="divide-y divide-border border-t border-border">
+                  {upcoming.map((plan) => (
+                    <SavedPlanRow
+                      key={plan.id}
+                      plan={plan}
+                      onDelete={deletePlan}
+                      onRenamed={renamePlan}
+                    />
+                  ))}
+                </div>
+              </section>
+            )}
+            {past.length > 0 && (
+              <section className="mb-8">
+                <h2 className="font-sans text-xs tracking-widest uppercase text-muted mb-4">
+                  Past
+                </h2>
+                <div className="divide-y divide-border border-t border-border">
+                  {past.map((plan) => (
+                    <SavedPlanRow
+                      key={plan.id}
+                      plan={plan}
+                      onDelete={deletePlan}
+                      onRenamed={renamePlan}
+                    />
+                  ))}
+                </div>
+              </section>
+            )}
+          </>
         )}
       </div>
 

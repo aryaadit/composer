@@ -1,10 +1,13 @@
 "use client";
 
 // Saved itineraries section on the profile page. Uses the shared
-// SavedPlanRow component and useSavedPlans hook.
+// SavedPlanRow component and useSavedPlans hook. Phase 5 split into
+// Upcoming + Past sections — same partitioning logic as HomeScreen.
 
+import { useMemo } from "react";
 import { useSavedPlans } from "@/hooks/useSavedPlans";
 import { SavedPlanRow } from "@/components/shared/SavedPlanRow";
+import { splitPlansByDate } from "@/lib/dateUtils";
 
 interface Props {
   userId: string;
@@ -15,33 +18,73 @@ export function SavedPlansList({ userId }: Props) {
     userId,
   });
 
-  return (
-    <section className="mb-10">
-      <h2 className="font-sans text-xs tracking-widest uppercase text-muted mb-5">
-        Saved itineraries
-      </h2>
+  const { upcoming, past } = useMemo(() => splitPlansByDate(plans), [plans]);
+  const hasAnyPlans = plans.length > 0;
 
-      {loading ? (
+  if (loading) {
+    return (
+      <section className="mb-10">
+        <h2 className="font-sans text-xs tracking-widest uppercase text-muted mb-5">
+          Saved itineraries
+        </h2>
         <p className="font-sans text-sm text-muted py-8">Loading...</p>
-      ) : plans.length === 0 ? (
+      </section>
+    );
+  }
+
+  if (!hasAnyPlans) {
+    return (
+      <section className="mb-10">
+        <h2 className="font-sans text-xs tracking-widest uppercase text-muted mb-5">
+          Saved itineraries
+        </h2>
         <div className="py-8 border-t border-border">
           <p className="font-sans text-sm text-muted">
             No saved nights yet. Generate one and tap Save.
           </p>
         </div>
-      ) : (
-        <div className="divide-y divide-border border-t border-border">
-          {plans.map((plan) => (
-            <SavedPlanRow
-              key={plan.id}
-              plan={plan}
-              showSubtitle
-              onDelete={deletePlan}
-              onRenamed={renamePlan}
-            />
-          ))}
-        </div>
+      </section>
+    );
+  }
+
+  return (
+    <div className="mb-10">
+      {upcoming.length > 0 && (
+        <section className="mb-8">
+          <h2 className="font-sans text-xs tracking-widest uppercase text-muted mb-5">
+            Upcoming
+          </h2>
+          <div className="divide-y divide-border border-t border-border">
+            {upcoming.map((plan) => (
+              <SavedPlanRow
+                key={plan.id}
+                plan={plan}
+                showSubtitle
+                onDelete={deletePlan}
+                onRenamed={renamePlan}
+              />
+            ))}
+          </div>
+        </section>
       )}
-    </section>
+      {past.length > 0 && (
+        <section className="mb-8">
+          <h2 className="font-sans text-xs tracking-widest uppercase text-muted mb-5">
+            Past
+          </h2>
+          <div className="divide-y divide-border border-t border-border">
+            {past.map((plan) => (
+              <SavedPlanRow
+                key={plan.id}
+                plan={plan}
+                showSubtitle
+                onDelete={deletePlan}
+                onRenamed={renamePlan}
+              />
+            ))}
+          </div>
+        </section>
+      )}
+    </div>
   );
 }
