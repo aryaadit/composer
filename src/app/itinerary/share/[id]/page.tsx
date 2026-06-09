@@ -13,6 +13,10 @@ import { useAuth } from "@/components/providers/AuthProvider";
 import { CompositionHeader } from "@/components/itinerary/CompositionHeader";
 import { ItineraryView } from "@/components/itinerary/ItineraryView";
 import { PastItineraryBanner } from "@/components/itinerary/PastItineraryBanner";
+import {
+  ItineraryEngagementProvider,
+  useEngagement,
+} from "@/components/itinerary/EngagementProvider";
 import { Header } from "@/components/Header";
 import { Button } from "@/components/ui/Button";
 import { isPastDate } from "@/lib/dateUtils";
@@ -106,47 +110,68 @@ export default function SharedItineraryPage({
   const { itinerary } = state;
   const isPast = isPastDate(itinerary.inputs?.day);
   return (
-    <main className="flex flex-1 flex-col items-center min-h-screen pb-8">
-      <Header />
-      <div className="w-full px-6 mt-6 flex flex-col items-center">
-        <CompositionHeader header={itinerary.header} inputs={itinerary.inputs} />
-        {isPast && <PastItineraryBanner day={itinerary.inputs?.day} />}
-        <ItineraryView
-          stops={itinerary.stops}
-          walks={itinerary.walks}
-          date={itinerary.inputs?.day}
-          partySize={2}
-          isPast={isPast}
-          surface="share"
-        />
-
-      {/* Minimal footer — Maps link + CTA to make their own */}
-      <div className="w-full max-w-lg mx-auto mt-10 pt-4 border-t border-border">
-        <div className="flex items-center justify-between font-sans text-sm">
-          <a
-            href={itinerary.maps_url}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={() =>
-              track("maps_opened", {
-                surface: "multi_stop_cta",
-                stop_count: itinerary.stops.length,
-              })
-            }
-            className="text-charcoal hover:text-burgundy transition-colors inline-flex items-center gap-1"
-          >
-            Open in Maps
-            <span aria-hidden className="text-muted">→</span>
-          </a>
-          <Link
-            href="/compose"
-            className="text-burgundy hover:text-burgundy-light transition-colors font-medium"
-          >
-            Compose your own →
-          </Link>
+    <ItineraryEngagementProvider source="share" itineraryId={id}>
+      <main className="flex flex-1 flex-col items-center min-h-screen pb-8">
+        <Header />
+        <div className="w-full px-6 mt-6 flex flex-col items-center">
+          <CompositionHeader header={itinerary.header} inputs={itinerary.inputs} />
+          {isPast && <PastItineraryBanner day={itinerary.inputs?.day} />}
+          <ItineraryView
+            stops={itinerary.stops}
+            walks={itinerary.walks}
+            date={itinerary.inputs?.day}
+            partySize={2}
+            isPast={isPast}
+            surface="share"
+          />
+          <ShareFooter
+            mapsUrl={itinerary.maps_url}
+            stopCount={itinerary.stops.length}
+          />
         </div>
+      </main>
+    </ItineraryEngagementProvider>
+  );
+}
+
+// Footer extracted so it can call useEngagement (the share page itself
+// renders the provider, so its component body is outside the provider's
+// scope). "Compose your own" is intentionally not an engagement event —
+// it's a recipient-facing marketing CTA, different actor from the
+// itinerary owner.
+function ShareFooter({
+  mapsUrl,
+  stopCount,
+}: {
+  mapsUrl: string;
+  stopCount: number;
+}) {
+  const { trackEngagement } = useEngagement();
+  return (
+    <div className="w-full max-w-lg mx-auto mt-10 pt-4 border-t border-border">
+      <div className="flex items-center justify-between font-sans text-sm">
+        <a
+          href={mapsUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={() =>
+            trackEngagement("maps_opened", {
+              surface: "multi_stop_cta",
+              stop_count: stopCount,
+            })
+          }
+          className="text-charcoal hover:text-burgundy transition-colors inline-flex items-center gap-1"
+        >
+          Open in Maps
+          <span aria-hidden className="text-muted">→</span>
+        </a>
+        <Link
+          href="/compose"
+          className="text-burgundy hover:text-burgundy-light transition-colors font-medium"
+        >
+          Compose your own →
+        </Link>
       </div>
-      </div>
-    </main>
+    </div>
   );
 }

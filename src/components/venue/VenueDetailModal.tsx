@@ -10,7 +10,7 @@ import { neighborhoodLabel } from "@/config/neighborhoods";
 import { formatCategory } from "@/lib/format/category";
 import { getVenueImageUrls } from "@/lib/venues/images";
 import { detectBookingPlatform, isValidReservationUrl } from "@/lib/booking";
-import { track } from "@/lib/analytics";
+import { useEngagement } from "@/components/itinerary/EngagementProvider";
 
 interface VenueDetailModalProps {
   venue: Venue | null;
@@ -81,6 +81,7 @@ function VenueDetailContent({
   stopRole: StopRole | null;
   onClose: () => void;
 }) {
+  const { trackEngagement } = useEngagement();
   // V2 venues have Google data as direct fields, not JSONB
   const photos = getVenueImageUrls(venue.image_keys ?? []);
 
@@ -201,7 +202,7 @@ function VenueDetailContent({
               target="_blank"
               rel="noopener noreferrer"
               onClick={() =>
-                track("maps_opened", {
+                trackEngagement("maps_opened", {
                   surface: "single_venue_modal",
                   venue_id: venue.id,
                   venue_name: venue.name,
@@ -225,7 +226,7 @@ function VenueDetailContent({
               target="_blank"
               rel="noopener noreferrer"
               onClick={() =>
-                track("reservation_clicked", {
+                trackEngagement("reservation_clicked", {
                   venue_id: venue.id,
                   venue_name: venue.name,
                   platform:

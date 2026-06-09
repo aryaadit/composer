@@ -14,7 +14,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import dynamic from "next/dynamic";
-import { track, EVENTS } from "@/lib/analytics";
+import { EVENTS } from "@/lib/analytics";
+import { useEngagement } from "@/components/itinerary/EngagementProvider";
 import type { ItineraryStop } from "@/types";
 import type { ItinerarySurface } from "./ItineraryView";
 import type { MapPin } from "./ItineraryMapInner";
@@ -46,6 +47,7 @@ export function ItineraryMap({
   surface,
   onHighlightStop,
 }: ItineraryMapProps) {
+  const { trackEngagement } = useEngagement();
   // Build pin list — filter stops missing coordinates so route segments
   // skip them entirely (interpolate around) and pins aren't dropped at
   // (0,0). The `label` preserves the user-facing stop number even when
@@ -93,7 +95,7 @@ export function ItineraryMap({
 
   const handlePinClick = useCallback(
     (pin: MapPin) => {
-      track(EVENTS.ITINERARY_MAP_PIN_TAPPED, {
+      trackEngagement(EVENTS.ITINERARY_MAP_PIN_TAPPED, {
         stop_index: pin.originalIndex,
         venue_id: pin.venueId,
         venue_name: pin.venueName,
@@ -111,16 +113,16 @@ export function ItineraryMap({
       // wanted to jump to the stop, not stay in the map.
       if (expanded) setExpanded(false);
     },
-    [surface, onHighlightStop, expanded]
+    [surface, onHighlightStop, expanded, trackEngagement]
   );
 
   const handleMapClick = useCallback(() => {
     // Only the inline map should expand. When already fullscreen, taps
     // on the map body do nothing (backdrop has its own handler).
     if (expanded) return;
-    track(EVENTS.ITINERARY_MAP_EXPANDED, { from_surface: surface });
+    trackEngagement(EVENTS.ITINERARY_MAP_EXPANDED, { from_surface: surface });
     setExpanded(true);
-  }, [expanded, surface]);
+  }, [expanded, surface, trackEngagement]);
 
   if (pins.length === 0) return null;
 

@@ -11,7 +11,7 @@ import {
 } from "@/lib/itinerary/time-blocks";
 import { buildResySlotBookingUrl } from "@/lib/availability/booking-url";
 import { detectBookingPlatform } from "@/lib/booking";
-import { track } from "@/lib/analytics";
+import { useEngagement } from "@/components/itinerary/EngagementProvider";
 import type {
   StopAvailability as StopAvailabilityType,
   StopRole,
@@ -62,6 +62,7 @@ export function StopAvailabilitySection({
   onSelectSlot,
   onSwap,
 }: StopAvailabilityProps) {
+  const { trackEngagement } = useEngagement();
   const { status, slots, bookingUrlBase } = availability;
 
   // Walk-in status is now shown in StopCard's meta line — no separate badge
@@ -97,7 +98,7 @@ export function StopAvailabilitySection({
             target="_blank"
             rel="noopener noreferrer"
             onClick={() =>
-              track("reservation_clicked", {
+              trackEngagement("reservation_clicked", {
                 venue_id: venueId,
                 venue_name: venueName,
                 platform: trackedPlatform,
@@ -126,7 +127,7 @@ export function StopAvailabilitySection({
             target="_blank"
             rel="noopener noreferrer"
             onClick={() =>
-              track("reservation_clicked", {
+              trackEngagement("reservation_clicked", {
                 venue_id: venueId,
                 venue_name: venueName,
                 platform: platform ?? "other",
@@ -189,6 +190,7 @@ function HasSlotsView({
   onSelectSlot: (slot: AvailabilitySlot | null) => void;
   onSwap?: () => void;
 }) {
+  const { trackEngagement } = useEngagement();
   const [expanded, setExpanded] = useState(false);
   const deduped = dedupeSlots(slots);
   // Phase 1: hardcode "evening" as the role-center anchor. See
@@ -217,7 +219,7 @@ function HasSlotsView({
       return;
     }
     onSelectSlot(slot);
-    track("time_slot_selected", {
+    trackEngagement("time_slot_selected", {
       venue_id: venueId,
       venue_name: venueName,
       time: slot.time,
@@ -266,7 +268,7 @@ function HasSlotsView({
             target="_blank"
             rel="noopener noreferrer"
             onClick={() =>
-              track("reservation_clicked", {
+              trackEngagement("reservation_clicked", {
                 venue_id: venueId,
                 venue_name: venueName,
                 platform: reservePlatform.id,
@@ -323,7 +325,7 @@ function HasSlotsView({
             target="_blank"
             rel="noopener noreferrer"
             onClick={() =>
-              track("reservation_clicked", {
+              trackEngagement("reservation_clicked", {
                 venue_id: venueId,
                 venue_name: venueName,
                 platform: "resy",

@@ -8,7 +8,7 @@ import { formatCategory } from "@/lib/format/category";
 import { detectBookingPlatform, isValidReservationUrl } from "@/lib/booking";
 import { getVenueHeroImageUrl } from "@/lib/venues/images";
 import { buildResyBookingUrl } from "@/lib/availability/booking-url";
-import { track } from "@/lib/analytics";
+import { useEngagement } from "@/components/itinerary/EngagementProvider";
 
 const BOOK_AHEAD_THRESHOLD = 3;
 
@@ -68,6 +68,7 @@ export function StopCard({
   isPast = false,
   highlighted = false,
 }: StopCardProps) {
+  const { trackEngagement } = useEngagement();
   const v = stop.venue;
   const activeNote = stop.curation_note;
 
@@ -217,7 +218,7 @@ export function StopCard({
                     target="_blank"
                     rel="noopener noreferrer"
                     onClick={() =>
-                      track("reservation_clicked", {
+                      trackEngagement("reservation_clicked", {
                         venue_id: v.id,
                         venue_name: v.name,
                         platform: bookingPlatform!.id,

@@ -11,8 +11,6 @@ import type {
 } from "@/types";
 import { decodeParamsToInputs } from "@/lib/sharing";
 import { STORAGE_KEYS } from "@/config/storage";
-import { getRecentVenueIds } from "@/lib/exclusions";
-import { useAuth } from "@/components/providers/AuthProvider";
 import { useSwapStop } from "@/hooks/useSwapStop";
 import {
   getAnalyticsHeaders,
@@ -23,6 +21,7 @@ import {
 import { CompositionHeader } from "@/components/itinerary/CompositionHeader";
 import { ItineraryView } from "@/components/itinerary/ItineraryView";
 import { ActionBar } from "@/components/itinerary/ActionBar";
+import { ItineraryEngagementProvider } from "@/components/itinerary/EngagementProvider";
 import { StepLoading } from "@/components/questionnaire/StepLoading";
 import { Button } from "@/components/ui/Button";
 import { Header } from "@/components/Header";
@@ -37,18 +36,11 @@ function persist(it: ItineraryResponse) {
 
 function ItineraryContent() {
   const searchParams = useSearchParams();
-  const { user } = useAuth();
   const [itinerary, setItinerary] = useState<ItineraryResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [regenerating, setRegenerating] = useState(false);
-  const [regenError, setRegenError] = useState(false);
 
-  // Bump on every fetchItinerary success — total_itineraries_generated
-  // gets +1 for each, and we forward the count to itinerary_regenerated
-  // so we can compare "how often do people regenerate."
-  const regenerationCountRef = useRef(0);
-  // Fire itinerary_viewed exactly once per mount (not on regen).
+  // Fire itinerary_viewed exactly once per mount.
   const viewedFiredRef = useRef(false);
 
   const updateItinerary = useCallback((next: ItineraryResponse) => {
@@ -120,38 +112,6 @@ function ItineraryContent() {
     });
   }, [itinerary]);
 
-  // ── Regenerate ──────────────────────────────────────────────
-  const handleRegenerate = async () => {
-    if (!itinerary) return;
-    setRegenerating(true);
-    setRegenError(false);
-    try {
-      // Exclude venues from saved plans + the current plan's venues so
-      // Regenerate can't return the plan the user is looking at.
-      const recentIds = user?.id ? await getRecentVenueIds(user.id) : [];
-      const currentIds = itinerary.stops.map((s) => s.venue.id);
-      const excludeVenueIds = Array.from(
-        new Set([...recentIds, ...currentIds])
-      );
-      const data = await fetchItinerary(itinerary.inputs, excludeVenueIds);
-      updateItinerary(data);
-      regenerationCountRef.current += 1;
-      track("itinerary_regenerated", {
-        occasion: itinerary.inputs.occasion,
-        neighborhoods: itinerary.inputs.neighborhoods,
-        budget: itinerary.inputs.budget,
-        vibe: itinerary.inputs.vibe,
-        start_time: itinerary.inputs.startTime,
-        day: itinerary.inputs.day,
-        regeneration_count: regenerationCountRef.current,
-      });
-    } catch {
-      setRegenError(true);
-      setTimeout(() => setRegenError(false), 3000);
-    }
-    setRegenerating(false);
-  };
-
   // ── Add stop ────────────────────────────────────────────────
   const [addingStop, setAddingStop] = useState(false);
   const [addStopError, setAddStopError] = useState<string | null>(null);
@@ -218,51 +178,38 @@ function ItineraryContent() {
   }
 
   return (
-    <main className="flex flex-1 flex-col items-center min-h-screen pb-8">
-      <Header
-        rightSlot={
-          <Link
-            href="/"
-            className="font-sans text-sm text-muted hover:text-charcoal transition-colors"
-          >
-            &larr; Back
-          </Link>
-        }
-      />
-      <div className="w-full px-6 mt-6 flex flex-col items-center">
-        <CompositionHeader header={itinerary.header} inputs={itinerary.inputs} />
-      {regenerating ? (
-        <div className="w-full max-w-lg py-16">
-          <StepLoading />
-        </div>
-      ) : (
-        <ItineraryView
-          stops={itinerary.stops}
-          walks={itinerary.walks}
-          date={itinerary.inputs.day}
-          partySize={2}
-          onAddStop={handleAddStop}
-          isAddingStop={addingStop}
-          onSwapStop={handleSwap}
-          swappingIndex={swappingIndex}
-          swapError={swapError}
+    <ItineraryEngagementProvider source="fresh" itineraryId={null}>
+      <main className="flex flex-1 flex-col items-center min-h-screen pb-8">
+        <Header
+          rightSlot={
+            <Link
+              href="/"
+              className="font-sans text-sm text-muted hover:text-charcoal transition-colors"
+            >
+              &larr; Back
+            </Link>
+          }
         />
-      )}
-      {regenError && (
-        <p className="font-sans text-sm text-charcoal mt-4">
-          Couldn&apos;t regenerate — keeping your current night.
-        </p>
-      )}
-      {addStopError && (
-        <p className="font-sans text-sm text-charcoal mt-4">{addStopError}</p>
-      )}
-      </div>
-      <ActionBar
-        itinerary={itinerary}
-        onRegenerate={handleRegenerate}
-        isRegenerating={regenerating}
-      />
-    </main>
+        <div className="w-full px-6 mt-6 flex flex-col items-center">
+          <CompositionHeader header={itinerary.header} inputs={itinerary.inputs} />
+          <ItineraryView
+            stops={itinerary.stops}
+            walks={itinerary.walks}
+            date={itinerary.inputs.day}
+            partySize={2}
+            onAddStop={handleAddStop}
+            isAddingStop={addingStop}
+            onSwapStop={handleSwap}
+            swappingIndex={swappingIndex}
+            swapError={swapError}
+          />
+          {addStopError && (
+            <p className="font-sans text-sm text-charcoal mt-4">{addStopError}</p>
+          )}
+        </div>
+        <ActionBar itinerary={itinerary} />
+      </main>
+    </ItineraryEngagementProvider>
   );
 }
 

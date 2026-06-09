@@ -2,9 +2,9 @@
 
 // Read-only view of a saved itinerary. Saved rows don't store walk segments
 // or maps_url (they're derivable), so we rebuild those client-side from the
-// venue coordinates. Regenerate / add-stop / save are intentionally absent —
+// venue coordinates. Regenerate / add-stop are intentionally absent —
 // this is a review surface, not a live planner. To remake the plan, the user
-// hits "New date plan" from home.
+// starts a new compose flow from home.
 
 import { use, useEffect, useRef, useState } from "react";
 import Link from "next/link";
@@ -15,6 +15,7 @@ import { CompositionHeader } from "@/components/itinerary/CompositionHeader";
 import { ItineraryView } from "@/components/itinerary/ItineraryView";
 import { PastItineraryBanner } from "@/components/itinerary/PastItineraryBanner";
 import { ActionBar } from "@/components/itinerary/ActionBar";
+import { ItineraryEngagementProvider } from "@/components/itinerary/EngagementProvider";
 import { StepLoading } from "@/components/questionnaire/StepLoading";
 import { Button } from "@/components/ui/Button";
 import { Header } from "@/components/Header";
@@ -82,38 +83,34 @@ export default function SavedItineraryPage({
     );
   }
 
-  const noopRegenerate = () => {};
   const isPast = isPastDate(itinerary.inputs.day);
   return (
-    <main className="flex flex-1 flex-col items-center min-h-screen pb-8">
-      <Header
-        rightSlot={
-          <Link
-            href="/"
-            className="font-sans text-sm text-muted hover:text-charcoal transition-colors"
-          >
-            &larr; Back
-          </Link>
-        }
-      />
-      <div className="w-full px-6 mt-6 flex flex-col items-center">
-        <CompositionHeader header={itinerary.header} inputs={itinerary.inputs} />
-        {isPast && <PastItineraryBanner day={itinerary.inputs.day} />}
-        <ItineraryView
-          stops={itinerary.stops}
-          walks={itinerary.walks}
-          date={itinerary.inputs.day}
-          partySize={2}
-          isPast={isPast}
-          surface="saved"
+    <ItineraryEngagementProvider source="saved" itineraryId={id}>
+      <main className="flex flex-1 flex-col items-center min-h-screen pb-8">
+        <Header
+          rightSlot={
+            <Link
+              href="/"
+              className="font-sans text-sm text-muted hover:text-charcoal transition-colors"
+            >
+              &larr; Back
+            </Link>
+          }
         />
-      </div>
-      <ActionBar
-        itinerary={itinerary}
-        onRegenerate={noopRegenerate}
-        isRegenerating={false}
-        initialSaved
-      />
-    </main>
+        <div className="w-full px-6 mt-6 flex flex-col items-center">
+          <CompositionHeader header={itinerary.header} inputs={itinerary.inputs} />
+          {isPast && <PastItineraryBanner day={itinerary.inputs.day} />}
+          <ItineraryView
+            stops={itinerary.stops}
+            walks={itinerary.walks}
+            date={itinerary.inputs.day}
+            partySize={2}
+            isPast={isPast}
+            surface="saved"
+          />
+        </div>
+        <ActionBar itinerary={itinerary} initialSaved />
+      </main>
+    </ItineraryEngagementProvider>
   );
 }

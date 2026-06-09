@@ -35,6 +35,7 @@ import type { AuthChangeEvent, Session, User } from "@supabase/supabase-js";
 import posthog from "posthog-js";
 import { getBrowserSupabase } from "@/lib/supabase/browser";
 import { track } from "@/lib/analytics";
+import { checkAndEmitIfStale } from "@/lib/analytics/compose-abandoned";
 import {
   getProfile,
   signOut as libSignOut,
@@ -134,6 +135,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
     []
   );
+
+  // App-boot stale-flag check. If a previous compose flow was abandoned
+  // (flag set on compose_started, never cleared), fire compose_abandoned
+  // once per page load. Runs at the AuthProvider mount so it catches
+  // every entry into the app — including direct loads of /itinerary,
+  // /profile, etc. — not just /compose mounts.
+  useEffect(() => {
+    checkAndEmitIfStale(track);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;

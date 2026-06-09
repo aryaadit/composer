@@ -4,23 +4,21 @@ import { useState } from "react";
 import { motion } from "motion/react";
 import { getBrowserSupabase } from "@/lib/supabase/browser";
 import { useAuth } from "@/components/providers/AuthProvider";
-import { incrementPersonProperty, track } from "@/lib/analytics";
+import { incrementPersonProperty } from "@/lib/analytics";
+import { useEngagement } from "@/components/itinerary/EngagementProvider";
 import type { ItineraryResponse } from "@/types";
 
 interface ActionBarProps {
   itinerary: ItineraryResponse;
-  onRegenerate: () => void;
-  isRegenerating: boolean;
   initialSaved?: boolean;
 }
 
 export function ActionBar({
   itinerary,
-  onRegenerate,
-  isRegenerating,
   initialSaved = false,
 }: ActionBarProps) {
   const { user } = useAuth();
+  const { trackEngagement } = useEngagement();
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">(
     initialSaved ? "saved" : "idle"
   );
@@ -63,7 +61,7 @@ export function ActionBar({
       setTimeout(() => setSaveState("idle"), 2500);
       return;
     }
-    track("itinerary_saved", {
+    trackEngagement("itinerary_saved", {
       itinerary_id: (data as { id: string } | null)?.id ?? null,
       occasion: inputs.occasion,
       neighborhoods: inputs.neighborhoods,
@@ -90,7 +88,7 @@ export function ActionBar({
       const { id, url } = (await res.json()) as { id: string; url: string };
 
       await navigator.clipboard.writeText(url);
-      track("share_link_copied", {
+      trackEngagement("share_link_copied", {
         itinerary_id: id,
         share_method: "button_click",
       });
@@ -103,7 +101,7 @@ export function ActionBar({
   };
 
   const handleMapsClick = () => {
-    track("maps_opened", {
+    trackEngagement("maps_opened", {
       surface: "multi_stop_cta",
       stop_count: itinerary.stops.length,
     });
@@ -147,7 +145,7 @@ export function ActionBar({
           <span aria-hidden className="text-muted">→</span>
         </a>
 
-        {/* Right: Save · Regenerate · New plan · Share */}
+        {/* Right: Save · Share */}
         <div className="flex items-center gap-3">
           <button
             onClick={() => void handleSave()}
@@ -156,21 +154,6 @@ export function ActionBar({
           >
             {saveLabel}
           </button>
-          <span aria-hidden className="text-muted">·</span>
-          <button
-            onClick={onRegenerate}
-            disabled={isRegenerating}
-            className="text-charcoal hover:text-burgundy transition-colors disabled:opacity-50"
-          >
-            {isRegenerating ? "Regenerating…" : "Regenerate"}
-          </button>
-          <span aria-hidden className="text-muted">·</span>
-          <a
-            href="/compose"
-            className="text-charcoal hover:text-burgundy transition-colors"
-          >
-            New plan
-          </a>
           <button
             onClick={() => void handleShare()}
             disabled={shareState === "sharing"}

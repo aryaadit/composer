@@ -23,6 +23,12 @@ import { STORAGE_KEYS } from "@/config/storage";
 import { getRecentVenueIds } from "@/lib/exclusions";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { track, getAnalyticsHeaders } from "@/lib/analytics";
+import {
+  checkAndEmitIfStale,
+  clearComposeAbandonedFlag,
+  setComposeAbandonedFlag,
+  updateLastStepCompleted,
+} from "@/lib/analytics/compose-abandoned";
 import { Header } from "@/components/Header";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 import { Button } from "@/components/ui/Button";
@@ -78,8 +84,13 @@ export function QuestionnaireShell() {
   const stepStartMsRef = useRef<number>(0);
   useEffect(() => {
     // First mount: fire compose_started + initialize timer for step 1.
+    // Before setting a new abandonment flag, drain any stale one (covers
+    // the same-tab "abandon → restart compose" sequence — the boot
+    // check in AuthProvider only fires once per page load).
+    checkAndEmitIfStale(track);
     stepStartMsRef.current = performance.now();
     track("compose_started", { entry_source: deriveEntrySource() });
+    setComposeAbandonedFlag();
   }, []);
 
   const trackStepCompleted = useCallback(
@@ -94,6 +105,7 @@ export function QuestionnaireShell() {
         step_index: index,
         time_on_step_ms: Math.round(now - stepStartMsRef.current),
       });
+      updateLastStepCompleted(label);
       stepStartMsRef.current = now;
     },
     []
@@ -129,6 +141,10 @@ export function QuestionnaireShell() {
         });
         if (!res.ok) throw new Error("Generation failed");
         const data = await res.json();
+        // Compose flow succeeded — clear the abandonment flag before
+        // navigating so we don't fire compose_abandoned on next boot.
+        // Done on the client because itinerary_generated is server-side.
+        clearComposeAbandonedFlag();
         sessionStorage.setItem(
           STORAGE_KEYS.session.currentItinerary,
           JSON.stringify(data)

@@ -4,7 +4,7 @@ import { Fragment, useEffect, useState } from "react";
 import Link from "next/link";
 import { motion } from "motion/react";
 import { ItineraryResponse } from "@/types";
-import { track } from "@/lib/analytics";
+import { useEngagement } from "@/components/itinerary/EngagementProvider";
 import { StopCard } from "@/components/ui/StopCard";
 import { WalkConnector } from "@/components/ui/WalkConnector";
 import { VenueDetailModal } from "@/components/venue/VenueDetailModal";
@@ -53,6 +53,27 @@ export function ItineraryView({
   isPast = false,
   surface = "fresh_itinerary",
 }: ItineraryViewProps) {
+  const { trackEngagement, incrementEngagement } = useEngagement();
+
+  // Server-initiated engagements (stop_swapped via trackServer; stop_added
+  // via its server route then a client-side track on success) — bump the
+  // engagement counter at the CLIENT INITIATION point, not after the
+  // server resolves. Failed server calls still count: the user expressed
+  // intent. stop_added's success-side track() stays as a raw call to
+  // avoid double-counting (incrementEngagement here already bumped).
+  const wrappedOnSwapStop = onSwapStop
+    ? (index: number) => {
+        incrementEngagement();
+        onSwapStop(index);
+      }
+    : undefined;
+  const wrappedOnAddStop = onAddStop
+    ? () => {
+        incrementEngagement();
+        onAddStop();
+      }
+    : undefined;
+
   const [detailIndex, setDetailIndex] = useState<number | null>(null);
   const detailVenue =
     detailIndex !== null ? stops[detailIndex]?.venue ?? null : null;
@@ -95,7 +116,7 @@ export function ItineraryView({
 
   const handleVenueTap = (i: number) => {
     const stop = stops[i];
-    track("venue_detail_opened", {
+    trackEngagement("venue_detail_opened", {
       venue_id: stop.venue.id,
       venue_name: stop.venue.name,
       stop_role: stop.role,
@@ -144,7 +165,7 @@ export function ItineraryView({
                 index={i}
                 date={date}
                 partySize={partySize}
-                onSwap={!isPast && onSwapStop ? () => onSwapStop(i) : undefined}
+                onSwap={!isPast && wrappedOnSwapStop ? () => wrappedOnSwapStop(i) : undefined}
                 onVenueTap={() => handleVenueTap(i)}
                 isSwapping={swappingIndex === i}
                 swapError={swapError?.index === i ? swapError.message : null}
@@ -167,7 +188,7 @@ export function ItineraryView({
                     onSelectSlot={(slot) =>
                       handleSelectSlot(stop.venue.id, slot)
                     }
-                    onSwap={onSwapStop ? () => onSwapStop(i) : undefined}
+                    onSwap={wrappedOnSwapStop ? () => wrappedOnSwapStop(i) : undefined}
                   />
                 </div>
               )}
@@ -196,7 +217,7 @@ export function ItineraryView({
             </Link>
           </motion.div>
         ) : (
-          onAddStop && (
+          wrappedOnAddStop && (
             <motion.div
               className="py-6 flex justify-center"
               initial={{ opacity: 0 }}
@@ -204,7 +225,7 @@ export function ItineraryView({
               transition={{ duration: 0.4, delay: 0.6 }}
             >
               <button
-                onClick={onAddStop}
+                onClick={wrappedOnAddStop}
                 disabled={isAddingStop}
                 className="inline-flex items-center gap-2 rounded-full border border-dashed border-burgundy/50 px-5 py-2.5 font-sans text-sm text-burgundy hover:bg-burgundy/5 hover:border-burgundy transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >

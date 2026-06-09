@@ -34,14 +34,16 @@ export const EVENTS = {
   COMPOSE_STEP_COMPLETED: "compose_step_completed",
   COMPOSE_START_TIME_SELECTED: "compose_start_time_selected",
   COMPOSE_SUBMITTED: "compose_submitted",
+  COMPOSE_ABANDONED: "compose_abandoned",
   ITINERARY_GENERATED: "itinerary_generated",
   ITINERARY_GENERATION_FAILED: "itinerary_generation_failed",
 
   // Engagement
   ITINERARY_VIEWED: "itinerary_viewed",
+  ITINERARY_DWELL_TIME: "itinerary_dwell_time",
+  ITINERARY_ZERO_ENGAGEMENT: "itinerary_zero_engagement",
   STOP_SWAPPED: "stop_swapped",
   STOP_ADDED: "stop_added",
-  ITINERARY_REGENERATED: "itinerary_regenerated",
   TIME_SLOT_SELECTED: "time_slot_selected",
   RESERVATION_CLICKED: "reservation_clicked",
   MAPS_OPENED: "maps_opened",
@@ -51,7 +53,6 @@ export const EVENTS = {
 
   // Save / share
   ITINERARY_SAVED: "itinerary_saved",
-  ITINERARY_UNSAVED: "itinerary_unsaved",
   SHARE_LINK_COPIED: "share_link_copied",
   SHARE_LINK_VISITED: "share_link_visited",
   ONBOARDING_COMPLETED: "onboarding_completed",
