@@ -5,6 +5,8 @@
 **Branch:** `adit/sandbox-testing`
 **Related:** [compose-simplification-phase-1-implementation-2026-06-09.md](compose-simplification-phase-1-implementation-2026-06-09.md)
 
+> **Status update (2026-06-09, post-implementation):** Resolved. Fix landed via commits `fe6e258` (migration) + `313f17a` (code) — see [compose-simplification-phase-1-fidelity-fix-implementation-2026-06-09.md](../compose-simplification-phase-1-fidelity-fix-implementation-2026-06-09.md). Verified live: 21:00, 17:00, and a synthetic legacy row all round-trip correctly. **Correction:** the original write-up below claimed the shared path also dropped `startTime`. It didn't — `composer_shared_itineraries` stores the full `ItineraryResponse` as JSONB, so `inputs.startTime` was always preserved through the share round-trip. The bug was real but confined to the save path. See inline note at the "What gets written on save" section.
+
 ---
 
 ## TL;DR
@@ -91,7 +93,7 @@ const { data, error } = await getBrowserSupabase()
 
 `inputs.startTime` (e.g. `"21:00"`) is **not written to any column**. The only time-related column on the table receives the literal string `"evening"` regardless of what the user picked.
 
-The shared API does the same thing in [src/app/api/share/route.ts](../src/app/api/share/route.ts) — same shape, same hardcode, same data loss.
+> **Correction:** an earlier version of this doc claimed the shared API in [src/app/api/share/route.ts](../../src/app/api/share/route.ts) "does the same thing — same shape, same hardcode, same data loss." That was wrong. The shared insert stores the entire `ItineraryResponse` in a JSONB column called `itinerary`, and the share-page hydration reads `data.itinerary as ItineraryResponse` directly — so `inputs.startTime` was always preserved on the share path. The save path is the only place the value got dropped. The fix (Option 1) still added `start_time` to `composer_shared_itineraries` for parity and future reporting, but it's not load-bearing there.
 
 ---
 

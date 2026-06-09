@@ -5,6 +5,8 @@
 **Status:** Implementation complete; verification green; awaiting review/commit
 **Investigation doc:** [docs/archive/compose-simplification-phase-1-investigation-2026-06-03.md](archive/compose-simplification-phase-1-investigation-2026-06-03.md)
 
+> **Status update (2026-06-09, post-implementation):** This doc captures Phase 1 as initially reported. A save/hydrate fidelity bug was found during verification — the original draft claimed `startTime` survived via the `stops` / `walking` blobs, which was wrong (see Persistence section below). Resolved by a follow-up migration + code change; full write-up in [compose-simplification-phase-1-fidelity-fix-implementation-2026-06-09.md](../compose-simplification-phase-1-fidelity-fix-implementation-2026-06-09.md). The commit history landed as three commits (`5e2f4fe` Phase 1; `fe6e258` migration; `313f17a` start_time wiring) rather than the single commit drafted below.
+
 ---
 
 ## Scope
@@ -76,8 +78,11 @@ GenerateRequestBody = Omit<QuestionnaireAnswers, "endTime"> & { excludeVenueIds?
 
 ### Persistence
 
-- `composer_saved_itineraries.time_block` (NOT NULL legacy column) is written as the **hard-coded string `"evening"`** by both `ActionBar.tsx` and `/api/share/route.ts`. The actual start/end are stored in `stops` and `walking` JSON blobs already; the legacy column is preserved only because dropping NOT NULL hasn't shipped yet.
-- Saved-page hydration reads `saved.time_block`, runs it through `startTimeFromLegacyBlock`, then resolves the window. So a row written today (`"evening"`) round-trips to a 19:00 start; rows from old generations with `"afternoon"` round-trip to 13:00.
+> **Corrected 2026-06-09 (post-fidelity-fix).** The original draft of this section claimed `startTime` was "stored in `stops` and `walking` JSON blobs already" — that was wrong, and the assumption caused the fidelity bug. Neither blob ever carried `startTime`. The corrected description below reflects the post-fix state.
+
+- `composer_saved_itineraries.start_time TEXT` (nullable, added 2026-06-09) is the authoritative store for the user's chosen start time. Written by `ActionBar.handleSave` and by `/api/share/route.ts`. Hydration on the saved page reads it first.
+- `composer_saved_itineraries.time_block` (NOT NULL legacy column) is still written as the hard-coded string `"evening"` by both insert sites — only to satisfy the NOT NULL constraint. The value is ignored on hydrate when `start_time` is present.
+- Saved-page hydration: `saved.start_time ?? startTimeFromLegacyBlock(saved.time_block)`. New rows take the column; pre-migration rows (where `start_time` is null) fall back to the categorical block mapping. So a 21:00 plan saved today round-trips as 21:00; a legacy row with `time_block: "afternoon"` round-trips as 13:00.
 
 ### Share URLs
 
@@ -182,8 +187,7 @@ One unified commit — typecheck would break mid-history if split. The boundary 
 ## Phase 2 backlog (not in this change)
 
 - `pickRecommendedSlots` should accept a `TimeWindow` directly instead of hard-coding the `"evening"` role center. Today this means a 21:00-start late-night plan gets the same suggested slot times as a 17:00-start dinner plan, which understates the lateness.
-- Drop `composer_saved_itineraries.time_block` NOT NULL once enough time has passed since the column was effectively frozen at `"evening"`. Tracker: same 90-day cadence as the `composer_users.context` drop noted in CLAUDE.md.
-- Reconsider the `"evening"` write to legacy `time_block` on insert — it's noise. Could instead derive the column from `startTime` via the inverse of `startTimeFromLegacyBlock` (17:00→evening, 21:00→late_night, etc.). Low-priority cleanup.
+- Drop the NOT NULL constraint on `composer_saved_itineraries.time_block` (and `composer_shared_itineraries.time_block`), then drop the columns entirely. With `start_time` now authoritative, the `"evening"` literal each new save writes is dead weight. Sequence: relax NOT NULL → confirm nothing reads the column → drop. Tracker: same 90-day cadence as the `composer_users.context` drop noted in CLAUDE.md.
 
 ---
 
