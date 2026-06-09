@@ -52,25 +52,30 @@ async function fetchWalkingPolyline(
  * just numbered pins with `/auto/` bounds + padding so Mapbox fits
  * everything in frame.
  *
- *   Defaults: 600×280@2x, padding 120.
+ *   Defaults: 600×280@2x, padding 40.
  *   - Mapbox empirical constraint: padding < min(width, height) / 2.
  *     Violating it returns HTTP 422 "The padding cannot exceed the
- *     height or width of the requested image." For 600 wide and a
- *     desired 120 padding (20% horizontal margin), height must be
- *     > 240. We use 280 so the constraint holds with a small buffer.
- *   - 600×280 (15:7) is taller than the original 600×180 brief — the
- *     extra vertical room is what enables the generous 120 padding.
- *     The card's <img> renders at h-[180px] with object-cover, so
- *     visually it still reads as a wide preview (slight horizontal
- *     crop) — but the underlying bounding-box space is wider than
- *     the 600×180 we shipped before.
- *   - padding 120 (px) puts the pin bounding box no closer than
- *     20% horizontal / ~43% vertical from any image edge. Earlier
- *     defaults (30, 60) put pins at the cropping edge; 120 keeps
- *     them comfortably inside any object-cover crop the consumer
- *     does at render time.
+ *     height or width of the requested image." 40 ≪ 140 — safe.
+ *   - Tuning history (each empirically curl-tested against the real
+ *     endpoint):
+ *       30  Phase 6 — pins at the very edge of the frame
+ *       60  Phase 9.1 — slight improvement, still crowded
+ *       120 Phase 9.2 — 422 on the 180-tall image we shipped first
+ *       120@280 Phase 9.3 — 200 OK, but Mapbox zooms WAY out: the
+ *         tight pin bbox (~500m, taller-than-wide) had to fit
+ *         inside a 360×40 inner area, so the auto-fit zoomed out
+ *         to regional level (Newark visible in NYC plans).
+ *       40@280 Phase 9.4 (current) — zooms in tight on the pin bbox
+ *         with 16px of safety above the pin glyph (24px tall).
+ *   - 600×280 dimensions retained from 9.3 so future tuning can move
+ *     padding without re-checking the < min/2 constraint.
  *   - @2x is mandatory for crisp pins on retina — otherwise the 24px
  *     pin glyph blurs.
+ *   - If you need different padding behavior for far-apart pins
+ *     (where 40px leaves them feeling cramped), the next step is
+ *     to compute explicit center+zoom from the pin bbox client-side
+ *     and pass `lng,lat,zoom` instead of `auto` — gives full control
+ *     over framing regardless of how close or far apart the pins are.
  *
  * NOTE on token scopes — the public `pk.*` token used here MUST have
  * the Static Images API enabled in the Mapbox dashboard. Default
@@ -100,7 +105,7 @@ export function buildItineraryStaticMapUrl(
   if (valid.length === 0) return null;
   const width = options.width ?? 600;
   const height = options.height ?? 280;
-  const padding = options.padding ?? 120;
+  const padding = options.padding ?? 40;
   const pins = valid
     .map((s, i) => `pin-s-${i + 1}+${STROKE}(${s.longitude},${s.latitude})`)
     .join(",");

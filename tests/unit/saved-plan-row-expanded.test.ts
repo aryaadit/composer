@@ -176,22 +176,25 @@ describe("buildItineraryStaticMapUrl", () => {
     expect(result).toContain("padding=50");
   });
 
-  it("defaults to 600x280@2x with padding=120 (Mapbox constraint: padding < min(w,h)/2)", () => {
-    // Tuning history:
-    //   640x160@30   (Phase 6 initial) — pins at cropping edge
-    //   600x180@60   (Phase 9 step 1)  — still crowded
-    //   600x180@120  (Phase 9 step 2)  — HTTP 422: padding > height/2
-    //   600x280@120  (Phase 9 step 3)  — empirically verified HTTP 200
+  it("defaults to 600x280@2x with padding=40 (tight zoom + pin glyph safety)", () => {
+    // Tuning history (each curl-tested against the real Mapbox endpoint):
+    //   640x160@30   Phase 6        — pins at frame edge
+    //   600x180@60   Phase 9.1      — still crowded
+    //   600x180@120  Phase 9.2      — 422: padding > height/2
+    //   600x280@120  Phase 9.3      — 200 OK but zooms way out
+    //                                 (regional view, tight pin bbox
+    //                                 forced to fit 360×40 inner area)
+    //   600x280@40   Phase 9.4      — current; tight zoom on pin
+    //                                 bbox with ~16 px buffer above
+    //                                 the pin glyph
     //
-    // Mapbox rejects padding >= min(width, height) / 2 with a 422
-    // "padding cannot exceed height/width" error. For padding=120
-    // (20% horizontal margin on a 600 wide image), height must be
-    // > 240; we use 280 for a small safety buffer.
+    // Pin glyph for pin-s is ~24 px tall, so padding ≥ 24 keeps the
+    // graphic from clipping. 40 gives margin without zooming out.
     const result = buildItineraryStaticMapUrl([
       { latitude: 40.7336, longitude: -74.0027 },
     ]);
     expect(result).toContain("/600x280@2x");
-    expect(result).toContain("padding=120");
+    expect(result).toContain("padding=40");
   });
 
   it("default padding satisfies Mapbox's padding < min(width, height) / 2 rule", () => {
