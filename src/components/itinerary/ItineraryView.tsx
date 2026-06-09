@@ -25,6 +25,10 @@ interface ItineraryViewProps {
   walks: ItineraryResponse["walks"];
   date?: string;
   partySize?: number;
+  /** User-chosen compose start time as HH:MM. Threaded into
+   * StopAvailability so slot recommendations anchor to the actual
+   * start (Phase 2 replaced the categorical "evening" hardcode). */
+  startTime?: string;
   onAddStop?: () => void;
   isAddingStop?: boolean;
   onSwapStop?: (index: number) => void;
@@ -45,6 +49,7 @@ export function ItineraryView({
   walks,
   date = "",
   partySize = 2,
+  startTime = "19:00",
   onAddStop,
   isAddingStop = false,
   onSwapStop,
@@ -184,6 +189,8 @@ export function ItineraryView({
                     venueResyId={stop.venue.resy_venue_id}
                     date={date}
                     partySize={partySize}
+                    stopIndex={i}
+                    startTime={startTime}
                     selectedSlot={selectedSlots[stop.venue.id] ?? null}
                     onSelectSlot={(slot) =>
                       handleSelectSlot(stop.venue.id, slot)

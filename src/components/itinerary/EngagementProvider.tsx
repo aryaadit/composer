@@ -42,6 +42,11 @@ interface EngagementContextValue {
     properties?: Record<string, unknown>,
   ) => void;
   incrementEngagement: () => void;
+  /** Milliseconds since the itinerary surface was viewed (provider mount).
+   * Returns null when called before the mount effect has committed
+   * (effectively impossible from a user-driven handler). Use for
+   * properties like time_since_viewed_ms on extension/save events. */
+  getTimeSinceViewed: () => number | null;
 }
 
 const EngagementContext = createContext<EngagementContextValue | null>(null);
@@ -109,6 +114,11 @@ export function ItineraryEngagementProvider({
     engagementCountRef.current += 1;
   }, []);
 
+  const getTimeSinceViewed = useCallback((): number | null => {
+    if (viewedAtRef.current === 0) return null;
+    return Math.round(performance.now() - viewedAtRef.current);
+  }, []);
+
   const trackEngagement = useCallback(
     (eventName: string, properties: Record<string, unknown> = {}) => {
       const wasFirst = engagementCountRef.current === 0;
@@ -127,7 +137,9 @@ export function ItineraryEngagementProvider({
   );
 
   return (
-    <EngagementContext.Provider value={{ trackEngagement, incrementEngagement }}>
+    <EngagementContext.Provider
+      value={{ trackEngagement, incrementEngagement, getTimeSinceViewed }}
+    >
       {children}
     </EngagementContext.Provider>
   );

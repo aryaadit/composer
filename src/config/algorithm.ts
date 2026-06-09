@@ -255,6 +255,16 @@ export const ALGORITHM = {
 
   composition: {
     /**
+     * Default stop count for a fresh itinerary. Phase 2 collapsed the
+     * variable-length vibe templates into a flat 2-stop default — stop 1
+     * picked from STOP_1_POOL (opener or closer canonical) and stop 2
+     * always Main. Tap "+ Add another stop" extends to 3 from STOP_1_POOL
+     * excluding stop 1's venue. Used as `requested_stop_count` in the
+     * itinerary_generated and itinerary_fallback_single_stop events.
+     */
+    stopDefaultCount: 2,
+
+    /**
      * Average duration per role (minutes), used by planStopMix() to
      * decide how many stops fit in the user's time window.
      *

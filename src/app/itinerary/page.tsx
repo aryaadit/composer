@@ -21,7 +21,10 @@ import {
 import { CompositionHeader } from "@/components/itinerary/CompositionHeader";
 import { ItineraryView } from "@/components/itinerary/ItineraryView";
 import { ActionBar } from "@/components/itinerary/ActionBar";
-import { ItineraryEngagementProvider } from "@/components/itinerary/EngagementProvider";
+import {
+  ItineraryEngagementProvider,
+  useEngagement,
+} from "@/components/itinerary/EngagementProvider";
 import { StepLoading } from "@/components/questionnaire/StepLoading";
 import { Button } from "@/components/ui/Button";
 import { Header } from "@/components/Header";
@@ -47,11 +50,6 @@ function ItineraryContent() {
     setItinerary(next);
     persist(next);
   }, []);
-
-  const { handleSwap, swappingIndex, swapError } = useSwapStop(
-    itinerary,
-    updateItinerary
-  );
 
   const fetchItinerary = useCallback(
     async (inputs: GenerateRequestBody, excludeVenueIds: string[] = []) => {
@@ -112,12 +110,48 @@ function ItineraryContent() {
     });
   }, [itinerary]);
 
-  // ── Add stop ────────────────────────────────────────────────
+  if (loading) return <StepLoading />;
+
+  if (error || !itinerary) {
+    return (
+      <main className="flex flex-1 flex-col items-center justify-center min-h-screen px-6">
+        <p className="font-sans text-lg text-warm-gray mb-6">
+          {error ?? "Something went wrong."}
+        </p>
+        <Button href="/compose">Start Over</Button>
+      </main>
+    );
+  }
+
+  return (
+    <ItineraryEngagementProvider source="fresh" itineraryId={null}>
+      <ItineraryBody itinerary={itinerary} updateItinerary={updateItinerary} />
+    </ItineraryEngagementProvider>
+  );
+}
+
+// Lives INSIDE the engagement provider so handleAddStop / handleSwap can
+// call useEngagement (notably getTimeSinceViewed for the time_since_viewed_ms
+// property on itinerary_extended_to_three). ItineraryContent owns the
+// data-loading lifecycle; the body owns user-action handlers.
+function ItineraryBody({
+  itinerary,
+  updateItinerary,
+}: {
+  itinerary: ItineraryResponse;
+  updateItinerary: (next: ItineraryResponse) => void;
+}) {
+  const { getTimeSinceViewed } = useEngagement();
+  const { handleSwap, swappingIndex, swapError } = useSwapStop(
+    itinerary,
+    updateItinerary
+  );
+
   const [addingStop, setAddingStop] = useState(false);
   const [addStopError, setAddStopError] = useState<string | null>(null);
 
   const handleAddStop = async () => {
-    if (!itinerary || addingStop) return;
+    if (addingStop) return;
     setAddingStop(true);
     setAddStopError(null);
     try {
@@ -155,6 +189,19 @@ function ItineraryContent() {
         vibe: itinerary.inputs.vibe,
         start_time: itinerary.inputs.startTime,
       });
+      // Phase 2 extension event. Fires alongside stop_added so the
+      // existing engagement count is preserved, and adds extension-
+      // specific properties (added venue, role, vibe, time-since-viewed).
+      // original_stop_count is the count BEFORE this add; final is after.
+      track("itinerary_extended_to_three", {
+        original_stop_count: itinerary.stops.length,
+        final_stop_count: next.stops.length,
+        added_venue_id: payload.stop.venue.id,
+        added_venue_name: payload.stop.venue.name,
+        added_role: payload.stop.role,
+        vibe: itinerary.inputs.vibe,
+        time_since_viewed_ms: getTimeSinceViewed(),
+      });
     } catch (err) {
       setAddStopError(
         err instanceof Error ? err.message : "Couldn't add a stop"
@@ -164,52 +211,38 @@ function ItineraryContent() {
     setAddingStop(false);
   };
 
-  if (loading) return <StepLoading />;
-
-  if (error || !itinerary) {
-    return (
-      <main className="flex flex-1 flex-col items-center justify-center min-h-screen px-6">
-        <p className="font-sans text-lg text-warm-gray mb-6">
-          {error ?? "Something went wrong."}
-        </p>
-        <Button href="/compose">Start Over</Button>
-      </main>
-    );
-  }
-
   return (
-    <ItineraryEngagementProvider source="fresh" itineraryId={null}>
-      <main className="flex flex-1 flex-col items-center min-h-screen pb-8">
-        <Header
-          rightSlot={
-            <Link
-              href="/"
-              className="font-sans text-sm text-muted hover:text-charcoal transition-colors"
-            >
-              &larr; Back
-            </Link>
-          }
+    <main className="flex flex-1 flex-col items-center min-h-screen pb-8">
+      <Header
+        rightSlot={
+          <Link
+            href="/"
+            className="font-sans text-sm text-muted hover:text-charcoal transition-colors"
+          >
+            &larr; Back
+          </Link>
+        }
+      />
+      <div className="w-full px-6 mt-6 flex flex-col items-center">
+        <CompositionHeader header={itinerary.header} inputs={itinerary.inputs} />
+        <ItineraryView
+          stops={itinerary.stops}
+          walks={itinerary.walks}
+          date={itinerary.inputs.day}
+          partySize={2}
+          startTime={itinerary.inputs.startTime}
+          onAddStop={handleAddStop}
+          isAddingStop={addingStop}
+          onSwapStop={handleSwap}
+          swappingIndex={swappingIndex}
+          swapError={swapError}
         />
-        <div className="w-full px-6 mt-6 flex flex-col items-center">
-          <CompositionHeader header={itinerary.header} inputs={itinerary.inputs} />
-          <ItineraryView
-            stops={itinerary.stops}
-            walks={itinerary.walks}
-            date={itinerary.inputs.day}
-            partySize={2}
-            onAddStop={handleAddStop}
-            isAddingStop={addingStop}
-            onSwapStop={handleSwap}
-            swappingIndex={swappingIndex}
-            swapError={swapError}
-          />
-          {addStopError && (
-            <p className="font-sans text-sm text-charcoal mt-4">{addStopError}</p>
-          )}
-        </div>
-        <ActionBar itinerary={itinerary} />
-      </main>
-    </ItineraryEngagementProvider>
+        {addStopError && (
+          <p className="font-sans text-sm text-charcoal mt-4">{addStopError}</p>
+        )}
+      </div>
+      <ActionBar itinerary={itinerary} />
+    </main>
   );
 }
 

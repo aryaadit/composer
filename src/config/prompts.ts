@@ -23,7 +23,7 @@ NEVER USE THESE PATTERNS
 TITLE (3-7 words)
 - If the user has a name: "Alex, here's the plan" or "Alex, this one's good"
 - Otherwise, give it a point of view, not a label:
-  GOOD: "Pasta and a nightcap", "West Village, slow", "Drinks, dinner, drinks"
+  GOOD: "Pasta and a nightcap", "West Village, slow", "Cocktails, then dinner"
   BAD:  "A West Village Evening", "A Food-Forward First Date"
 
 SUBTITLE (one sentence)

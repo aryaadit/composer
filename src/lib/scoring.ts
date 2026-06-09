@@ -41,20 +41,24 @@ const OCCASION_BUCKET_TO_SHEET_SLUGS: Record<string, string[]> = {
 };
 
 /**
- * Check whether a venue can serve a given canonical composition role.
+ * Check whether a venue can serve any of the given canonical composition
+ * roles. Phase 2 widened this from single-role to union-of-roles so the
+ * composer can filter on STOP_1_POOL = ["opener", "closer"] in a single
+ * pass. The function returns true if ANY of the venue's stop_roles
+ * (after ROLE_EXPANSION) overlaps with ANY of the target roles.
  *
  * Maps the venue's raw stop_roles (opener, main, closer, drinks,
  * activity, coffee) through ROLE_EXPANSION to canonical roles. A venue
  * with stop_roles=["drinks"] can serve both "opener" and "closer".
- *
- * @param venue - The venue to check.
- * @param role  - The canonical role being filled (opener, main, closer).
- * @returns True if any of the venue's roles expand to include the target role.
  */
-function venueMatchesRole(venue: Venue, role: StopRole): boolean {
-  return venue.stop_roles.some(
-    (vr) => (ROLE_EXPANSION[vr as VenueRole] ?? []).includes(role)
-  );
+function venueMatchesAnyRole(
+  venue: Venue,
+  roles: readonly StopRole[],
+): boolean {
+  return venue.stop_roles.some((vr) => {
+    const expanded = ROLE_EXPANSION[vr as VenueRole] ?? [];
+    return roles.some((r) => expanded.includes(r));
+  });
 }
 
 function getMaxWalkKm(weather: WeatherInfo | null): number {
@@ -66,7 +70,7 @@ function getMaxWalkKm(weather: WeatherInfo | null): number {
 function scoreVenue(
   venue: Venue,
   answers: QuestionnaireAnswers,
-  role: StopRole,
+  role: StopRole | readonly StopRole[],
   jitter: number,
   random: () => number,
   dayColumn: DayColumn | null,
@@ -145,7 +149,7 @@ function scoreVenue(
 
 function hardFilter(
   venues: Venue[],
-  role: StopRole,
+  roles: readonly StopRole[],
   answers: QuestionnaireAnswers,
   weather: WeatherInfo | null,
   exclude: Set<string>,
@@ -155,7 +159,7 @@ function hardFilter(
   return venues.filter((v) => {
     if (!v.active) return false;
     if (exclude.has(v.id)) return false;
-    if (!venueMatchesRole(v, role)) return false;
+    if (!venueMatchesAnyRole(v, roles)) return false;
     if (venueRoleHint && !v.stop_roles.includes(venueRoleHint)) return false;
     if (
       enforceNeighborhood &&
@@ -171,14 +175,14 @@ function hardFilter(
 
 function relaxedFilter(
   venues: Venue[],
-  role: StopRole,
+  roles: readonly StopRole[],
   exclude: Set<string>,
   weather: WeatherInfo | null
 ): Venue[] {
   return venues.filter((v) => {
     if (!v.active) return false;
     if (exclude.has(v.id)) return false;
-    if (!venueMatchesRole(v, role)) return false;
+    if (!venueMatchesAnyRole(v, roles)) return false;
     if (weather?.is_bad_weather && v.outdoor_seating === "yes") return false;
     return true;
   });
@@ -205,7 +209,12 @@ function applyProximity(candidates: Venue[], anchor: Venue | null, maxKm: number
 }
 
 /**
- * Pick a venue for a given stop role.
+ * Pick a venue for a given stop role (or pool of roles).
+ *
+ * Phase 2 widened `role` to accept a single StopRole OR a readonly array
+ * of StopRoles so the composer can filter stop 1 from STOP_1_POOL
+ * (opener-OR-closer canonical) in a single pass. Single-role callers
+ * are unchanged.
  *
  * Cascade relaxation: strict (with `venueRoleHint`) → drop hint → drop
  * neighborhood. Proximity to `anchor` is always hard.
@@ -218,7 +227,7 @@ function applyProximity(candidates: Venue[], anchor: Venue | null, maxKm: number
  * identical inputs produce identical picks. See `src/lib/itinerary/seed.ts`.
  *
  * @param venues         - Full venue pool (post candidate-filtering).
- * @param role           - The stop role being filled (opener, main, closer).
+ * @param role           - The canonical role(s) to fill. Single StopRole or a union pool.
  * @param answers        - The user's questionnaire responses.
  * @param weather        - Current weather; null disables weather filtering.
  * @param usedIds        - Venue IDs already selected; excluded from candidates.
@@ -236,7 +245,7 @@ function applyProximity(candidates: Venue[], anchor: Venue | null, maxKm: number
  */
 export function pickBestForRole(
   venues: Venue[],
-  role: StopRole,
+  role: StopRole | readonly StopRole[],
   answers: QuestionnaireAnswers,
   weather: WeatherInfo | null,
   usedIds: Set<string>,
@@ -248,26 +257,29 @@ export function pickBestForRole(
   window: TimeWindow | null = null,
   venueRoleHint?: VenueRole
 ): { best: ScoredVenue | null; scored: ScoredVenue[] } {
+  const roles: readonly StopRole[] = Array.isArray(role)
+    ? (role as readonly StopRole[])
+    : [role as StopRole];
   const maxWalkKm = getMaxWalkKm(weather);
   const enforceNeighborhood = anchor === null;
 
   // Cascade: strict (with hint) → drop hint → drop neighborhood.
   // Proximity to anchor is always hard.
-  let candidates = hardFilter(venues, role, answers, weather, usedIds, enforceNeighborhood, venueRoleHint);
+  let candidates = hardFilter(venues, roles, answers, weather, usedIds, enforceNeighborhood, venueRoleHint);
   candidates = applyProximity(candidates, anchor, maxWalkKm);
 
   if (candidates.length === 0 && venueRoleHint) {
-    candidates = hardFilter(venues, role, answers, weather, usedIds, enforceNeighborhood);
+    candidates = hardFilter(venues, roles, answers, weather, usedIds, enforceNeighborhood);
     candidates = applyProximity(candidates, anchor, maxWalkKm);
   }
   if (candidates.length === 0) {
     candidates = applyProximity(
-      relaxedFilter(venues, role, usedIds, weather), anchor, maxWalkKm
+      relaxedFilter(venues, roles, usedIds, weather), anchor, maxWalkKm
     );
   }
 
   const scored: ScoredVenue[] = candidates.map((v) => {
-    let score = scoreVenue(v, answers, role, jitter, random, dayColumn, window);
+    let score = scoreVenue(v, answers, roles, jitter, random, dayColumn, window);
     if (v.category && usedCategories.has(v.category)) {
       score -= ALGORITHM.penalties.categoryDuplicate;
     }

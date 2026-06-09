@@ -42,6 +42,8 @@ export const EVENTS = {
   ITINERARY_VIEWED: "itinerary_viewed",
   ITINERARY_DWELL_TIME: "itinerary_dwell_time",
   ITINERARY_ZERO_ENGAGEMENT: "itinerary_zero_engagement",
+  ITINERARY_FALLBACK_SINGLE_STOP: "itinerary_fallback_single_stop",
+  ITINERARY_EXTENDED_TO_THREE: "itinerary_extended_to_three",
   STOP_SWAPPED: "stop_swapped",
   STOP_ADDED: "stop_added",
   TIME_SLOT_SELECTED: "time_slot_selected",

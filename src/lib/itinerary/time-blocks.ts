@@ -370,43 +370,7 @@ export function formatSlotTimeForDisplay(slotTime: string): string {
 
 // ─── Recommended slot selection ───────────────────────────────
 
-import type { StopRole } from "@/types";
 import type { AvailabilitySlot } from "@/lib/availability/resy";
-
-// Typical center times by role within each block. Conservative — only
-// when there's a clear cultural norm. Phase 1 callers hardcode "evening"
-// (per design decision 4); start-time-aware centers are backlogged.
-const ROLE_CENTERS: Partial<
-  Record<TimeBlock, Partial<Record<StopRole, string>>>
-> = {
-  evening: {
-    opener: "18:00",
-    main: "19:30",
-    closer: "21:00",
-  },
-  afternoon: {
-    opener: "13:00",
-    main: "14:00",
-    closer: "15:30",
-  },
-  morning: {
-    opener: "09:00",
-    main: "10:00",
-    closer: "11:00",
-  },
-  late_night: {
-    opener: "22:30",
-    main: "23:00",
-    closer: "23:30",
-  },
-};
-
-export function getTypicalTimeForRole(
-  role: StopRole,
-  block: TimeBlock
-): string | null {
-  return ROLE_CENTERS[block]?.[role] ?? null;
-}
 
 function extractHHMM(slotTime: string): string {
   return slotTime.includes(" ")
@@ -421,23 +385,53 @@ function minuteDistance(timeA: string, timeB: string): number {
 }
 
 /**
- * Pick recommended slots from a venue's full availability list.
- * Clusters around the typical center time for the role if one exists,
- * otherwise returns the first N chronologically.
+ * Add an arbitrary minute offset to an HH:MM, wrapping past midnight.
+ * Used by `getStopCenterTime` for offsets that don't fall on hour
+ * boundaries (e.g. stop 2 is +90 min from start).
+ */
+function addMinutesWithWrap(startTime: string, minutes: number): string {
+  const [h, m] = startTime.split(":").map(Number);
+  const total = h * 60 + m + minutes;
+  const wrapped = ((total % (24 * 60)) + 24 * 60) % (24 * 60);
+  const outH = Math.floor(wrapped / 60);
+  const outM = wrapped % 60;
+  return `${String(outH).padStart(2, "0")}:${String(outM).padStart(2, "0")}`;
+}
+
+/**
+ * Center time for slot recommendation, by stop index.
  *
- * Phase 1: callers pass `"evening"` as the block. Phase 2 will refactor
- * to use the user's startTime directly.
+ *   Stop 0 (UI stop 1)  → startTime
+ *   Stop 1 (UI main)    → startTime + 1h30m
+ *   Stop 2+ (added stop) → startTime + 3h
+ *
+ * Phase 2 replaces the (TimeBlock × StopRole) ROLE_CENTERS lookup with
+ * this stop-index function — slot recommendations now anchor to the
+ * user's actual chosen startTime, not the categorical block.
+ */
+export function getStopCenterTime(stopIndex: number, startTime: string): string {
+  const offsetMin = stopIndex === 0 ? 0 : stopIndex === 1 ? 90 : 180;
+  return addMinutesWithWrap(startTime, offsetMin);
+}
+
+/**
+ * Pick recommended slots from a venue's full availability list.
+ * Clusters around the stop's center time (derived from stopIndex +
+ * startTime), or returns the first N chronologically if fewer slots
+ * than requested exist.
+ *
+ * Phase 2 signature: `(slots, stopIndex, startTime, count)`. Drops the
+ * (role, block) signature and the ROLE_CENTERS lookup.
  */
 export function pickRecommendedSlots(
   slots: AvailabilitySlot[],
-  role: StopRole,
-  block: TimeBlock,
+  stopIndex: number,
+  startTime: string,
   count = 4
 ): AvailabilitySlot[] {
   if (slots.length <= count) return slots;
 
-  const center = getTypicalTimeForRole(role, block);
-  if (!center) return slots.slice(0, count);
+  const center = getStopCenterTime(stopIndex, startTime);
 
   const scored = slots.map((s) => ({
     slot: s,

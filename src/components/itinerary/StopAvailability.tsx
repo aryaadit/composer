@@ -18,11 +18,6 @@ import type {
 } from "@/types";
 import type { AvailabilitySlot } from "@/lib/availability/resy";
 
-// Phase 1 hardcodes "evening" as the role-center anchor for
-// pickRecommendedSlots. Start-time-aware role centers (so the closer
-// recommendation shifts with a 9 PM start) is a Phase 2 backlog item.
-const RECOMMENDATION_BLOCK = "evening" as const;
-
 interface StopAvailabilityProps {
   availability: StopAvailabilityType;
   role: StopRole;
@@ -33,6 +28,13 @@ interface StopAvailabilityProps {
   venueResyId: number | null;
   date: string;
   partySize: number;
+  /** 0-based index of this stop in the itinerary. Drives the
+   * pickRecommendedSlots center time (Phase 2 replaced the categorical
+   * "evening" anchor with stop-index + startTime). */
+  stopIndex: number;
+  /** User-chosen start time as HH:MM. Combined with stopIndex to
+   * compute the slot-recommendation center via getStopCenterTime. */
+  startTime: string;
   selectedSlot: AvailabilitySlot | null;
   onSelectSlot: (slot: AvailabilitySlot | null) => void;
   /** Curation Swap action — when the slot grid is showing, Swap renders
@@ -58,6 +60,8 @@ export function StopAvailabilitySection({
   venueResyId,
   date,
   partySize,
+  stopIndex,
+  startTime,
   selectedSlot,
   onSelectSlot,
   onSwap,
@@ -156,6 +160,8 @@ export function StopAvailabilitySection({
       venueResyId={venueResyId}
       date={date}
       partySize={partySize}
+      stopIndex={stopIndex}
+      startTime={startTime}
       selectedSlot={selectedSlot}
       onSelectSlot={onSelectSlot}
       onSwap={onSwap}
@@ -173,6 +179,8 @@ function HasSlotsView({
   venueResyId,
   date,
   partySize,
+  stopIndex,
+  startTime,
   selectedSlot,
   onSelectSlot,
   onSwap,
@@ -186,6 +194,8 @@ function HasSlotsView({
   venueResyId: number | null;
   date: string;
   partySize: number;
+  stopIndex: number;
+  startTime: string;
   selectedSlot: AvailabilitySlot | null;
   onSelectSlot: (slot: AvailabilitySlot | null) => void;
   onSwap?: () => void;
@@ -193,9 +203,9 @@ function HasSlotsView({
   const { trackEngagement } = useEngagement();
   const [expanded, setExpanded] = useState(false);
   const deduped = dedupeSlots(slots);
-  // Phase 1: hardcode "evening" as the role-center anchor. See
-  // RECOMMENDATION_BLOCK at the top of this file.
-  const recommended = pickRecommendedSlots(deduped, role, RECOMMENDATION_BLOCK);
+  // Phase 2: slot recommendations anchor to the user's actual startTime,
+  // shifted by stop index (stop 0 = startTime, stop 1 = +90min, stop 2+ = +180min).
+  const recommended = pickRecommendedSlots(deduped, stopIndex, startTime);
   const hasMore = deduped.length > recommended.length;
 
   // When collapsed, ensure the selected slot stays visible even if it falls

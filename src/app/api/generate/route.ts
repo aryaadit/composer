@@ -418,6 +418,8 @@ export async function POST(request: Request) {
 
     // Track itinerary generation server-side for reliable funnel analytics.
     // Fire-and-forget; the wrapper handles its own failures.
+    const requestedStopCount = ALGORITHM.composition.stopDefaultCount;
+    const actualStopCount = enriched.stops.length;
     void trackServer(
       "itinerary_generated",
       { userId: analyticsUserId, distinctId, sessionId },
@@ -429,7 +431,8 @@ export async function POST(request: Request) {
         end_time: inputs.endTime,
         day: inputs.day,
         neighborhoods: inputs.neighborhoods ?? [],
-        stop_count: enriched.stops.length,
+        requested_stop_count: requestedStopCount,
+        stop_count: actualStopCount,
         venue_ids: enriched.stops.map((s) => s.venue.id),
         venue_names: enriched.stops.map((s) => s.venue.name),
         categories: enriched.stops.map((s) => s.venue.category ?? null),
@@ -442,6 +445,29 @@ export async function POST(request: Request) {
         time_to_enrich_ms,
       }
     );
+
+    // Single-stop fallback signal: when the composer couldn't pair Main
+    // with a stop-1 candidate (e.g. nothing in STOP_1_POOL within the
+    // proximity cap of the picked Main), the response degrades to a
+    // single-stop itinerary. Reuse the failure-event reason taxonomy
+    // so dashboards can correlate fallback with full-fail rates.
+    if (actualStopCount < requestedStopCount) {
+      void trackServer(
+        "itinerary_fallback_single_stop",
+        { userId: analyticsUserId, distinctId, sessionId },
+        {
+          requested_stop_count: requestedStopCount,
+          actual_stop_count: actualStopCount,
+          reason: "no_pairs_walkable",
+          occasion: inputs.occasion,
+          vibe: inputs.vibe,
+          budget: inputs.budget,
+          start_time: inputs.startTime,
+          day: inputs.day,
+          neighborhoods: inputs.neighborhoods ?? [],
+        }
+      );
+    }
 
     return NextResponse.json(enriched);
   } catch (error) {

@@ -56,7 +56,10 @@ export type VenueRole =
   | "coffee";
 
 export interface StopHint {
-  role: StopRole;
+  /** Single canonical role OR a pool of canonical roles. Phase 2's
+   * STOP_1_POOL = ["opener", "closer"] uses the pool form; main hints
+   * remain the single-role form. `pickBestForRole` accepts both. */
+  role: StopRole | readonly StopRole[];
   venueRoleHint?: VenueRole;
 }
 export type StopPattern = StopHint[];

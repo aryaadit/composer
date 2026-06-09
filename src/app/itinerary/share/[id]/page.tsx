@@ -121,6 +121,7 @@ export default function SharedItineraryPage({
             walks={itinerary.walks}
             date={itinerary.inputs?.day}
             partySize={2}
+            startTime={itinerary.inputs?.startTime}
             isPast={isPast}
             surface="share"
           />

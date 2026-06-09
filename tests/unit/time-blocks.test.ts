@@ -13,8 +13,11 @@ import {
   isComposeStartTime,
   COMPOSE_START_TIMES,
   TIME_BLOCKS,
+  getStopCenterTime,
+  pickRecommendedSlots,
   type TimeWindow,
 } from "@/lib/itinerary/time-blocks";
+import type { AvailabilitySlot } from "@/lib/availability/resy";
 
 // ── isSlotInWindow ────────────────────────────────────────────
 // Replaces the prior isSlotInBlock tests. Window endpoint is
@@ -418,5 +421,108 @@ describe("constants", () => {
   });
   it("TIME_BLOCKS still has 4 entries (internal venue-side type)", () => {
     expect(TIME_BLOCKS).toHaveLength(4);
+  });
+});
+
+// ── Phase 2: getStopCenterTime (stop-index aware) ─────────────
+
+describe("getStopCenterTime", () => {
+  it("stop 0 centers at startTime", () => {
+    expect(getStopCenterTime(0, "17:00")).toBe("17:00");
+    expect(getStopCenterTime(0, "21:00")).toBe("21:00");
+    expect(getStopCenterTime(0, "09:00")).toBe("09:00");
+  });
+
+  it("stop 1 (main) centers at startTime + 1h30m", () => {
+    expect(getStopCenterTime(1, "17:00")).toBe("18:30");
+    expect(getStopCenterTime(1, "19:00")).toBe("20:30");
+    expect(getStopCenterTime(1, "20:00")).toBe("21:30");
+  });
+
+  it("stop 2+ (added) centers at startTime + 3h", () => {
+    expect(getStopCenterTime(2, "17:00")).toBe("20:00");
+    expect(getStopCenterTime(2, "18:00")).toBe("21:00");
+    expect(getStopCenterTime(3, "17:00")).toBe("20:00"); // 3+ same offset
+  });
+
+  it("wraps past midnight: stop 2 at 21:00 + 3h = 00:00", () => {
+    expect(getStopCenterTime(2, "21:00")).toBe("00:00");
+  });
+
+  it("wraps past midnight: stop 1 at 23:00 + 1h30m = 00:30", () => {
+    expect(getStopCenterTime(1, "23:00")).toBe("00:30");
+  });
+
+  it("wraps cleanly past midnight: stop 2 at 22:30 + 3h = 01:30", () => {
+    expect(getStopCenterTime(2, "22:30")).toBe("01:30");
+  });
+
+  it("works for every Phase 1 startTime — stop 0", () => {
+    expect(getStopCenterTime(0, "17:00")).toBe("17:00");
+    expect(getStopCenterTime(0, "18:00")).toBe("18:00");
+    expect(getStopCenterTime(0, "19:00")).toBe("19:00");
+    expect(getStopCenterTime(0, "20:00")).toBe("20:00");
+    expect(getStopCenterTime(0, "21:00")).toBe("21:00");
+  });
+
+  it("works for every Phase 1 startTime — stop 1 main", () => {
+    expect(getStopCenterTime(1, "17:00")).toBe("18:30");
+    expect(getStopCenterTime(1, "18:00")).toBe("19:30");
+    expect(getStopCenterTime(1, "19:00")).toBe("20:30");
+    expect(getStopCenterTime(1, "20:00")).toBe("21:30");
+    expect(getStopCenterTime(1, "21:00")).toBe("22:30");
+  });
+});
+
+// ── Phase 2: pickRecommendedSlots with (stopIndex, startTime) ───
+
+function slot(time: string): AvailabilitySlot {
+  return { token: time, time: `2026-04-25 ${time}:00`, available: true } as unknown as AvailabilitySlot;
+}
+
+describe("pickRecommendedSlots (Phase 2 signature)", () => {
+  const SLOTS: AvailabilitySlot[] = [
+    slot("17:00"),
+    slot("17:30"),
+    slot("18:00"),
+    slot("18:30"),
+    slot("19:00"),
+    slot("19:30"),
+    slot("20:00"),
+    slot("21:00"),
+  ];
+
+  it("clusters around stop 0's center (= startTime) for an early start", () => {
+    const picked = pickRecommendedSlots(SLOTS, 0, "17:00", 4);
+    const times = picked.map((s) => s.time.slice(11, 16));
+    // 4 closest to 17:00 → 17:00, 17:30, 18:00, 18:30
+    expect(times).toEqual(["17:00", "17:30", "18:00", "18:30"]);
+  });
+
+  it("clusters around stop 1's center (startTime + 1h30m) — main spot", () => {
+    const picked = pickRecommendedSlots(SLOTS, 1, "17:00", 4);
+    const times = picked.map((s) => s.time.slice(11, 16));
+    // center is 18:30 → closest 4: 17:30, 18:00, 18:30, 19:00 (all within 60m)
+    expect(times).toEqual(["17:30", "18:00", "18:30", "19:00"]);
+  });
+
+  it("clusters around stop 2's center (startTime + 3h) — added stop", () => {
+    const picked = pickRecommendedSlots(SLOTS, 2, "17:00", 4);
+    const times = picked.map((s) => s.time.slice(11, 16));
+    // center is 20:00 → closest 4: 19:00, 19:30, 20:00, 21:00 (the four nearest)
+    expect(times).toEqual(["19:00", "19:30", "20:00", "21:00"]);
+  });
+
+  it("returns all slots when input length <= count", () => {
+    const few = [slot("18:00"), slot("19:00")];
+    const picked = pickRecommendedSlots(few, 0, "17:00", 4);
+    expect(picked).toHaveLength(2);
+  });
+
+  it("output is sorted chronologically even when picking around a center", () => {
+    const picked = pickRecommendedSlots(SLOTS, 1, "17:00", 4);
+    const times = picked.map((s) => s.time);
+    const sorted = [...times].sort();
+    expect(times).toEqual(sorted);
   });
 });

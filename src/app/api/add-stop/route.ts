@@ -3,6 +3,7 @@ import { getSupabase } from "@/lib/supabase";
 import { getServerSupabase } from "@/lib/supabase/server";
 import { fetchWeather } from "@/lib/weather";
 import { pickBestForRole } from "@/lib/scoring";
+import { STOP_1_POOL, disambiguateStop1Role } from "@/lib/composer";
 import { walkTimeMinutes, walkDistanceKm, buildGoogleMapsUrl } from "@/lib/geo";
 import { buildWalkMapUrl } from "@/lib/mapbox";
 import { calculateTotalSpend, spendEstimate } from "@/config/budgets";
@@ -48,6 +49,18 @@ export async function POST(request: Request) {
       );
     }
 
+    // Anchor on Main explicitly — Phase 2 collapsed the base shape to
+    // [stop_1, main], so "last stop" and Main are usually the same, but
+    // pinning to Main avoids surprises if the stop list is ever reordered
+    // or if a future surface extends a 3-stop saved itinerary.
+    const mainStop = currentStops.find((s) => s.role === "main");
+    if (!mainStop) {
+      return NextResponse.json(
+        { error: "No main stop to anchor extension" },
+        { status: 400 }
+      );
+    }
+
     const [drinks, weather, venueResult] = await Promise.all([
       readDrinksPref(),
       fetchWeather(),
@@ -70,22 +83,26 @@ export async function POST(request: Request) {
       );
     }
 
-    // Exclude every venue already in the itinerary, including current Plan Bs.
+    // Exclude every venue already in the itinerary, including current
+    // Plan Bs. The spec calls out "EXCLUDES the venue used in stop 1"
+    // explicitly — that's covered here by adding every current stop.
     const usedIds = new Set<string>();
     for (const s of currentStops) {
       usedIds.add(s.venue.id);
       if (s.plan_b) usedIds.add(s.plan_b.id);
     }
 
-    // Anchor on the last stop and pick another closer — the natural extension
-    // of a night (one more drink, dessert, late bar).
+    // Pick from STOP_1_POOL (opener-or-closer canonical) anchored to
+    // Main. Phase 2 replaced the always-"closer" rule with the same
+    // pool that drives stop 1 — adding a stop is a sibling of stop 1,
+    // not a "nightcap" suffix.
     const { best, scored } = pickBestForRole(
       venues,
-      "closer",
+      STOP_1_POOL,
       inputs,
       weather,
       usedIds,
-      lastStop.venue,
+      mainStop.venue,
       10
     );
 
@@ -97,9 +114,10 @@ export async function POST(request: Request) {
     }
 
     const planB = scored.find((v) => v.id !== best.id) ?? null;
+    const addedRole = disambiguateStop1Role(best);
 
     const newStop: ItineraryStop = {
-      role: "closer",
+      role: addedRole,
       venue: best,
       curation_note: best.curation_note ?? "",
       spend_estimate: spendEstimate(best.price_tier ?? 2),
