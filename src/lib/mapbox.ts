@@ -47,9 +47,27 @@ async function fetchWalkingPolyline(
 
 /**
  * Build a synchronous Mapbox Static Images URL showing all itinerary
- * stops as numbered pins. Phase 6 — used by SavedPlanRowExpanded's
- * hero map preview. No polyline (no Directions API roundtrip), just
- * `pin-s-${i+1}+${STROKE}(lon,lat)` for each stop, with `/auto/` bounds.
+ * stops as numbered burgundy pins. Used by SavedPlanRowExpanded's
+ * functional map zone. No polyline (no Directions API roundtrip),
+ * just numbered pins with `/auto/` bounds + padding so Mapbox fits
+ * everything in frame.
+ *
+ *   Defaults: 600×180@2x, padding 60.
+ *   - 600×180 is a card-friendly 10:3 aspect — wider than tall for
+ *     east-west routes (typical NYC neighborhoods) while staying
+ *     short enough to feel like a preview, not a hero.
+ *   - padding 60 gives the pins breathing room from the edges; with
+ *     the prior 30 px padding, pins crowded the frame edges and read
+ *     as visual noise instead of waypoints.
+ *   - @2x is mandatory for crisp pins on retina — otherwise the 24px
+ *     pin glyph blurs.
+ *
+ * NOTE on token scopes — the public `pk.*` token used here MUST have
+ * the Static Images API enabled in the Mapbox dashboard. Default
+ * public tokens usually include it, but a URL allowlist (configured
+ * on the token) is enforced on every request: composer.onpalate.com,
+ * Vercel preview URLs, and localhost all need to be in the allowlist
+ * for the static endpoint to return 200 instead of 403.
  *
  * Returns null when:
  *   - No NEXT_PUBLIC_MAPBOX_TOKEN
@@ -70,9 +88,9 @@ export function buildItineraryStaticMapUrl(
     (s) => Number.isFinite(s.latitude) && Number.isFinite(s.longitude),
   );
   if (valid.length === 0) return null;
-  const width = options.width ?? 640;
-  const height = options.height ?? 160;
-  const padding = options.padding ?? 30;
+  const width = options.width ?? 600;
+  const height = options.height ?? 180;
+  const padding = options.padding ?? 60;
   const pins = valid
     .map((s, i) => `pin-s-${i + 1}+${STROKE}(${s.longitude},${s.latitude})`)
     .join(",");

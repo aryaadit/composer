@@ -176,11 +176,56 @@ describe("buildItineraryStaticMapUrl", () => {
     expect(result).toContain("padding=50");
   });
 
-  it("defaults dimensions to 640x160 with padding=30", () => {
+  it("defaults dimensions to 600x180@2x with padding=60 (Phase 9 — better pin visibility)", () => {
+    // Phase 9 tuned defaults: previous 640x160@30 produced a very wide
+    // frame with pins crowded at the edges. 600x180 is a friendlier
+    // aspect; padding=60 gives the pins breathing room.
     const result = buildItineraryStaticMapUrl([
       { latitude: 40.7336, longitude: -74.0027 },
     ]);
-    expect(result).toContain("/640x160@2x");
-    expect(result).toContain("padding=30");
+    expect(result).toContain("/600x180@2x");
+    expect(result).toContain("padding=60");
+  });
+
+  it("uses '/auto/' bounds (Mapbox auto-fits all pins) — NOT lng,lat,zoom center", () => {
+    const result = buildItineraryStaticMapUrl([
+      { latitude: 40.7336, longitude: -74.0027 },
+      { latitude: 40.7295, longitude: -73.9965 },
+    ]);
+    // Auto bounds path is /auto/ between the overlay segment and the
+    // size. An explicit center+zoom would be /lng,lat,zoom/ instead.
+    expect(result).toMatch(/\/auto\/\d+x\d+@2x/);
+  });
+
+  it("includes @2x retina suffix for sharp pin rendering", () => {
+    const result = buildItineraryStaticMapUrl([
+      { latitude: 40.7336, longitude: -74.0027 },
+    ]);
+    expect(result).toContain("@2x");
+  });
+
+  it("3-stop itinerary generates 3 numbered pins (1, 2, 3) in coordinate order", () => {
+    const result = buildItineraryStaticMapUrl([
+      { latitude: 40.7336, longitude: -74.0027 }, // stop 1
+      { latitude: 40.7295, longitude: -73.9965 }, // stop 2
+      { latitude: 40.7250, longitude: -73.9900 }, // stop 3
+    ]);
+    expect(result).toContain("pin-s-1+6B1E2E(-74.0027,40.7336)");
+    expect(result).toContain("pin-s-2+6B1E2E(-73.9965,40.7295)");
+    expect(result).toContain("pin-s-3+6B1E2E(-73.99,40.725)");
+    // Pins are comma-separated and ordered by index.
+    const pinIndex1 = result!.indexOf("pin-s-1");
+    const pinIndex2 = result!.indexOf("pin-s-2");
+    const pinIndex3 = result!.indexOf("pin-s-3");
+    expect(pinIndex1).toBeLessThan(pinIndex2);
+    expect(pinIndex2).toBeLessThan(pinIndex3);
+  });
+
+  it("uses brand burgundy hex (#6B1E2E) for pin color", () => {
+    const result = buildItineraryStaticMapUrl([
+      { latitude: 40.7336, longitude: -74.0027 },
+    ]);
+    // The hex is uppercase 6B1E2E (matches the inline ItineraryMap).
+    expect(result).toContain("+6B1E2E(");
   });
 });

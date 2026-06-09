@@ -1,13 +1,21 @@
 "use client";
 
-// Hero card for the soonest upcoming saved itinerary. Renders with
-// significant vertical presence — venue hero image at the top with a
-// dark gradient overlay carrying the title + secondary line, a stop
-// preview row, and a static Mapbox map with numbered pins below.
+// Three-zone hero card for the soonest upcoming saved itinerary.
 //
-// Routing: HomeScreen + profile/SavedPlansList render this for
-// upcoming[0] only; the rest of upcoming and all of past use the
-// standard SavedPlanRow.
+//   Zone 1 — Text header on the card's cream background. Countdown
+//            line, large serif title, day · time · neighborhood.
+//            No overlaid-on-image text.
+//   Zone 2 — Static Mapbox map with numbered burgundy pins. Strictly
+//            functional preview — no interactive layer. Hidden when
+//            Mapbox returns null OR the request errors (token scope
+//            issue, missing coords).
+//   Zone 3 — Venue timeline. Numbered marker · name · role on the
+//            right · category line. Walk-minutes separator between
+//            stops, rebuilt from venue coords via rebuildWalks.
+//
+// Phase 9 rebuild — dropped the hero venue image entirely. Card sits
+// on the cream surface with a subtle burgundy-tinted border to
+// differentiate from the standard SavedPlanRow.
 
 import { useRef, useState } from "react";
 import Link from "next/link";
@@ -19,8 +27,9 @@ import {
 } from "@/lib/itinerary/time-blocks";
 import { neighborhoodLabel } from "@/config/neighborhoods";
 import { buildItineraryStaticMapUrl } from "@/lib/mapbox";
-import { getVenueHeroImageUrl } from "@/lib/venues/images";
+import { rebuildWalks } from "@/lib/itinerary/saved-hydration";
 import { ROLE_LABELS } from "@/config/roles";
+import { formatCategory } from "@/lib/format/category";
 
 export type CountdownUrgency = "today" | "tomorrow";
 
@@ -69,12 +78,9 @@ export function SavedPlanRowExpanded({
 }: SavedPlanRowExpandedProps) {
   const displayName = plan.custom_name || plan.title || "Saved plan";
   const stops = plan.stops ?? [];
-  const firstStop = stops[0];
-  const heroImageUrl = firstStop
-    ? getVenueHeroImageUrl(firstStop.venue.image_keys ?? [])
-    : null;
+  const walks = rebuildWalks(stops);
 
-  // Phase 5 secondary line (kept consistent with the standard row).
+  // Header text content (Phase 5 secondary line format).
   const dayLabel = formatShortDateLabel(plan.day);
   const resolvedStartTime =
     plan.start_time ?? startTimeFromLegacyBlock(plan.time_block);
@@ -89,12 +95,18 @@ export function SavedPlanRowExpanded({
 
   const countdown = getCountdownLabel(plan.day, resolvedStartTime);
 
+  // Mapbox static URL. Phase 9 defaults to 600×180@2x padding 60 so
+  // pins read clearly. Null when token is missing or no stop has
+  // finite coords. `mapErrored` switches to "hide map zone" if the
+  // image GET fails at runtime (e.g. token's Static Images scope
+  // isn't granted in the Mapbox dashboard — see mapbox.ts comment).
   const mapUrl = buildItineraryStaticMapUrl(
     stops.map((s) => ({
       latitude: s.venue.latitude,
       longitude: s.venue.longitude,
     })),
   );
+  const [mapErrored, setMapErrored] = useState(false);
 
   // ── Inline rename ───────────────────────────────────────────
   const [editing, setEditing] = useState(false);
@@ -153,137 +165,118 @@ export function SavedPlanRowExpanded({
   return (
     <div
       data-testid="saved-plan-row-expanded"
-      className="relative w-full mb-6 rounded-xl border border-burgundy/15 overflow-hidden bg-cream"
+      className="relative w-full mb-6 rounded-xl border border-burgundy/15 bg-cream overflow-hidden"
     >
       <Link href={`/itinerary/saved/${plan.id}`} className="block">
-        {/* Hero zone — relative parent for image + gradient + text overlay */}
-        <div className="relative h-[200px] w-full">
-          {heroImageUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={heroImageUrl}
-              alt={firstStop?.venue.name ?? "Itinerary hero"}
-              className="absolute inset-0 w-full h-full object-cover"
-              loading="lazy"
+        {/* ─── Zone 1 — Text header ────────────────────────── */}
+        <div className="px-5 pt-5 pb-4">
+          {countdown && (
+            <div
+              data-testid="countdown"
+              className={`flex items-center gap-2 font-sans text-[11px] tracking-widest uppercase mb-2 ${
+                countdown.urgency === "today"
+                  ? "text-burgundy"
+                  : "text-burgundy/60"
+              }`}
+            >
+              <span
+                data-testid="countdown-dot"
+                className={
+                  countdown.urgency === "today"
+                    ? "inline-block w-1.5 h-1.5 rounded-full bg-burgundy"
+                    : "inline-block w-1.5 h-1.5 rounded-full bg-burgundy/60"
+                }
+                aria-hidden
+              />
+              <span>{countdown.text}</span>
+            </div>
+          )}
+
+          {editing ? (
+            <input
+              ref={inputRef}
+              type="text"
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={handleKeyDown}
+              onBlur={() => void saveRename()}
+              onClick={(e) => e.preventDefault()}
+              disabled={saving}
+              className="w-full font-serif text-2xl text-charcoal leading-tight bg-transparent border-b border-burgundy focus:outline-none disabled:opacity-50"
             />
           ) : (
-            <div
-              data-testid="hero-fallback"
-              className="absolute inset-0 w-full h-full bg-burgundy"
-            />
+            <h2 className="font-serif text-2xl text-charcoal leading-tight pr-20">
+              {displayName}
+            </h2>
           )}
-          {/* Dark gradient overlay — darker at the bottom for text legibility */}
-          <div
-            className="absolute inset-0 bg-gradient-to-t from-charcoal/85 via-charcoal/35 to-transparent"
-            aria-hidden
-          />
 
-          {/* Bottom-aligned text overlay */}
-          <div className="absolute bottom-0 left-0 right-0 p-5">
-            {countdown && (
-              <div
-                data-testid="countdown"
-                className="flex items-center gap-2 font-sans text-xs tracking-widest uppercase text-cream mb-2"
-              >
-                <span
-                  data-testid="countdown-dot"
-                  className={
-                    countdown.urgency === "today"
-                      ? "inline-block w-2 h-2 rounded-full bg-burgundy"
-                      : "inline-block w-2 h-2 rounded-full bg-burgundy-light"
-                  }
-                  aria-hidden
-                />
-                <span
-                  className={
-                    countdown.urgency === "today"
-                      ? "text-cream"
-                      : "text-cream/80"
-                  }
-                >
-                  {countdown.text}
-                </span>
-              </div>
-            )}
-
-            {editing ? (
-              <input
-                ref={inputRef}
-                type="text"
-                value={draft}
-                onChange={(e) => setDraft(e.target.value)}
-                onKeyDown={handleKeyDown}
-                onBlur={() => void saveRename()}
-                onClick={(e) => e.preventDefault()}
-                disabled={saving}
-                className="w-full font-serif text-2xl text-cream leading-tight bg-transparent border-b border-cream/60 focus:outline-none disabled:opacity-50"
-              />
-            ) : (
-              <h2 className="font-serif text-2xl text-cream leading-tight">
-                {displayName}
-              </h2>
-            )}
-
-            {secondaryLine && !editing && (
-              <p className="font-sans text-sm text-cream/80 mt-1">
-                {secondaryLine}
-              </p>
-            )}
-          </div>
+          {secondaryLine && !editing && (
+            <p className="font-sans text-sm text-muted mt-1">
+              {secondaryLine}
+            </p>
+          )}
         </div>
 
-        {/* Stop preview row — wraps on narrow viewports */}
-        {stops.length > 0 && (
-          <div className="px-5 py-4 flex flex-wrap items-center gap-4 border-b border-border">
-            {stops.map((stop, i) => {
-              const thumb = getVenueHeroImageUrl(stop.venue.image_keys ?? []);
-              return (
-                <div
-                  key={`${stop.venue.id}-${i}`}
-                  className="flex items-center gap-2 min-w-0"
-                >
-                  <div className="w-10 h-10 rounded-md overflow-hidden bg-burgundy/10 shrink-0 flex items-center justify-center">
-                    {thumb ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={thumb}
-                        alt={stop.venue.name}
-                        className="w-full h-full object-cover"
-                        loading="lazy"
-                      />
-                    ) : (
-                      <span className="font-serif text-sm text-burgundy">
-                        {stop.venue.name.charAt(0)}
-                      </span>
-                    )}
-                  </div>
-                  <div className="min-w-0">
-                    <div className="font-serif text-sm text-charcoal truncate">
-                      {stop.venue.name}
-                    </div>
-                    <div className="font-sans text-[10px] tracking-widest uppercase text-muted">
-                      {ROLE_LABELS[stop.role] ?? stop.role}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        {/* Static Mapbox map — pins for every stop, no interaction */}
-        {mapUrl && (
+        {/* ─── Zone 2 — Functional static map ──────────────── */}
+        {mapUrl && !mapErrored && (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={mapUrl}
             alt="Itinerary route map"
-            className="w-full h-[160px] object-cover"
+            className="w-full h-[180px] object-cover"
             loading="lazy"
+            onError={() => setMapErrored(true)}
           />
+        )}
+
+        {/* ─── Zone 3 — Venue timeline ─────────────────────── */}
+        {stops.length > 0 && (
+          <div className="px-5 py-4">
+            {stops.map((stop, i) => (
+              <div key={`${stop.venue.id}-${i}`}>
+                <div className="flex items-start gap-3">
+                  {/* Numbered marker */}
+                  <div className="shrink-0 w-7 h-7 rounded-full bg-burgundy text-cream font-sans text-xs font-medium flex items-center justify-center mt-0.5">
+                    {i + 1}
+                  </div>
+                  {/* Name + category (left), role (right) */}
+                  <div className="flex-1 min-w-0 flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="font-serif text-base text-charcoal truncate">
+                        {stop.venue.name}
+                      </div>
+                      {stop.venue.category && (
+                        <div className="font-sans text-xs text-muted mt-0.5">
+                          {formatCategory(stop.venue.category)}
+                        </div>
+                      )}
+                    </div>
+                    <div className="shrink-0 font-sans text-[10px] tracking-widest uppercase text-muted whitespace-nowrap pt-1">
+                      {ROLE_LABELS[stop.role] ?? stop.role}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Walk separator — between stops only, not after the last */}
+                {i < stops.length - 1 && walks[i] && (
+                  <div
+                    data-testid="walk-separator"
+                    className="flex items-center gap-3 my-3 ml-3"
+                  >
+                    <span className="flex-1 border-t border-border" aria-hidden />
+                    <span className="font-sans text-[11px] text-muted whitespace-nowrap">
+                      {walks[i].walk_minutes} min walk
+                    </span>
+                    <span className="flex-1 border-t border-border" aria-hidden />
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
         )}
       </Link>
 
-      {/* Affordances — absolutely positioned over the hero, outside the Link */}
+      {/* Affordances — top-right, outside the Link */}
       <div className="absolute top-3 right-3 z-10 flex items-center gap-2">
         <button
           type="button"
@@ -293,12 +286,12 @@ export function SavedPlanRowExpanded({
             startEditing();
           }}
           aria-label="Rename"
-          className="w-8 h-8 rounded-full bg-cream/90 hover:bg-cream text-charcoal flex items-center justify-center shadow-sm transition-colors"
+          className="w-8 h-8 rounded-full bg-cream/90 hover:bg-cream text-burgundy/70 hover:text-burgundy flex items-center justify-center shadow-sm border border-burgundy/10 transition-colors"
         >
           <PencilIcon />
         </button>
         {confirming ? (
-          <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-cream/95 shadow-sm font-sans text-xs">
+          <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-cream/95 shadow-sm border border-burgundy/10 font-sans text-xs">
             <span className="text-muted">Remove?</span>
             <button
               type="button"
@@ -334,7 +327,7 @@ export function SavedPlanRowExpanded({
               setConfirming(true);
             }}
             aria-label="Remove saved plan"
-            className="w-8 h-8 rounded-full bg-cream/90 hover:bg-cream text-charcoal hover:text-burgundy flex items-center justify-center shadow-sm transition-colors"
+            className="w-8 h-8 rounded-full bg-cream/90 hover:bg-cream text-burgundy/70 hover:text-burgundy flex items-center justify-center shadow-sm border border-burgundy/10 transition-colors"
           >
             <TrashIcon />
           </button>
