@@ -176,16 +176,40 @@ describe("buildItineraryStaticMapUrl", () => {
     expect(result).toContain("padding=50");
   });
 
-  it("defaults dimensions to 600x180@2x with padding=120 (pins comfortably inside frame)", () => {
-    // Tuning history: 640x160@30 (Phase 6) → 600x180@60 (Phase 9 step 1)
-    // → 600x180@120 (Phase 9 step 2). Each bump pushed pins further
-    // from the cropping edge. 120 px on a 600-wide image is 20% on
-    // each horizontal margin, leaving the pins comfortably inside.
+  it("defaults to 600x280@2x with padding=120 (Mapbox constraint: padding < min(w,h)/2)", () => {
+    // Tuning history:
+    //   640x160@30   (Phase 6 initial) — pins at cropping edge
+    //   600x180@60   (Phase 9 step 1)  — still crowded
+    //   600x180@120  (Phase 9 step 2)  — HTTP 422: padding > height/2
+    //   600x280@120  (Phase 9 step 3)  — empirically verified HTTP 200
+    //
+    // Mapbox rejects padding >= min(width, height) / 2 with a 422
+    // "padding cannot exceed height/width" error. For padding=120
+    // (20% horizontal margin on a 600 wide image), height must be
+    // > 240; we use 280 for a small safety buffer.
     const result = buildItineraryStaticMapUrl([
       { latitude: 40.7336, longitude: -74.0027 },
     ]);
-    expect(result).toContain("/600x180@2x");
+    expect(result).toContain("/600x280@2x");
     expect(result).toContain("padding=120");
+  });
+
+  it("default padding satisfies Mapbox's padding < min(width, height) / 2 rule", () => {
+    // Regression guard: any future tweak to width/height/padding
+    // defaults must keep padding strictly less than half the smaller
+    // dimension. Mapbox returns 422 otherwise.
+    const result = buildItineraryStaticMapUrl([
+      { latitude: 40.7336, longitude: -74.0027 },
+    ]);
+    expect(result).not.toBeNull();
+    const sizeMatch = /\/(\d+)x(\d+)@2x/.exec(result!);
+    const padMatch = /padding=(\d+)/.exec(result!);
+    expect(sizeMatch).not.toBeNull();
+    expect(padMatch).not.toBeNull();
+    const width = parseInt(sizeMatch![1], 10);
+    const height = parseInt(sizeMatch![2], 10);
+    const padding = parseInt(padMatch![1], 10);
+    expect(padding).toBeLessThan(Math.min(width, height) / 2);
   });
 
   it("uses '/auto/' bounds (Mapbox auto-fits all pins) — NOT lng,lat,zoom center", () => {

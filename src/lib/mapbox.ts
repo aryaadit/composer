@@ -52,14 +52,23 @@ async function fetchWalkingPolyline(
  * just numbered pins with `/auto/` bounds + padding so Mapbox fits
  * everything in frame.
  *
- *   Defaults: 600×180@2x, padding 120.
- *   - 600×180 is a card-friendly 10:3 aspect — wider than tall for
- *     east-west routes (typical NYC neighborhoods) while staying
- *     short enough to feel like a preview, not a hero.
- *   - padding 120 (px) is generous — at 600 wide that's 20% on each
- *     horizontal edge, which keeps pins comfortably within the
- *     visible frame even when the auto-fit bounding box is tight.
- *     Earlier defaults (30, then 60) put pins at the cropping edge.
+ *   Defaults: 600×280@2x, padding 120.
+ *   - Mapbox empirical constraint: padding < min(width, height) / 2.
+ *     Violating it returns HTTP 422 "The padding cannot exceed the
+ *     height or width of the requested image." For 600 wide and a
+ *     desired 120 padding (20% horizontal margin), height must be
+ *     > 240. We use 280 so the constraint holds with a small buffer.
+ *   - 600×280 (15:7) is taller than the original 600×180 brief — the
+ *     extra vertical room is what enables the generous 120 padding.
+ *     The card's <img> renders at h-[180px] with object-cover, so
+ *     visually it still reads as a wide preview (slight horizontal
+ *     crop) — but the underlying bounding-box space is wider than
+ *     the 600×180 we shipped before.
+ *   - padding 120 (px) puts the pin bounding box no closer than
+ *     20% horizontal / ~43% vertical from any image edge. Earlier
+ *     defaults (30, 60) put pins at the cropping edge; 120 keeps
+ *     them comfortably inside any object-cover crop the consumer
+ *     does at render time.
  *   - @2x is mandatory for crisp pins on retina — otherwise the 24px
  *     pin glyph blurs.
  *
@@ -90,7 +99,7 @@ export function buildItineraryStaticMapUrl(
   );
   if (valid.length === 0) return null;
   const width = options.width ?? 600;
-  const height = options.height ?? 180;
+  const height = options.height ?? 280;
   const padding = options.padding ?? 120;
   const pins = valid
     .map((s, i) => `pin-s-${i + 1}+${STROKE}(${s.longitude},${s.latitude})`)
