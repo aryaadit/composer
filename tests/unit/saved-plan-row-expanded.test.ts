@@ -176,15 +176,16 @@ describe("buildItineraryStaticMapUrl", () => {
     expect(result).toContain("padding=50");
   });
 
-  it("defaults dimensions to 600x180@2x with padding=60 (Phase 9 — better pin visibility)", () => {
-    // Phase 9 tuned defaults: previous 640x160@30 produced a very wide
-    // frame with pins crowded at the edges. 600x180 is a friendlier
-    // aspect; padding=60 gives the pins breathing room.
+  it("defaults dimensions to 600x180@2x with padding=120 (pins comfortably inside frame)", () => {
+    // Tuning history: 640x160@30 (Phase 6) → 600x180@60 (Phase 9 step 1)
+    // → 600x180@120 (Phase 9 step 2). Each bump pushed pins further
+    // from the cropping edge. 120 px on a 600-wide image is 20% on
+    // each horizontal margin, leaving the pins comfortably inside.
     const result = buildItineraryStaticMapUrl([
       { latitude: 40.7336, longitude: -74.0027 },
     ]);
     expect(result).toContain("/600x180@2x");
-    expect(result).toContain("padding=60");
+    expect(result).toContain("padding=120");
   });
 
   it("uses '/auto/' bounds (Mapbox auto-fits all pins) — NOT lng,lat,zoom center", () => {

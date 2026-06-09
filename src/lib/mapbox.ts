@@ -52,13 +52,14 @@ async function fetchWalkingPolyline(
  * just numbered pins with `/auto/` bounds + padding so Mapbox fits
  * everything in frame.
  *
- *   Defaults: 600×180@2x, padding 60.
+ *   Defaults: 600×180@2x, padding 120.
  *   - 600×180 is a card-friendly 10:3 aspect — wider than tall for
  *     east-west routes (typical NYC neighborhoods) while staying
  *     short enough to feel like a preview, not a hero.
- *   - padding 60 gives the pins breathing room from the edges; with
- *     the prior 30 px padding, pins crowded the frame edges and read
- *     as visual noise instead of waypoints.
+ *   - padding 120 (px) is generous — at 600 wide that's 20% on each
+ *     horizontal edge, which keeps pins comfortably within the
+ *     visible frame even when the auto-fit bounding box is tight.
+ *     Earlier defaults (30, then 60) put pins at the cropping edge.
  *   - @2x is mandatory for crisp pins on retina — otherwise the 24px
  *     pin glyph blurs.
  *
@@ -90,7 +91,7 @@ export function buildItineraryStaticMapUrl(
   if (valid.length === 0) return null;
   const width = options.width ?? 600;
   const height = options.height ?? 180;
-  const padding = options.padding ?? 60;
+  const padding = options.padding ?? 120;
   const pins = valid
     .map((s, i) => `pin-s-${i + 1}+${STROKE}(${s.longitude},${s.latitude})`)
     .join(",");

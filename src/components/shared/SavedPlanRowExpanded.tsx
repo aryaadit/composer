@@ -30,6 +30,7 @@ import { buildItineraryStaticMapUrl } from "@/lib/mapbox";
 import { rebuildWalks } from "@/lib/itinerary/saved-hydration";
 import { ROLE_LABELS } from "@/config/roles";
 import { formatCategory } from "@/lib/format/category";
+import { getVenueHeroImageUrl } from "@/lib/venues/images";
 
 export type CountdownUrgency = "today" | "tomorrow";
 
@@ -232,46 +233,69 @@ export function SavedPlanRowExpanded({
         {/* ─── Zone 3 — Venue timeline ─────────────────────── */}
         {stops.length > 0 && (
           <div className="px-5 py-4">
-            {stops.map((stop, i) => (
-              <div key={`${stop.venue.id}-${i}`}>
-                <div className="flex items-start gap-3">
-                  {/* Numbered marker */}
-                  <div className="shrink-0 w-7 h-7 rounded-full bg-burgundy text-cream font-sans text-xs font-medium flex items-center justify-center mt-0.5">
-                    {i + 1}
-                  </div>
-                  {/* Name + category (left), role (right) */}
-                  <div className="flex-1 min-w-0 flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="font-serif text-base text-charcoal truncate">
-                        {stop.venue.name}
-                      </div>
-                      {stop.venue.category && (
-                        <div className="font-sans text-xs text-muted mt-0.5">
-                          {formatCategory(stop.venue.category)}
-                        </div>
+            {stops.map((stop, i) => {
+              const thumb = getVenueHeroImageUrl(stop.venue.image_keys ?? []);
+              return (
+                <div key={`${stop.venue.id}-${i}`}>
+                  <div className="flex items-center gap-3">
+                    {/* Venue thumbnail (or first-letter fallback). The
+                        row order matches the map's pin numbers, so an
+                        explicit number on the timeline is redundant. */}
+                    <div
+                      data-testid="venue-thumbnail"
+                      className="shrink-0 w-12 h-12 rounded-md overflow-hidden bg-burgundy/10 flex items-center justify-center"
+                    >
+                      {thumb ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={thumb}
+                          alt={stop.venue.name}
+                          className="w-full h-full object-cover"
+                          loading="lazy"
+                        />
+                      ) : (
+                        <span
+                          data-testid="thumbnail-fallback"
+                          className="font-serif text-lg text-burgundy"
+                        >
+                          {stop.venue.name.charAt(0)}
+                        </span>
                       )}
                     </div>
-                    <div className="shrink-0 font-sans text-[10px] tracking-widest uppercase text-muted whitespace-nowrap pt-1">
-                      {ROLE_LABELS[stop.role] ?? stop.role}
+                    {/* Name + category (left), role (right) */}
+                    <div className="flex-1 min-w-0 flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="font-serif text-base text-charcoal truncate">
+                          {stop.venue.name}
+                        </div>
+                        {stop.venue.category && (
+                          <div className="font-sans text-xs text-muted mt-0.5">
+                            {formatCategory(stop.venue.category)}
+                          </div>
+                        )}
+                      </div>
+                      <div className="shrink-0 font-sans text-[10px] tracking-widest uppercase text-muted whitespace-nowrap pt-1">
+                        {ROLE_LABELS[stop.role] ?? stop.role}
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                {/* Walk separator — between stops only, not after the last */}
-                {i < stops.length - 1 && walks[i] && (
-                  <div
-                    data-testid="walk-separator"
-                    className="flex items-center gap-3 my-3 ml-3"
-                  >
-                    <span className="flex-1 border-t border-border" aria-hidden />
-                    <span className="font-sans text-[11px] text-muted whitespace-nowrap">
-                      {walks[i].walk_minutes} min walk
-                    </span>
-                    <span className="flex-1 border-t border-border" aria-hidden />
-                  </div>
-                )}
-              </div>
-            ))}
+                  {/* Walk separator — between stops only, not after the last */}
+                  {i < stops.length - 1 && walks[i] && (
+                    <div
+                      data-testid="walk-separator"
+                      className="flex items-center gap-3 my-3 ml-6"
+                    >
+                      <span className="flex-1 border-t border-border" aria-hidden />
+                      <span className="font-sans text-[11px] text-muted whitespace-nowrap">
+                        {walks[i].walk_minutes} min walk
+                      </span>
+                      <span className="flex-1 border-t border-border" aria-hidden />
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
       </Link>
