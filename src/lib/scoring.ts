@@ -13,7 +13,11 @@ import { BUDGET_PRIMARY_TIER } from "@/config/budgets";
 import { VIBE_VENUE_TAGS } from "@/config/vibes";
 import { ALGORITHM } from "@/config/algorithm";
 import { weightedPickByRank } from "@/lib/itinerary/weighted-pick";
-import { blockCoverageFraction, type DayColumn, type TimeBlock } from "@/lib/itinerary/time-blocks";
+import {
+  windowCoverageFraction,
+  type DayColumn,
+  type TimeWindow,
+} from "@/lib/itinerary/time-blocks";
 
 // ─── Role expansion ────────────────────────────────────────────────────
 // Generated from the Stop Roles sheet. Maps the 6 raw venue roles to
@@ -66,7 +70,7 @@ function scoreVenue(
   jitter: number,
   random: () => number,
   dayColumn: DayColumn | null,
-  timeBlock: TimeBlock | null
+  window: TimeWindow | null
 ): number {
   let score = 0;
 
@@ -111,11 +115,11 @@ function scoreVenue(
     score += W.neighborhood;
   }
 
-  // Time relevance — score based on per-day block coverage. When the
-  // caller has no day/block context (legacy callers, tests), fall back
+  // Time relevance — score based on per-day window coverage. When the
+  // caller has no day/window context (legacy callers, tests), fall back
   // to full points so the component doesn't penalize anything.
-  if (dayColumn && timeBlock) {
-    score += blockCoverageFraction(venue, dayColumn, timeBlock) * W.timeRelevance;
+  if (dayColumn && window) {
+    score += windowCoverageFraction(venue, dayColumn, window) * W.timeRelevance;
   } else {
     void role; // role was used by the original stub; kept for future role-aware logic
     score += W.timeRelevance;
@@ -223,7 +227,7 @@ function applyProximity(candidates: Venue[], anchor: Venue | null, maxKm: number
  * @param random         - Seeded PRNG function; defaults to Math.random.
  * @param usedCategories - Categories already used in this itinerary; triggers -20 penalty.
  * @param dayColumn      - Per-day column (e.g. "fri_blocks") for time relevance scoring.
- * @param timeBlock      - Time block (e.g. "evening") for time relevance scoring.
+ * @param window         - User's compose time window for time relevance scoring.
  * @param venueRoleHint  - Optional raw venue role to prefer (e.g. "drinks" for bar slots).
  *                         If no venues match the hint, falls back to any role-compatible venue.
  *
@@ -241,7 +245,7 @@ export function pickBestForRole(
   random: () => number = Math.random,
   usedCategories: Set<string> = new Set(),
   dayColumn: DayColumn | null = null,
-  timeBlock: TimeBlock | null = null,
+  window: TimeWindow | null = null,
   venueRoleHint?: VenueRole
 ): { best: ScoredVenue | null; scored: ScoredVenue[] } {
   const maxWalkKm = getMaxWalkKm(weather);
@@ -263,7 +267,7 @@ export function pickBestForRole(
   }
 
   const scored: ScoredVenue[] = candidates.map((v) => {
-    let score = scoreVenue(v, answers, role, jitter, random, dayColumn, timeBlock);
+    let score = scoreVenue(v, answers, role, jitter, random, dayColumn, window);
     if (v.category && usedCategories.has(v.category)) {
       score -= ALGORITHM.penalties.categoryDuplicate;
     }

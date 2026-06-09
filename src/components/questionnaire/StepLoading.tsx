@@ -8,7 +8,6 @@ interface StepLoadingProps {
   occasion?: string;
   neighborhoods?: string[];
   vibe?: string;
-  timeBlocks?: string[];
 }
 
 const NEIGHBORHOOD_MESSAGES = [

@@ -35,9 +35,8 @@ const SCORING_TEST_INPUT: QuestionnaireAnswers = {
   budget: "nice_out",
   vibe: "food_forward",
   day: new Date().toISOString().split("T")[0],
-  timeBlock: "evening",
-  startTime: "17:00",
-  endTime: "22:00",
+  startTime: "19:00",
+  endTime: "00:00",
 };
 
 interface SupabaseCheck {

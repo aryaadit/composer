@@ -1,6 +1,6 @@
 // Availability enrichment — fetches live Resy availability for each stop
-// in a generated itinerary, filters to the user's time block, and
-// attempts a swap if a Resy venue has no slots in the block.
+// in a generated itinerary, filters to the user's compose window, and
+// attempts a swap if a Resy venue has no slots in the window.
 
 import { getResyAvailability } from "@/lib/availability/resy";
 import {
@@ -8,9 +8,11 @@ import {
   buildOpenTableBookingUrl,
 } from "@/lib/availability/booking-url";
 import { detectBookingPlatform, isValidReservationUrl } from "@/lib/booking";
-import { isSlotInBlock, resolveTimeWindow } from "@/lib/itinerary/time-blocks";
+import {
+  isSlotInWindow,
+  type TimeWindow,
+} from "@/lib/itinerary/time-blocks";
 import { haversineKm } from "@/lib/geo";
-import type { TimeBlock } from "@/types";
 import type {
   ItineraryStop,
   StopAvailability,
@@ -68,10 +70,9 @@ async function fetchResyWithTimeout(
 function buildAvailability(
   venue: Venue,
   slots: AvailabilitySlot[],
-  timeBlock: TimeBlock,
+  window: TimeWindow,
   date: string,
-  partySize: number,
-  startTime: string
+  partySize: number
 ): StopAvailability {
   const platform = venue.reservation_platform ?? "none";
 
@@ -87,14 +88,14 @@ function buildAvailability(
         venue.reservation_url,
         date,
         partySize,
-        startTime
+        window.startTime
       ),
       swapped: false,
     };
   }
 
   const filtered = slots
-    .filter((s) => isSlotInBlock(s.time, timeBlock))
+    .filter((s) => isSlotInWindow(s.time, window))
     .sort((a, b) => a.time.localeCompare(b.time));
 
   if (filtered.length > 0) {
@@ -120,7 +121,7 @@ async function attemptSwap(
   candidatePool: Venue[],
   date: string,
   partySize: number,
-  timeBlock: TimeBlock,
+  window: TimeWindow,
   alreadyUsed: Set<string>
 ): Promise<{
   venue: Venue;
@@ -154,7 +155,7 @@ async function attemptSwap(
           partySize
         );
         const filtered = slots
-          .filter((s) => isSlotInBlock(s.time, timeBlock))
+          .filter((s) => isSlotInWindow(s.time, window))
           .sort((a, b) => a.time.localeCompare(b.time));
         return { venue: v, filtered };
       } catch {
@@ -190,10 +191,10 @@ export async function enrichWithAvailability(
   response: ItineraryResponse,
   date: string,
   partySize: number,
-  timeBlock: TimeBlock,
+  window: TimeWindow,
   candidatePool?: Venue[]
 ): Promise<ItineraryResponse> {
-  const { startTime } = resolveTimeWindow(timeBlock);
+  const { startTime } = window;
   const usedIds = new Set(response.stops.map((s) => s.venue.id));
 
   const enrichedStops = await Promise.all(
@@ -287,10 +288,9 @@ export async function enrichWithAvailability(
       const availability = buildAvailability(
         venue,
         slots,
-        timeBlock,
+        window,
         date,
-        partySize,
-        startTime
+        partySize
       );
 
       if (
@@ -303,7 +303,7 @@ export async function enrichWithAvailability(
           candidatePool,
           date,
           partySize,
-          timeBlock,
+          window,
           usedIds
         );
         if (swapResult) {

@@ -11,7 +11,7 @@ import type { GenerateRequestBody } from "@/types";
 /**
  * Compute a deterministic 32-bit seed from the request body.
  *
- * Hashes scoring-relevant fields: occasion, vibe, budget, timeBlock,
+ * Hashes scoring-relevant fields: occasion, vibe, budget, startTime,
  * day, neighborhoods (sorted), and excludeVenueIds (sorted). Arrays
  * are sorted before hashing so field order doesn't affect the seed.
  *
@@ -26,7 +26,7 @@ export function computeRequestSeed(body: GenerateRequestBody): number {
     body.occasion,
     body.vibe,
     body.budget,
-    body.timeBlock,
+    body.startTime,
     body.day,
     ...[...(body.neighborhoods ?? [])].sort(),
     ...[...(body.excludeVenueIds ?? [])].sort(),

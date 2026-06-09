@@ -25,9 +25,22 @@ export type Occasion = OccasionSlug;
 export type OccasionBucket = "date" | "friends" | "solo";
 
 export type Neighborhood = NeighborhoodSlug;
+// Canonical budget taxonomy (sheet-side). Wider than what the compose
+// flow exposes — old saved itineraries may carry "all_out" or
+// "no_preference"; saved/share views read those via `Budget`.
 export type Budget = BudgetSlug;
+// Narrowed budget set for the questionnaire input (Phase 1). The
+// compose UI offers exactly these three; new generations always carry
+// one of these. Older saves with "all_out"/"no_preference" stay typed
+// as the wider `Budget` and cast at the saved-view boundary.
+export type ComposeBudget = "casual" | "nice_out" | "splurge";
 export type Vibe = VibeSlug;
 export type StopRole = StopRoleSlug;
+// TimeBlock is an INTERNAL venue-side type — venues advertise open
+// hours via time_blocks/mon_blocks/etc using these values. It must NOT
+// appear on QuestionnaireAnswers or GenerateRequestBody (the user
+// picks a startTime instead). Boundary discipline: import TimeBlock
+// from `@/lib/itinerary/time-blocks`, not from the user-input layer.
 export type { TimeBlock };
 
 // The 6 values a venue can carry in its stop_roles column. The
@@ -86,27 +99,26 @@ export function composerUserToPrefs(u: ComposerUser): UserPrefs {
 }
 
 // Full canonical shape used by every downstream scoring/composition
-// function. `startTime` and `endTime` are computed server-side from
-// `timeBlock` — the client never fills them in.
+// function. The user picks `startTime` from the COMPOSE_START_TIMES
+// set; the server derives `endTime` = startTime + 5h (wrapping past
+// midnight). `timeBlock` is intentionally absent — translation to
+// venue-side TimeBlocks happens inside the algorithm via
+// `venueOpenForWindow` / `windowCoverageFraction`.
 export interface QuestionnaireAnswers {
   occasion: OccasionBucket;
   neighborhoods: Neighborhood[]; // expanded storage slugs
-  budget: Budget;
+  budget: ComposeBudget;
   vibe: Vibe;
   day: string; // ISO date "2026-04-09"
-  timeBlock: TimeBlock; // "morning" | "afternoon" | "evening" | "late_night"
-  startTime: string; // "17:00" — resolved server-side from timeBlock
-  endTime: string; // "22:00" — resolved server-side from timeBlock
+  startTime: string; // "17:00" | "18:00" | "19:00" | "20:00" | "21:00"
+  endTime: string; // server-derived: startTime + 5h (wraps past midnight)
 }
 
 // Body shape POSTed to /api/generate. Auth-derived preferences (name,
 // drinks, etc.) are read server-side from the session cookie and are
-// *not* part of the request body. Time window is resolved on the
-// server from `timeBlock`, so the client omits startTime/endTime.
-export type GenerateRequestBody = Omit<
-  QuestionnaireAnswers,
-  "startTime" | "endTime"
-> & {
+// *not* part of the request body. The client posts `startTime`; the
+// server derives `endTime` so the client never has to do the math.
+export type GenerateRequestBody = Omit<QuestionnaireAnswers, "endTime"> & {
   excludeVenueIds?: string[];
 };
 
@@ -263,7 +275,10 @@ export interface ItineraryResponse {
   inputs: QuestionnaireAnswers;
 }
 
-// Row shape of the `composer_saved_itineraries` table.
+// Row shape of the `composer_saved_itineraries` table. `time_block`
+// pre-dates the Phase 1 startTime refactor — new saves always write
+// "evening", old saves carry morning/afternoon/late_night/evening. The
+// saved view translates to a startTime via `startTimeFromLegacyBlock`.
 export interface SavedItinerary {
   id: string;
   user_id: string;

@@ -12,7 +12,8 @@ import { ALCOHOL_VIBE_TAGS } from "@/config/vibes";
 import {
   resolveTimeWindow,
   dateToDayColumn,
-  venueOpenForBlock,
+  venueOpenForWindow,
+  isComposeStartTime,
 } from "@/lib/itinerary/time-blocks";
 import { enrichWithAvailability } from "@/lib/itinerary/availability-enrichment";
 import { computeRequestSeed, createSeededRandom } from "@/lib/itinerary/seed";
@@ -148,20 +149,44 @@ export async function POST(request: Request) {
   let analyticsUserId: string | null = null;
 
   try {
-    const body = (await request.json()) as GenerateRequestBody;
+    const rawBody = (await request.json()) as Record<string, unknown>;
+
+    // Reject the legacy Phase 0 shape loudly. Any caller still sending
+    // `timeBlock` needs to update to `startTime` — silent coercion
+    // would mask forgotten call sites and ship the wrong time window.
+    if ("timeBlock" in rawBody && !("startTime" in rawBody)) {
+      return NextResponse.json(
+        {
+          error:
+            "Request shape is out of date: send `startTime` (e.g. \"19:00\") instead of `timeBlock`.",
+        },
+        { status: 400 }
+      );
+    }
+    if (!isComposeStartTime(rawBody.startTime)) {
+      return NextResponse.json(
+        {
+          error:
+            "Missing or invalid `startTime`. Must be one of 17:00, 18:00, 19:00, 20:00, 21:00.",
+        },
+        { status: 400 }
+      );
+    }
+
+    const body = rawBody as unknown as GenerateRequestBody;
     analyticsInputs = body;
 
     const excludeVenueIds = Array.isArray(body.excludeVenueIds)
       ? body.excludeVenueIds.filter((id): id is string => typeof id === "string")
       : [];
 
-    // Resolve timeBlock → concrete startTime/endTime. Downstream scoring
-    // and composition reason in minutes, so we normalize at the edge
-    // and pass a full QuestionnaireAnswers through the rest of the
-    // pipeline. Response.inputs echoes the resolved shape so the UI
-    // can render real times.
-    const { startTime, endTime } = resolveTimeWindow(body.timeBlock);
-    const inputs: QuestionnaireAnswers = { ...body, startTime, endTime };
+    // Resolve startTime → 5-hour window (wrapping past midnight).
+    // Downstream scoring and composition reason in minutes, so we
+    // normalize at the edge and pass a full QuestionnaireAnswers
+    // through the rest of the pipeline. Response.inputs echoes the
+    // resolved shape so the UI can render real times.
+    const window = resolveTimeWindow(body.startTime);
+    const inputs: QuestionnaireAnswers = { ...body, endTime: window.endTime };
 
     const [prefs, weather, venueResult] = await Promise.all([
       readAuthedPrefs(),
@@ -220,16 +245,19 @@ export async function POST(request: Request) {
       );
     }
 
-    // Time block filter — only venues open during the selected block on
-    // the selected day. Per-day blocks override global time_blocks.
+    // Time window filter — only venues whose effective open hours
+    // overlap the user's window on the selected day. Per-day blocks
+    // override global time_blocks (hybrid rule). Replaces the prior
+    // single-block filter; venues open in evening AND/OR late_night
+    // both qualify for late-start windows that wrap past 22:00.
     const dayColumn = dateToDayColumn(inputs.day);
     const preBlockCount = venues.length;
     venues = venues.filter((v) =>
-      venueOpenForBlock(v, dayColumn, body.timeBlock)
+      venueOpenForWindow(v, dayColumn, window)
     );
     if (venues.length < 30) {
       console.warn(
-        `[generate] time block filter: ${preBlockCount} → ${venues.length} venues (${body.timeBlock} on ${dayColumn})`
+        `[generate] time window filter: ${preBlockCount} → ${venues.length} venues (${window.startTime}-${window.endTime} on ${dayColumn})`
       );
     }
 
@@ -246,7 +274,9 @@ export async function POST(request: Request) {
     // one tier above the bucket's max. Downward widening is no longer
     // needed because BUDGET_TIER_MAP already includes the cheaper tier.
     // Null price_tier defaults to tier 2 ("nice_out") — same as scoring.
-    if (body.budget !== "no_preference") {
+    // Phase 1 dropped the `no_preference` budget; every ComposeBudget
+    // value maps to a concrete tier set so the filter always runs.
+    {
       const allowedTiers = BUDGET_TIER_MAP[body.budget] ?? [1, 2, 3, 4];
       let budgetFiltered = venues.filter(
         (v) => allowedTiers.includes(v.price_tier ?? 2)
@@ -280,7 +310,7 @@ export async function POST(request: Request) {
     console.info(`[generate] seed=${seed} for ${body.occasion}/${body.vibe}/${body.budget}`);
 
     // Plan the stop mix from the time window, then score + assemble stops
-    const composed = composeItinerary(venues, inputs, weather, undefined, random, dayColumn, body.timeBlock);
+    const composed = composeItinerary(venues, inputs, weather, undefined, random, dayColumn, window);
 
     if (composed.stops.length === 0) {
       return NextResponse.json(
@@ -381,7 +411,7 @@ export async function POST(request: Request) {
       response,
       inputs.day,
       2, // default party size — Phase 3a-3 will thread this from the client
-      body.timeBlock,
+      window,
       undefined
     );
     const time_to_enrich_ms = Math.round(performance.now() - enrichStartMs);
@@ -395,7 +425,8 @@ export async function POST(request: Request) {
         occasion: inputs.occasion,
         vibe: inputs.vibe,
         budget: inputs.budget,
-        time_block: inputs.timeBlock,
+        start_time: inputs.startTime,
+        end_time: inputs.endTime,
         day: inputs.day,
         neighborhoods: inputs.neighborhoods ?? [],
         stop_count: enriched.stops.length,
@@ -436,7 +467,7 @@ export async function POST(request: Request) {
         occasion: analyticsInputs.occasion ?? null,
         vibe: analyticsInputs.vibe ?? null,
         budget: analyticsInputs.budget ?? null,
-        time_block: analyticsInputs.timeBlock ?? null,
+        start_time: analyticsInputs.startTime ?? null,
         day: analyticsInputs.day ?? null,
         neighborhoods: analyticsInputs.neighborhoods ?? [],
         reason,

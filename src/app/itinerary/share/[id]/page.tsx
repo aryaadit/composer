@@ -114,7 +114,6 @@ export default function SharedItineraryPage({
         <ItineraryView
           stops={itinerary.stops}
           walks={itinerary.walks}
-          timeBlock={itinerary.inputs?.timeBlock}
           date={itinerary.inputs?.day}
           partySize={2}
           isPast={isPast}

@@ -141,7 +141,7 @@ function ItineraryContent() {
         neighborhoods: itinerary.inputs.neighborhoods,
         budget: itinerary.inputs.budget,
         vibe: itinerary.inputs.vibe,
-        time_block: itinerary.inputs.timeBlock,
+        start_time: itinerary.inputs.startTime,
         day: itinerary.inputs.day,
         regeneration_count: regenerationCountRef.current,
       });
@@ -193,7 +193,7 @@ function ItineraryContent() {
         neighborhoods: itinerary.inputs.neighborhoods,
         budget: itinerary.inputs.budget,
         vibe: itinerary.inputs.vibe,
-        time_block: itinerary.inputs.timeBlock,
+        start_time: itinerary.inputs.startTime,
       });
     } catch (err) {
       setAddStopError(
@@ -239,7 +239,6 @@ function ItineraryContent() {
         <ItineraryView
           stops={itinerary.stops}
           walks={itinerary.walks}
-          timeBlock={itinerary.inputs.timeBlock}
           date={itinerary.inputs.day}
           partySize={2}
           onAddStop={handleAddStop}

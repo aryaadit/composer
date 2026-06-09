@@ -154,7 +154,7 @@ export async function POST(request: Request) {
       fakeResponse,
       inputs.day,
       2, // default party size — matches /api/generate
-      inputs.timeBlock,
+      { startTime: inputs.startTime, endTime: inputs.endTime },
       undefined
     );
     const enrichedStop = enrichedFake.stops[0];

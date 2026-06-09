@@ -22,11 +22,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "No itinerary" }, { status: 400 });
     }
 
+    // composer_shared_itineraries.time_block is a pre-Phase-1 column.
+    // New shares carry startTime in itinerary.inputs; we still write
+    // "evening" to the column so the NOT-NULL constraint is satisfied
+    // and existing reporting queries don't break. Backlog: drop the
+    // column once nothing reads it.
     const { data, error } = await supabase
       .from("composer_shared_itineraries")
       .insert({
         itinerary,
-        time_block: itinerary.inputs?.timeBlock ?? "evening",
+        time_block: "evening",
       })
       .select("id")
       .single();

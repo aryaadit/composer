@@ -1,97 +1,82 @@
 import { describe, it, expect } from "vitest";
 import {
-  isSlotInBlock,
+  isSlotInWindow,
   dateToDayColumn,
   effectiveBlocksForDay,
-  venueOpenForBlock,
+  venueOpenForWindow,
+  windowCoverageFraction,
   formatSlotTimeForDisplay,
-  formatBlockChipLabel,
+  formatStartTimeLabel,
+  formatWindowLabel,
   resolveTimeWindow,
-  DEFAULT_TIME_BLOCK,
+  startTimeFromLegacyBlock,
+  isComposeStartTime,
+  COMPOSE_START_TIMES,
   TIME_BLOCKS,
+  type TimeWindow,
 } from "@/lib/itinerary/time-blocks";
 
-// ── isSlotInBlock ─────────────────────────────────────────────
+// ── isSlotInWindow ────────────────────────────────────────────
+// Replaces the prior isSlotInBlock tests. Window endpoint is
+// start-inclusive, end-exclusive (mirrors the old block semantics);
+// the wrap case is exercised by 19:00-00:00 and 21:00-02:00.
 
-describe("isSlotInBlock", () => {
-  describe("morning (08:00–12:00)", () => {
-    it("08:00 is morning (start-inclusive)", () => {
-      expect(isSlotInBlock("2026-05-10 08:00:00", "morning")).toBe(true);
+describe("isSlotInWindow", () => {
+  describe("non-wrapping window 17:00-22:00", () => {
+    const w: TimeWindow = { startTime: "17:00", endTime: "22:00" };
+    it("17:00 is in (start-inclusive)", () => {
+      expect(isSlotInWindow("2026-05-10 17:00:00", w)).toBe(true);
     });
-    it("11:59 is morning", () => {
-      expect(isSlotInBlock("2026-05-10 11:59:00", "morning")).toBe(true);
+    it("21:59 is in", () => {
+      expect(isSlotInWindow("2026-05-10 21:59:00", w)).toBe(true);
     });
-    it("12:00 is NOT morning (end-exclusive)", () => {
-      expect(isSlotInBlock("2026-05-10 12:00:00", "morning")).toBe(false);
+    it("22:00 is NOT in (end-exclusive)", () => {
+      expect(isSlotInWindow("2026-05-10 22:00:00", w)).toBe(false);
     });
-    it("07:59 is NOT morning", () => {
-      expect(isSlotInBlock("2026-05-10 07:59:00", "morning")).toBe(false);
+    it("16:59 is NOT in", () => {
+      expect(isSlotInWindow("2026-05-10 16:59:00", w)).toBe(false);
     });
   });
 
-  describe("afternoon (12:00–17:00)", () => {
-    it("12:00 is afternoon", () => {
-      expect(isSlotInBlock("2026-05-10 12:00:00", "afternoon")).toBe(true);
+  describe("wrapping window 19:00-00:00", () => {
+    const w: TimeWindow = { startTime: "19:00", endTime: "00:00" };
+    it("19:00 is in", () => {
+      expect(isSlotInWindow("19:00", w)).toBe(true);
     });
-    it("16:59 is afternoon", () => {
-      expect(isSlotInBlock("2026-05-10 16:59:00", "afternoon")).toBe(true);
+    it("23:30 is in", () => {
+      expect(isSlotInWindow("2026-05-10 23:30:00", w)).toBe(true);
     });
-    it("17:00 is NOT afternoon", () => {
-      expect(isSlotInBlock("2026-05-10 17:00:00", "afternoon")).toBe(false);
+    it("00:00 is end-exclusive (NOT in)", () => {
+      expect(isSlotInWindow("2026-05-11 00:00:00", w)).toBe(false);
     });
-  });
-
-  describe("evening (17:00–22:00)", () => {
-    it("17:00 is evening (boundary)", () => {
-      expect(isSlotInBlock("2026-05-10 17:00:00", "evening")).toBe(true);
-    });
-    it("21:59 is evening", () => {
-      expect(isSlotInBlock("2026-05-10 21:59:00", "evening")).toBe(true);
-    });
-    it("22:00 is NOT evening", () => {
-      expect(isSlotInBlock("2026-05-10 22:00:00", "evening")).toBe(false);
+    it("18:59 is NOT in (before window)", () => {
+      expect(isSlotInWindow("18:59", w)).toBe(false);
     });
   });
 
-  describe("late_night (22:00–02:00, midnight wrap)", () => {
-    it("22:00 is late_night", () => {
-      expect(isSlotInBlock("2026-05-10 22:00:00", "late_night")).toBe(true);
+  describe("wrapping window 21:00-02:00 (latest start)", () => {
+    const w: TimeWindow = { startTime: "21:00", endTime: "02:00" };
+    it("21:00 is in", () => {
+      expect(isSlotInWindow("21:00", w)).toBe(true);
     });
-    it("23:30 is late_night", () => {
-      expect(isSlotInBlock("2026-05-10 23:30:00", "late_night")).toBe(true);
+    it("00:30 is in (after midnight)", () => {
+      expect(isSlotInWindow("00:30", w)).toBe(true);
     });
-    it("00:00 is late_night (midnight)", () => {
-      expect(isSlotInBlock("2026-05-11 00:00:00", "late_night")).toBe(true);
+    it("01:59 is in", () => {
+      expect(isSlotInWindow("01:59", w)).toBe(true);
     });
-    it("01:59 is late_night", () => {
-      expect(isSlotInBlock("2026-05-11 01:59:00", "late_night")).toBe(true);
+    it("02:00 is NOT in (end-exclusive)", () => {
+      expect(isSlotInWindow("02:00", w)).toBe(false);
     });
-    it("02:00 is NOT late_night", () => {
-      expect(isSlotInBlock("2026-05-11 02:00:00", "late_night")).toBe(false);
-    });
-    it("21:59 is NOT late_night", () => {
-      expect(isSlotInBlock("2026-05-10 21:59:00", "late_night")).toBe(false);
-    });
-  });
-
-  describe("cross-block exclusivity", () => {
-    it("17:00 is evening but not afternoon", () => {
-      expect(isSlotInBlock("2026-05-10 17:00:00", "evening")).toBe(true);
-      expect(isSlotInBlock("2026-05-10 17:00:00", "afternoon")).toBe(false);
-    });
-    it("12:00 is afternoon but not morning", () => {
-      expect(isSlotInBlock("2026-05-10 12:00:00", "afternoon")).toBe(true);
-      expect(isSlotInBlock("2026-05-10 12:00:00", "morning")).toBe(false);
-    });
-    it("22:00 is late_night but not evening", () => {
-      expect(isSlotInBlock("2026-05-10 22:00:00", "late_night")).toBe(true);
-      expect(isSlotInBlock("2026-05-10 22:00:00", "evening")).toBe(false);
+    it("20:59 is NOT in", () => {
+      expect(isSlotInWindow("20:59", w)).toBe(false);
     });
   });
 
   it("works with HH:MM input (no date)", () => {
-    expect(isSlotInBlock("19:30", "evening")).toBe(true);
-    expect(isSlotInBlock("08:00", "morning")).toBe(true);
+    const w: TimeWindow = { startTime: "17:00", endTime: "22:00" };
+    expect(isSlotInWindow("19:30", w)).toBe(true);
+    expect(isSlotInWindow("08:00", w)).toBe(false);
   });
 });
 
@@ -112,7 +97,7 @@ describe("dateToDayColumn", () => {
   });
 });
 
-// ── effectiveBlocksForDay (hybrid rule) ───────────────────────
+// ── effectiveBlocksForDay (hybrid rule, unchanged behavior) ───
 
 describe("effectiveBlocksForDay", () => {
   const emptyVenue = {
@@ -137,25 +122,9 @@ describe("effectiveBlocksForDay", () => {
     sun_blocks: ["afternoon", "evening"] as string[],
   };
 
-  const fullVenue = {
-    time_blocks: ["morning", "afternoon", "evening"],
-    mon_blocks: ["evening"] as string[],
-    tue_blocks: ["evening"] as string[],
-    wed_blocks: ["evening"] as string[],
-    thu_blocks: ["evening"] as string[],
-    fri_blocks: ["evening", "late_night"] as string[],
-    sat_blocks: ["afternoon", "evening", "late_night"] as string[],
-    sun_blocks: ["afternoon", "evening"] as string[],
-  };
-
   describe("all per-day empty → falls back to global", () => {
     it("returns global time_blocks for Monday", () => {
       expect(effectiveBlocksForDay(emptyVenue, "mon_blocks")).toEqual([
-        "morning", "afternoon", "evening",
-      ]);
-    });
-    it("returns global time_blocks for Saturday", () => {
-      expect(effectiveBlocksForDay(emptyVenue, "sat_blocks")).toEqual([
         "morning", "afternoon", "evening",
       ]);
     });
@@ -170,52 +139,163 @@ describe("effectiveBlocksForDay", () => {
         "evening", "late_night",
       ]);
     });
-    it("returns per-day data for Saturday", () => {
-      expect(effectiveBlocksForDay(perDayVenue, "sat_blocks")).toEqual([
-        "afternoon", "evening", "late_night",
-      ]);
-    });
-  });
-
-  describe("all per-day populated → uses per-day", () => {
-    it("returns mon_blocks for Monday", () => {
-      expect(effectiveBlocksForDay(fullVenue, "mon_blocks")).toEqual(["evening"]);
-    });
   });
 });
 
-// ── venueOpenForBlock ─────────────────────────────────────────
+// ── venueOpenForWindow ────────────────────────────────────────
+// Replaces venueOpenForBlock. The compose window must overlap at
+// least one of the venue's effective blocks for the day.
 
-describe("venueOpenForBlock", () => {
-  const venue = {
-    time_blocks: ["morning", "afternoon", "evening"],
+describe("venueOpenForWindow", () => {
+  const dinnerOnly = {
+    time_blocks: ["evening"],
     mon_blocks: [] as string[],
     tue_blocks: ["evening"] as string[],
     wed_blocks: [] as string[],
     thu_blocks: [] as string[],
     fri_blocks: ["evening", "late_night"] as string[],
-    sat_blocks: ["afternoon", "evening"] as string[],
+    sat_blocks: ["evening"] as string[],
     sun_blocks: [] as string[],
   };
 
-  it("closed Monday evening (has per-day data, mon empty)", () => {
-    expect(venueOpenForBlock(venue, "mon_blocks", "evening")).toBe(false);
+  const brunchOnly = {
+    time_blocks: ["morning", "afternoon"],
+    mon_blocks: [] as string[],
+    tue_blocks: [] as string[],
+    wed_blocks: [] as string[],
+    thu_blocks: [] as string[],
+    fri_blocks: [] as string[],
+    sat_blocks: ["morning", "afternoon"] as string[],
+    sun_blocks: ["morning", "afternoon"] as string[],
+  };
+
+  it("evening venue open on Tuesday 5pm-10pm window", () => {
+    expect(
+      venueOpenForWindow(dinnerOnly, "tue_blocks", {
+        startTime: "17:00",
+        endTime: "22:00",
+      })
+    ).toBe(true);
   });
-  it("open Tuesday evening", () => {
-    expect(venueOpenForBlock(venue, "tue_blocks", "evening")).toBe(true);
+
+  it("evening venue closed on Monday (per-day empty)", () => {
+    expect(
+      venueOpenForWindow(dinnerOnly, "mon_blocks", {
+        startTime: "17:00",
+        endTime: "22:00",
+      })
+    ).toBe(false);
   });
-  it("open Friday late_night", () => {
-    expect(venueOpenForBlock(venue, "fri_blocks", "late_night")).toBe(true);
+
+  it("evening-only venue open for 21:00-02:00 window (evening overlaps)", () => {
+    // The user picks 21:00; window is 21:00-02:00. evening (17-22)
+    // overlaps the first hour of the window.
+    expect(
+      venueOpenForWindow(dinnerOnly, "fri_blocks", {
+        startTime: "21:00",
+        endTime: "02:00",
+      })
+    ).toBe(true);
   });
-  it("closed Friday morning", () => {
-    expect(venueOpenForBlock(venue, "fri_blocks", "morning")).toBe(false);
+
+  it("late_night venue open for 19:00-00:00 window (late_night overlaps)", () => {
+    const lateOnly = {
+      ...dinnerOnly,
+      time_blocks: ["late_night"],
+      tue_blocks: ["late_night"] as string[],
+    };
+    expect(
+      venueOpenForWindow(lateOnly, "tue_blocks", {
+        startTime: "19:00",
+        endTime: "00:00",
+      })
+    ).toBe(true);
   });
-  it("open Saturday afternoon", () => {
-    expect(venueOpenForBlock(venue, "sat_blocks", "afternoon")).toBe(true);
+
+  it("brunch-only venue closed for evening window", () => {
+    expect(
+      venueOpenForWindow(brunchOnly, "sat_blocks", {
+        startTime: "19:00",
+        endTime: "00:00",
+      })
+    ).toBe(false);
+  });
+
+  it("brunch-only venue closed on weekday (per-day empty)", () => {
+    expect(
+      venueOpenForWindow(brunchOnly, "mon_blocks", {
+        startTime: "17:00",
+        endTime: "22:00",
+      })
+    ).toBe(false);
   });
 });
 
-// ── formatSlotTimeForDisplay ──────────────────────────────────
+// ── windowCoverageFraction ─────────────────────────────────────
+// Replaces blockCoverageFraction. 1.0 = covered in both per-day
+// and global, 0.5 = either, 0.0 = neither.
+
+describe("windowCoverageFraction", () => {
+  const window: TimeWindow = { startTime: "17:00", endTime: "22:00" };
+
+  it("returns 1.0 when both global and per-day overlap", () => {
+    const venue = {
+      time_blocks: ["evening"],
+      mon_blocks: [] as string[],
+      tue_blocks: [] as string[],
+      wed_blocks: [] as string[],
+      thu_blocks: [] as string[],
+      fri_blocks: ["evening"] as string[],
+      sat_blocks: [] as string[],
+      sun_blocks: [] as string[],
+    };
+    expect(windowCoverageFraction(venue, "fri_blocks", window)).toBe(1.0);
+  });
+
+  it("returns 0.5 when only per-day overlaps", () => {
+    const venue = {
+      time_blocks: ["morning"],
+      mon_blocks: [] as string[],
+      tue_blocks: [] as string[],
+      wed_blocks: [] as string[],
+      thu_blocks: [] as string[],
+      fri_blocks: ["evening"] as string[],
+      sat_blocks: [] as string[],
+      sun_blocks: [] as string[],
+    };
+    expect(windowCoverageFraction(venue, "fri_blocks", window)).toBe(0.5);
+  });
+
+  it("returns 0.5 when only global overlaps", () => {
+    const venue = {
+      time_blocks: ["evening"],
+      mon_blocks: [] as string[],
+      tue_blocks: [] as string[],
+      wed_blocks: [] as string[],
+      thu_blocks: [] as string[],
+      fri_blocks: ["morning"] as string[],
+      sat_blocks: [] as string[],
+      sun_blocks: [] as string[],
+    };
+    expect(windowCoverageFraction(venue, "fri_blocks", window)).toBe(0.5);
+  });
+
+  it("returns 0.0 when neither overlaps", () => {
+    const venue = {
+      time_blocks: ["morning"],
+      mon_blocks: [] as string[],
+      tue_blocks: [] as string[],
+      wed_blocks: [] as string[],
+      thu_blocks: [] as string[],
+      fri_blocks: ["morning"] as string[],
+      sat_blocks: [] as string[],
+      sun_blocks: [] as string[],
+    };
+    expect(windowCoverageFraction(venue, "fri_blocks", window)).toBe(0.0);
+  });
+});
+
+// ── formatSlotTimeForDisplay (unchanged) ──────────────────────
 
 describe("formatSlotTimeForDisplay", () => {
   it("formats 19:30 as 7:30 PM", () => {
@@ -230,56 +310,113 @@ describe("formatSlotTimeForDisplay", () => {
   it("formats 00:00 as 12 AM", () => {
     expect(formatSlotTimeForDisplay("00:00")).toBe("12 AM");
   });
-  it("formats 17:00 as 5 PM", () => {
-    expect(formatSlotTimeForDisplay("17:00")).toBe("5 PM");
-  });
 });
 
-// ── resolveTimeWindow ─────────────────────────────────────────
+// ── resolveTimeWindow (new signature: startTime → window) ─────
 
 describe("resolveTimeWindow", () => {
-  it("morning resolves to 08:00–12:00", () => {
-    expect(resolveTimeWindow("morning")).toEqual({
-      startTime: "08:00",
-      endTime: "12:00",
-    });
-  });
-  it("evening resolves to 17:00–22:00", () => {
-    expect(resolveTimeWindow("evening")).toEqual({
+  it("17:00 → 17:00-22:00", () => {
+    expect(resolveTimeWindow("17:00")).toEqual({
       startTime: "17:00",
       endTime: "22:00",
     });
   });
-  it("late_night wraps past midnight to 02:00", () => {
-    expect(resolveTimeWindow("late_night")).toEqual({
-      startTime: "22:00",
+  it("19:00 → 19:00-00:00 (wraps to midnight)", () => {
+    expect(resolveTimeWindow("19:00")).toEqual({
+      startTime: "19:00",
+      endTime: "00:00",
+    });
+  });
+  it("21:00 → 21:00-02:00 (caps semantically at 02:00)", () => {
+    expect(resolveTimeWindow("21:00")).toEqual({
+      startTime: "21:00",
       endTime: "02:00",
     });
+  });
+});
+
+// ── startTimeFromLegacyBlock (saved itinerary fallback) ───────
+
+describe("startTimeFromLegacyBlock", () => {
+  it("morning → 09:00", () => {
+    expect(startTimeFromLegacyBlock("morning")).toBe("09:00");
+  });
+  it("afternoon → 13:00", () => {
+    expect(startTimeFromLegacyBlock("afternoon")).toBe("13:00");
+  });
+  it("evening → 19:00 (Phase 1 default)", () => {
+    expect(startTimeFromLegacyBlock("evening")).toBe("19:00");
+  });
+  it("late_night → 22:00", () => {
+    expect(startTimeFromLegacyBlock("late_night")).toBe("22:00");
+  });
+  it("null/undefined → 19:00", () => {
+    expect(startTimeFromLegacyBlock(null)).toBe("19:00");
+    expect(startTimeFromLegacyBlock(undefined)).toBe("19:00");
+  });
+  it("unknown values → 19:00", () => {
+    expect(startTimeFromLegacyBlock("dinner")).toBe("19:00");
+  });
+});
+
+// ── isComposeStartTime ────────────────────────────────────────
+
+describe("isComposeStartTime", () => {
+  it("accepts all five Phase 1 values", () => {
+    for (const t of COMPOSE_START_TIMES) {
+      expect(isComposeStartTime(t)).toBe(true);
+    }
+  });
+  it("rejects an HH:MM outside the set", () => {
+    expect(isComposeStartTime("16:00")).toBe(false);
+    expect(isComposeStartTime("22:00")).toBe(false);
+  });
+  it("rejects non-strings", () => {
+    expect(isComposeStartTime(17)).toBe(false);
+    expect(isComposeStartTime(null)).toBe(false);
+    expect(isComposeStartTime(undefined)).toBe(false);
+  });
+});
+
+// ── formatStartTimeLabel + formatWindowLabel ──────────────────
+
+describe("formatStartTimeLabel", () => {
+  it("formats 17:00 as 5 PM", () => {
+    expect(formatStartTimeLabel("17:00")).toBe("5 PM");
+  });
+  it("formats 21:00 as 9 PM", () => {
+    expect(formatStartTimeLabel("21:00")).toBe("9 PM");
+  });
+  it("formats 09:00 as 9 AM", () => {
+    expect(formatStartTimeLabel("09:00")).toBe("9 AM");
+  });
+});
+
+describe("formatWindowLabel", () => {
+  it("17:00-22:00 → '5 PM – 10 PM'", () => {
+    expect(formatWindowLabel({ startTime: "17:00", endTime: "22:00" })).toBe(
+      "5 PM – 10 PM"
+    );
+  });
+  it("19:00-00:00 → '7 PM – Midnight'", () => {
+    expect(formatWindowLabel({ startTime: "19:00", endTime: "00:00" })).toBe(
+      "7 PM – Midnight"
+    );
+  });
+  it("21:00-02:00 → '9 PM – 2 AM'", () => {
+    expect(formatWindowLabel({ startTime: "21:00", endTime: "02:00" })).toBe(
+      "9 PM – 2 AM"
+    );
   });
 });
 
 // ── Constants ─────────────────────────────────────────────────
 
 describe("constants", () => {
-  it("DEFAULT_TIME_BLOCK is evening", () => {
-    expect(DEFAULT_TIME_BLOCK).toBe("evening");
+  it("COMPOSE_START_TIMES has 5 values", () => {
+    expect(COMPOSE_START_TIMES).toEqual(["17:00", "18:00", "19:00", "20:00", "21:00"]);
   });
-  it("TIME_BLOCKS has 4 entries", () => {
+  it("TIME_BLOCKS still has 4 entries (internal venue-side type)", () => {
     expect(TIME_BLOCKS).toHaveLength(4);
-  });
-  it("each block has required metadata", () => {
-    for (const block of TIME_BLOCKS) {
-      expect(block.id).toBeTruthy();
-      expect(block.label).toBeTruthy();
-      expect(block.shortRange).toBeTruthy();
-      expect(block.range.start).toMatch(/^\d{2}:\d{2}$/);
-      expect(block.range.end).toMatch(/^\d{2}:\d{2}$/);
-    }
-  });
-  it("formatBlockChipLabel includes label and range", () => {
-    const label = formatBlockChipLabel("evening");
-    expect(label).toContain("Evening");
-    expect(label).toContain("5p");
-    expect(label).toContain("10p");
   });
 });

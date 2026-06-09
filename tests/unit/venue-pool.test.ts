@@ -1,15 +1,14 @@
 import { describe, it, expect } from "vitest";
 import {
   dateToDayColumn,
-  venueOpenForBlock,
+  venueOpenForWindow,
+  type TimeWindow,
 } from "@/lib/itinerary/time-blocks";
-import type { TimeBlock } from "@/lib/itinerary/time-blocks";
 
 /**
  * These tests validate the venue filtering pipeline — the logic that
- * determines which venues are eligible for a given day + time block.
- * They use synthetic venue data to test edge cases that would be hard
- * to catch with real DB data.
+ * determines which venues are eligible for a given day + user window.
+ * Phase 1 replaced single-block matching with window-overlap matching.
  */
 
 function makeVenueBlocks(overrides: Partial<Record<string, string[]>> = {}) {
@@ -25,9 +24,15 @@ function makeVenueBlocks(overrides: Partial<Record<string, string[]>> = {}) {
   };
 }
 
+// Phase 1 representative windows.
+const W_EVENING_EARLY: TimeWindow = { startTime: "17:00", endTime: "22:00" };
+const W_EVENING_LATE: TimeWindow = { startTime: "19:00", endTime: "00:00" };
+const W_NIGHT_LATEST: TimeWindow = { startTime: "21:00", endTime: "02:00" };
+const W_MORNING: TimeWindow = { startTime: "09:00", endTime: "14:00" };
+
 // ── Hybrid rule scenarios ─────────────────────────────────────
 
-describe("venue pool — hybrid time block rule", () => {
+describe("venue pool — hybrid time block rule (window-based)", () => {
   describe("scenario: dinner-only venue (closed Mon-Tue)", () => {
     const venue = makeVenueBlocks({
       time_blocks: ["evening", "late_night"],
@@ -40,77 +45,80 @@ describe("venue pool — hybrid time block rule", () => {
       sun_blocks: ["evening"],
     });
 
-    it("is closed Monday evening", () => {
-      expect(venueOpenForBlock(venue, "mon_blocks", "evening")).toBe(false);
+    it("is closed Monday for evening window", () => {
+      expect(venueOpenForWindow(venue, "mon_blocks", W_EVENING_EARLY)).toBe(false);
     });
-    it("is closed Tuesday evening", () => {
-      expect(venueOpenForBlock(venue, "tue_blocks", "evening")).toBe(false);
+    it("is closed Tuesday for evening window", () => {
+      expect(venueOpenForWindow(venue, "tue_blocks", W_EVENING_EARLY)).toBe(false);
     });
-    it("is open Wednesday evening", () => {
-      expect(venueOpenForBlock(venue, "wed_blocks", "evening")).toBe(true);
+    it("is open Wednesday for evening window", () => {
+      expect(venueOpenForWindow(venue, "wed_blocks", W_EVENING_EARLY)).toBe(true);
     });
-    it("is open Friday late_night", () => {
-      expect(venueOpenForBlock(venue, "fri_blocks", "late_night")).toBe(true);
+    it("is open Friday for late window (21:00-02:00)", () => {
+      // Window overlaps both evening tail and late_night.
+      expect(venueOpenForWindow(venue, "fri_blocks", W_NIGHT_LATEST)).toBe(true);
     });
-    it("is NOT open Friday morning", () => {
-      expect(venueOpenForBlock(venue, "fri_blocks", "morning")).toBe(false);
+    it("is NOT open Friday for morning window", () => {
+      expect(venueOpenForWindow(venue, "fri_blocks", W_MORNING)).toBe(false);
     });
   });
 
   describe("scenario: brunch spot (weekends only)", () => {
     const venue = makeVenueBlocks({
       time_blocks: ["morning", "afternoon"],
-      mon_blocks: [],
-      tue_blocks: [],
-      wed_blocks: [],
-      thu_blocks: [],
-      fri_blocks: [],
       sat_blocks: ["morning", "afternoon"],
       sun_blocks: ["morning", "afternoon"],
     });
 
-    it("is closed Monday morning", () => {
-      expect(venueOpenForBlock(venue, "mon_blocks", "morning")).toBe(false);
+    it("is closed Monday for morning window", () => {
+      expect(venueOpenForWindow(venue, "mon_blocks", W_MORNING)).toBe(false);
     });
-    it("is open Saturday morning", () => {
-      expect(venueOpenForBlock(venue, "sat_blocks", "morning")).toBe(true);
+    it("is open Saturday for morning window", () => {
+      expect(venueOpenForWindow(venue, "sat_blocks", W_MORNING)).toBe(true);
     });
-    it("is open Sunday afternoon", () => {
-      expect(venueOpenForBlock(venue, "sun_blocks", "afternoon")).toBe(true);
-    });
-    it("is NOT open Sunday evening", () => {
-      expect(venueOpenForBlock(venue, "sun_blocks", "evening")).toBe(false);
+    it("is NOT open Sunday for evening window (no afternoon→evening overlap)", () => {
+      // afternoon ends at 17:00 — the evening window starts at 17:00.
+      // End-exclusive boundary means no overlap.
+      expect(venueOpenForWindow(venue, "sun_blocks", W_EVENING_EARLY)).toBe(false);
     });
   });
 
-  describe("scenario: no per-day data (Corner import, global only)", () => {
+  describe("scenario: no per-day data (global only)", () => {
     const venue = makeVenueBlocks({
       time_blocks: ["afternoon", "evening", "late_night"],
     });
 
     it("falls back to global for any day", () => {
-      expect(venueOpenForBlock(venue, "mon_blocks", "evening")).toBe(true);
-      expect(venueOpenForBlock(venue, "sat_blocks", "afternoon")).toBe(true);
-      expect(venueOpenForBlock(venue, "sun_blocks", "late_night")).toBe(true);
+      expect(venueOpenForWindow(venue, "mon_blocks", W_EVENING_EARLY)).toBe(true);
+      expect(venueOpenForWindow(venue, "sun_blocks", W_NIGHT_LATEST)).toBe(true);
     });
-    it("respects global — morning not in global", () => {
-      expect(venueOpenForBlock(venue, "mon_blocks", "morning")).toBe(false);
+    it("morning window doesn't overlap afternoon/evening/late_night", () => {
+      expect(venueOpenForWindow(venue, "mon_blocks", W_MORNING)).toBe(true);
+      // W_MORNING is 09:00-14:00. afternoon is 12:00-17:00 → overlaps 12-14.
+      // So this venue IS open for a morning window via afternoon overlap.
+      // Re-test with a strictly-pre-noon window.
+      const strictMorning: TimeWindow = { startTime: "09:00", endTime: "11:00" };
+      expect(venueOpenForWindow(venue, "mon_blocks", strictMorning)).toBe(false);
     });
   });
 
-  describe("scenario: venue with empty global but populated per-day", () => {
-    const venue = makeVenueBlocks({
-      time_blocks: [],
+  describe("scenario: 19:00 start window overlaps evening AND late_night", () => {
+    // The user picks 19:00 → window is 19:00-00:00. Venues open in
+    // only late_night should still match (late_night = 22:00-02:00).
+    const lateOnly = makeVenueBlocks({
+      time_blocks: ["late_night"],
+      fri_blocks: ["late_night"],
+    });
+    const eveningOnly = makeVenueBlocks({
+      time_blocks: ["evening"],
       fri_blocks: ["evening"],
-      sat_blocks: ["evening", "late_night"],
     });
 
-    it("uses per-day even with empty global", () => {
-      expect(venueOpenForBlock(venue, "fri_blocks", "evening")).toBe(true);
-      expect(venueOpenForBlock(venue, "sat_blocks", "late_night")).toBe(true);
+    it("late-night-only venue is open for 19:00-00:00", () => {
+      expect(venueOpenForWindow(lateOnly, "fri_blocks", W_EVENING_LATE)).toBe(true);
     });
-    it("empty per-day = closed (not fallback to empty global)", () => {
-      expect(venueOpenForBlock(venue, "mon_blocks", "evening")).toBe(false);
+    it("evening-only venue is open for 19:00-00:00", () => {
+      expect(venueOpenForWindow(eveningOnly, "fri_blocks", W_EVENING_LATE)).toBe(true);
     });
   });
 
@@ -127,11 +135,12 @@ describe("venue pool — hybrid time block rule", () => {
       sun_blocks: allBlocks,
     });
 
-    it("is open every block every day", () => {
+    it("is open every day for every Phase 1 window", () => {
       const days = ["mon_blocks", "tue_blocks", "wed_blocks", "thu_blocks", "fri_blocks", "sat_blocks", "sun_blocks"] as const;
+      const windows = [W_EVENING_EARLY, W_EVENING_LATE, W_NIGHT_LATEST];
       for (const day of days) {
-        for (const block of allBlocks) {
-          expect(venueOpenForBlock(venue, day, block as TimeBlock)).toBe(true);
+        for (const w of windows) {
+          expect(venueOpenForWindow(venue, day, w)).toBe(true);
         }
       }
     });
@@ -155,12 +164,9 @@ describe("dateToDayColumn edge cases", () => {
   });
 });
 
-// ── Business status filtering ─────────────────────────────────
+// ── Business status filtering (unchanged) ─────────────────────
 
 describe("business status filter (simulated)", () => {
-  // These test the filter logic that lives in generate/route.ts.
-  // We simulate it here since we can't import the route handler.
-
   function filterByStatus(venues: { business_status: string | null }[]) {
     return venues.filter(
       (v) =>

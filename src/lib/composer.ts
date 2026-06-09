@@ -12,7 +12,7 @@ import { pickBestForRole } from "@/lib/scoring";
 import { spendEstimate } from "@/config/budgets";
 import { ALGORITHM } from "@/config/algorithm";
 import { getTemplatesForVibe } from "@/config/templates";
-import type { DayColumn, TimeBlock } from "@/lib/itinerary/time-blocks";
+import type { DayColumn, TimeWindow } from "@/lib/itinerary/time-blocks";
 
 export type { StopPattern };
 
@@ -86,7 +86,7 @@ export function planStopMix(
  * @param jitter    - Jitter magnitude. Defaults to ALGORITHM.jitter.magnitude.
  * @param random    - Seeded PRNG. Defaults to Math.random.
  * @param dayColumn - Per-day column for time relevance scoring. Null = skip.
- * @param timeBlock - Time block for time relevance scoring. Null = skip.
+ * @param window    - User's compose time window for scoring. Null = skip.
  *
  * @returns `{ stops, pattern }` — the assembled stops and the planned
  *          role sequence (pattern may be longer than stops if roles were skipped).
@@ -98,7 +98,7 @@ export function composeItinerary(
   jitter: number = ALGORITHM.jitter.magnitude,
   random: () => number = Math.random,
   dayColumn: DayColumn | null = null,
-  timeBlock: TimeBlock | null = null
+  window: TimeWindow | null = null
 ): { stops: ItineraryStop[]; pattern: StopPattern } {
   const pattern = planStopMix(answers, random);
   const usedIds = new Set<string>();
@@ -119,7 +119,7 @@ export function composeItinerary(
     random,
     usedCategories,
     dayColumn,
-    timeBlock,
+    window,
     mainHint?.venueRoleHint
   );
   if (!main) return { stops: [], pattern };
@@ -151,7 +151,7 @@ export function composeItinerary(
       random,
       usedCategories,
       dayColumn,
-      timeBlock,
+      window,
       hint.venueRoleHint
     );
     if (!best) continue;

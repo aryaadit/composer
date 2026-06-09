@@ -17,12 +17,15 @@ import type {
   StopRole,
 } from "@/types";
 import type { AvailabilitySlot } from "@/lib/availability/resy";
-import type { TimeBlock } from "@/lib/itinerary/time-blocks";
+
+// Phase 1 hardcodes "evening" as the role-center anchor for
+// pickRecommendedSlots. Start-time-aware role centers (so the closer
+// recommendation shifts with a 9 PM start) is a Phase 2 backlog item.
+const RECOMMENDATION_BLOCK = "evening" as const;
 
 interface StopAvailabilityProps {
   availability: StopAvailabilityType;
   role: StopRole;
-  timeBlock: TimeBlock;
   platform: string | null;
   venueId: string;
   venueName: string;
@@ -48,7 +51,6 @@ const PLATFORM_NAMES: Record<string, string> = {
 export function StopAvailabilitySection({
   availability,
   role,
-  timeBlock,
   platform,
   venueId,
   venueName,
@@ -146,7 +148,6 @@ export function StopAvailabilitySection({
     <HasSlotsView
       slots={slots}
       role={role}
-      timeBlock={timeBlock}
       bookingUrlBase={bookingUrlBase}
       venueId={venueId}
       venueName={venueName}
@@ -164,7 +165,6 @@ export function StopAvailabilitySection({
 function HasSlotsView({
   slots,
   role,
-  timeBlock,
   bookingUrlBase,
   venueId,
   venueName,
@@ -178,7 +178,6 @@ function HasSlotsView({
 }: {
   slots: AvailabilitySlot[];
   role: StopRole;
-  timeBlock: TimeBlock;
   bookingUrlBase: string | null;
   venueId: string;
   venueName: string;
@@ -192,7 +191,9 @@ function HasSlotsView({
 }) {
   const [expanded, setExpanded] = useState(false);
   const deduped = dedupeSlots(slots);
-  const recommended = pickRecommendedSlots(deduped, role, timeBlock);
+  // Phase 1: hardcode "evening" as the role-center anchor. See
+  // RECOMMENDATION_BLOCK at the top of this file.
+  const recommended = pickRecommendedSlots(deduped, role, RECOMMENDATION_BLOCK);
   const hasMore = deduped.length > recommended.length;
 
   // When collapsed, ensure the selected slot stays visible even if it falls

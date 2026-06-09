@@ -5,8 +5,7 @@ import { ItineraryResponse } from "@/types";
 import { occasionLabel } from "@/config/occasions";
 import { vibeLabel } from "@/config/vibes";
 import { deriveGroupIds, NEIGHBORHOOD_GROUPS } from "@/config/neighborhoods";
-import { getBlockMetadata } from "@/lib/itinerary/time-blocks";
-import type { TimeBlock } from "@/lib/itinerary/time-blocks";
+import { formatWindowLabel } from "@/lib/itinerary/time-blocks";
 
 function formatItineraryDate(isoDate: string): string {
   // Parse as local date (avoid UTC shift by splitting the ISO string)
@@ -30,13 +29,15 @@ export function CompositionHeader({
   inputs,
   partySize = 2,
 }: CompositionHeaderProps) {
-  // Utility row 1: date · time block · party size
+  // Utility row 1: date · time window · party size
   const utilityParts: string[] = [];
   if (inputs?.day) {
     utilityParts.push(formatItineraryDate(inputs.day));
   }
-  if (inputs?.timeBlock) {
-    utilityParts.push(getBlockMetadata(inputs.timeBlock as TimeBlock).label);
+  if (inputs?.startTime && inputs?.endTime) {
+    utilityParts.push(
+      formatWindowLabel({ startTime: inputs.startTime, endTime: inputs.endTime })
+    );
   }
   if (partySize > 2) {
     utilityParts.push(`Party of ${partySize}`);

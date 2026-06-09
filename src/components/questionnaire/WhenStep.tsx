@@ -1,19 +1,20 @@
 "use client";
 
-// Combined day + time block step. Outputs { day, timeBlock } via
-// onContinue. The API route resolves timeBlock → concrete
-// startTime/endTime before scoring runs.
+// Combined day + start-time step. Outputs { day, startTime } via
+// onContinue. The API route derives endTime = startTime + 5h from
+// startTime; this component never touches the categorical TimeBlock
+// type — it's been removed from the user-input layer (Phase 1).
 
 import { useMemo, useState } from "react";
 import { motion } from "motion/react";
 import { Button } from "@/components/ui/Button";
 import { pillClass } from "@/lib/styles";
 import {
-  TIME_BLOCKS,
-  DEFAULT_TIME_BLOCK,
-  formatBlockChipLabel,
+  COMPOSE_START_TIMES,
+  formatStartTimeLabel,
+  type ComposeStartTime,
 } from "@/lib/itinerary/time-blocks";
-import type { TimeBlock } from "@/types";
+import { track, EVENTS } from "@/lib/analytics";
 
 interface UpcomingDay {
   date: string;
@@ -48,20 +49,22 @@ function toLocalISODate(d: Date): string {
 
 interface WhenStepProps {
   initialDay?: string;
-  initialTimeBlock?: TimeBlock;
-  onContinue: (day: string, timeBlock: TimeBlock) => void;
+  initialStartTime?: ComposeStartTime;
+  onContinue: (day: string, startTime: ComposeStartTime) => void;
 }
 
 export function WhenStep({
   initialDay,
-  initialTimeBlock,
+  initialStartTime,
   onContinue,
 }: WhenStepProps) {
   const days = useMemo(() => buildUpcomingDays(), []);
 
   const [day, setDay] = useState<string>(() => initialDay ?? days[0].date);
-  const [timeBlock, setTimeBlock] = useState<TimeBlock>(
-    initialTimeBlock ?? DEFAULT_TIME_BLOCK
+  // No default — user must tap a pill. Build my plan stays disabled
+  // until they do.
+  const [startTime, setStartTime] = useState<ComposeStartTime | null>(
+    initialStartTime ?? null
   );
 
   const builtInDates = useMemo(() => new Set(days.map((d) => d.date)), [days]);
@@ -72,6 +75,14 @@ export function WhenStep({
     const value = e.target.value;
     if (!value) return;
     setDay(value);
+  };
+
+  const handleStartTimePick = (next: ComposeStartTime) => {
+    track(EVENTS.COMPOSE_START_TIME_SELECTED, {
+      selected_time: next,
+      previous_value: startTime,
+    });
+    setStartTime(next);
   };
 
   return (
@@ -140,24 +151,24 @@ export function WhenStep({
         </motion.label>
       </div>
 
-      {/* ── Time ────────────────────────────────────────────── */}
+      {/* ── Start time ─────────────────────────────────────── */}
       <h3 className="font-sans text-xs tracking-widest uppercase text-muted mb-3 text-center">
-        Time
+        Start time
       </h3>
       <div className="flex flex-wrap justify-center gap-2 mb-8">
-        {TIME_BLOCKS.map((block, i) => {
-          const isSelected = timeBlock === block.id;
+        {COMPOSE_START_TIMES.map((t, i) => {
+          const isSelected = startTime === t;
           return (
             <motion.button
-              key={block.id}
-              onClick={() => setTimeBlock(block.id)}
+              key={t}
+              onClick={() => handleStartTimePick(t)}
               className={pillClass(isSelected)}
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.2, delay: i * 0.03 + 0.1 }}
               whileTap={{ scale: 0.97 }}
             >
-              {formatBlockChipLabel(block.id)}
+              {formatStartTimeLabel(t)}
             </motion.button>
           );
         })}
@@ -166,7 +177,8 @@ export function WhenStep({
       <div className="mt-6">
         <Button
           variant="primary"
-          onClick={() => onContinue(day, timeBlock)}
+          onClick={() => startTime && onContinue(day, startTime)}
+          disabled={!startTime}
           className="w-full"
         >
           Build my plan

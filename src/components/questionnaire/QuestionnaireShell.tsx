@@ -7,9 +7,9 @@ import { questionSteps } from "@/config/options";
 import type {
   QuestionnaireAnswers,
   GenerateRequestBody,
-  TimeBlock,
   Neighborhood,
 } from "@/types";
+import type { ComposeStartTime } from "@/lib/itinerary/time-blocks";
 import {
   expandNeighborhoodGroup,
   deriveGroupIds,
@@ -116,7 +116,7 @@ export function QuestionnaireShell() {
         neighborhoods: body.neighborhoods,
         budget: body.budget,
         vibe: body.vibe,
-        time_block: body.timeBlock,
+        start_time: body.startTime,
         day: body.day,
         day_of_week: dayOfWeekFromISO(body.day),
       });
@@ -192,17 +192,17 @@ export function QuestionnaireShell() {
   );
 
   const handleWhenContinue = useCallback(
-    (day: string, timeBlock: TimeBlock) => {
-      // Combined step — day and timeBlock land together, then we submit
+    (day: string, startTime: ComposeStartTime) => {
+      // Combined step — day and startTime land together, then we submit
       // immediately. Reducer gets the update for consistency / back-nav,
       // but the fetch body is built from local values to avoid racing
       // the reducer's next render.
-      trackStepCompleted("day", `${day}|${timeBlock}`);
-      dispatch({ type: "SET_FIELDS", values: { day, timeBlock } });
+      trackStepCompleted("day", `${day}|${startTime}`);
+      dispatch({ type: "SET_FIELDS", values: { day, startTime } });
       submitAnswers({
-        ...(state.answers as Omit<GenerateRequestBody, "day" | "timeBlock">),
+        ...(state.answers as Omit<GenerateRequestBody, "day" | "startTime">),
         day,
-        timeBlock,
+        startTime,
       });
     },
     [state.answers, submitAnswers, trackStepCompleted]
@@ -303,7 +303,7 @@ export function QuestionnaireShell() {
               {step.kind === "when" && (
                 <WhenStep
                   initialDay={state.answers.day}
-                  initialTimeBlock={state.answers.timeBlock}
+                  initialStartTime={state.answers.startTime as ComposeStartTime | undefined}
                   onContinue={handleWhenContinue}
                 />
               )}

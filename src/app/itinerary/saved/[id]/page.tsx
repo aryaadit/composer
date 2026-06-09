@@ -25,9 +25,11 @@ import {
 } from "@/lib/geo";
 import { isPastDate } from "@/lib/dateUtils";
 import { calculateTotalSpend } from "@/config/budgets";
-import { resolveTimeWindow } from "@/lib/itinerary/time-blocks";
+import {
+  resolveTimeWindow,
+  startTimeFromLegacyBlock,
+} from "@/lib/itinerary/time-blocks";
 import type {
-  TimeBlock,
   ItineraryResponse,
   ItineraryStop,
   SavedItinerary,
@@ -72,18 +74,23 @@ function toItineraryResponse(saved: SavedItinerary): ItineraryResponse {
       },
     truncated_for_end_time: false,
     maps_url: buildGoogleMapsUrl(stops.map((s) => s.venue)),
-    // `inputs` isn't read by CompositionHeader / ItineraryView, but
-    // The share view reads `inputs.startTime` for time display, so
+    // Reconstruct inputs for display. Pre-Phase-1 saves carry a
+    // categorical `time_block` (morning/afternoon/late_night/evening);
+    // we map that to a sensible startTime via startTimeFromLegacyBlock
+    // and derive endTime from the standard 5-hour window. Saved
+    // itineraries never re-run the algorithm — this is display only.
+    // Budget is cast through the wider DB type since old saves can
+    // carry "all_out" / "no_preference"; ComposeBudget would reject
+    // them at the type level.
     inputs: (() => {
-      const timeBlock = (saved.time_block as TimeBlock) ?? "evening";
-      const { startTime, endTime } = resolveTimeWindow(timeBlock);
+      const startTime = startTimeFromLegacyBlock(saved.time_block);
+      const { endTime } = resolveTimeWindow(startTime);
       return {
         occasion: (saved.occasion ?? "") as ItineraryResponse["inputs"]["occasion"],
         neighborhoods: (saved.neighborhoods ?? []) as ItineraryResponse["inputs"]["neighborhoods"],
         budget: (saved.budget ?? "") as ItineraryResponse["inputs"]["budget"],
         vibe: (saved.vibe ?? "") as ItineraryResponse["inputs"]["vibe"],
         day: saved.day ?? "",
-        timeBlock,
         startTime,
         endTime,
       };
@@ -171,7 +178,6 @@ export default function SavedItineraryPage({
         <ItineraryView
           stops={itinerary.stops}
           walks={itinerary.walks}
-          timeBlock={itinerary.inputs.timeBlock}
           date={itinerary.inputs.day}
           partySize={2}
           isPast={isPast}

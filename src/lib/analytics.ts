@@ -32,6 +32,7 @@ export const EVENTS = {
   // Compose funnel
   COMPOSE_STARTED: "compose_started",
   COMPOSE_STEP_COMPLETED: "compose_step_completed",
+  COMPOSE_START_TIME_SELECTED: "compose_start_time_selected",
   COMPOSE_SUBMITTED: "compose_submitted",
   ITINERARY_GENERATED: "itinerary_generated",
   ITINERARY_GENERATION_FAILED: "itinerary_generation_failed",

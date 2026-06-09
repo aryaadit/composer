@@ -15,7 +15,6 @@ import {
   detectOrderingConflict,
 } from "./OrderingConflictBanner";
 import type { AvailabilitySlot } from "@/lib/availability/resy";
-import type { TimeBlock } from "@/lib/itinerary/time-blocks";
 
 const HIGHLIGHT_DURATION_MS = 1500;
 
@@ -24,7 +23,6 @@ export type ItinerarySurface = "fresh_itinerary" | "saved" | "share";
 interface ItineraryViewProps {
   stops: ItineraryResponse["stops"];
   walks: ItineraryResponse["walks"];
-  timeBlock?: TimeBlock;
   date?: string;
   partySize?: number;
   onAddStop?: () => void;
@@ -45,7 +43,6 @@ interface ItineraryViewProps {
 export function ItineraryView({
   stops,
   walks,
-  timeBlock = "evening",
   date = "",
   partySize = 2,
   onAddStop,
@@ -159,7 +156,6 @@ export function ItineraryView({
                   <StopAvailabilitySection
                     availability={stop.availability}
                     role={stop.role}
-                    timeBlock={timeBlock}
                     platform={stop.venue.reservation_platform}
                     venueId={stop.venue.id}
                     venueName={stop.venue.name}

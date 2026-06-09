@@ -76,7 +76,6 @@ const BASE_ANSWERS: QuestionnaireAnswers = {
   budget: "nice_out",
   vibe: "food_forward",
   day: "2026-04-25",
-  timeBlock: "evening",
   startTime: "17:00",
   endTime: "22:00",
 };

@@ -25,12 +25,26 @@ const BUDGET_DESCRIPTIONS: Record<string, string> = {
   no_preference: "Any price point",
 };
 
-export const BUDGETS = Object.entries(GEN_TIERS).map(([slug, { label, tiers }]) => ({
-  slug,
-  label: BUDGET_LABEL_OVERRIDES[slug] ?? label,
-  description: BUDGET_DESCRIPTIONS[slug] ?? "",
-  tiers: tiers as readonly number[],
-}));
+// Phase 1 narrowed the user-facing budget set to three. `all_out` and
+// `no_preference` are dropped from the questionnaire UI. The canonical
+// generated config still includes them so saved/share itineraries
+// carrying those values keep rendering — only the compose flow is
+// narrowed. Update this list (and `ComposeBudget` in src/types/index.ts)
+// together if the user-facing set ever changes again.
+const COMPOSE_BUDGET_SLUGS: readonly string[] = [
+  "casual",
+  "nice_out",
+  "splurge",
+];
+
+export const BUDGETS = Object.entries(GEN_TIERS)
+  .filter(([slug]) => COMPOSE_BUDGET_SLUGS.includes(slug))
+  .map(([slug, { label, tiers }]) => ({
+    slug,
+    label: BUDGET_LABEL_OVERRIDES[slug] ?? label,
+    description: BUDGET_DESCRIPTIONS[slug] ?? "",
+    tiers: tiers as readonly number[],
+  }));
 
 export type BudgetSlug = keyof typeof GEN_TIERS;
 

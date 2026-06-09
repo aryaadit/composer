@@ -47,7 +47,12 @@ export function ActionBar({
         budget: inputs.budget,
         vibe: inputs.vibe,
         day: inputs.day,
-        time_block: inputs.timeBlock,
+        // time_block is a legacy NOT-NULL column. Phase 1 saves no
+        // longer carry a categorical block — write "evening" so the
+        // constraint holds. The saved view derives startTime via
+        // startTimeFromLegacyBlock for old rows; new rows have
+        // startTime baked into inputs via the stops snapshot.
+        time_block: "evening",
         stops,
         walking,
         weather: header.weather,
@@ -67,7 +72,7 @@ export function ActionBar({
       neighborhoods: inputs.neighborhoods,
       budget: inputs.budget,
       vibe: inputs.vibe,
-      time_block: inputs.timeBlock,
+      start_time: inputs.startTime,
       stop_count: stops.length,
     });
     incrementPersonProperty("total_itineraries_saved", 1);
