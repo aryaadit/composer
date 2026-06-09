@@ -28,18 +28,28 @@ const VIBE_LABEL_OVERRIDES: Record<string, string> = {
   food_forward: "Meal",
   drinks_led: "Drinks",
   activity_food: "Activity",
-  mix_it_up: "Variety",
 };
 
 const VIBE_DESCRIPTIONS: Record<string, string> = {
   food_forward: "A great meal anchors it all",
   drinks_led: "Bars and cocktails are the focus",
   activity_food: "Something to do first, then eat",
-  mix_it_up: "Food, drinks, and something to do",
 };
 
-// Vibe slugs match the sheet's Vibe Scoring Matrix keys (snake_case).
-const VIBE_KEYS = Object.keys(GEN_TAGS) as (keyof typeof GEN_TAGS)[];
+// Phase 7: `mix_it_up` (Variety) dropped from the questionnaire. The
+// generated source still includes it — we filter here at the consumer
+// layer so `npm run generate-configs` doesn't have to re-clean. Old
+// saved itineraries with `vibe: "mix_it_up"` still render: the slug
+// is a string lookup that gracefully falls through (scoring uses
+// `vibeMixItUpBaseline` as the defensive empty-tag baseline). The
+// Google Sheet should be updated to drop the row at the next
+// opportunity for cross-consumer consistency.
+const DROPPED_VIBES: ReadonlySet<string> = new Set(["mix_it_up"]);
+
+// Vibe slugs match the sheet's Vibe Scoring Matrix keys (snake_case),
+// minus the user-facing drops above.
+const VIBE_KEYS = (Object.keys(GEN_TAGS) as (keyof typeof GEN_TAGS)[])
+  .filter((k) => !DROPPED_VIBES.has(k as string));
 
 export const VIBES = VIBE_KEYS.map((key) => ({
   slug: key,
@@ -48,7 +58,10 @@ export const VIBES = VIBE_KEYS.map((key) => ({
   venueTags: GEN_TAGS[key] ?? [],
 }));
 
-export type VibeSlug = keyof typeof GEN_TAGS;
+// `VibeSlug` narrows the generated key union by the same dropped set
+// so consumers (composer, scoring, templates) can't accidentally
+// reference mix_it_up at the type level.
+export type VibeSlug = Exclude<keyof typeof GEN_TAGS, "mix_it_up">;
 
 export const VIBE_LABELS: Record<string, string> = Object.fromEntries(
   VIBES.map((v) => [v.slug, v.label])
@@ -59,8 +72,14 @@ export const VIBE_VENUE_TAGS: Record<string, readonly string[]> = Object.fromEnt
   VIBES.map((v) => [v.slug, v.venueTags])
 );
 
+/**
+ * Display label for a vibe slug. Returns "" for unknown slugs (e.g.
+ * legacy `mix_it_up` on a saved itinerary post-Phase-7) so callers
+ * that `.filter(Boolean)` the resulting label array omit the chip
+ * gracefully instead of rendering the raw slug.
+ */
 export function vibeLabel(slug: string): string {
-  return VIBE_LABELS[slug] ?? slug;
+  return VIBE_LABELS[slug] ?? "";
 }
 
 // Alcohol tags — derived from the drinks_led vibe. Used by the API

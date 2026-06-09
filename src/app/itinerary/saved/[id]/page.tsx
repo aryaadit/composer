@@ -15,6 +15,7 @@ import { CompositionHeader } from "@/components/itinerary/CompositionHeader";
 import { ItineraryView } from "@/components/itinerary/ItineraryView";
 import { PastItineraryBanner } from "@/components/itinerary/PastItineraryBanner";
 import { ActionBar } from "@/components/itinerary/ActionBar";
+import { LooksGoodCTA } from "@/components/itinerary/LooksGoodCTA";
 import { ItineraryEngagementProvider } from "@/components/itinerary/EngagementProvider";
 import { StepLoading } from "@/components/questionnaire/StepLoading";
 import { Button } from "@/components/ui/Button";
@@ -100,6 +101,14 @@ export default function SavedItineraryPage({
         <div className="w-full px-6 mt-6 flex flex-col items-center">
           <CompositionHeader header={itinerary.header} inputs={itinerary.inputs} />
           {isPast && <PastItineraryBanner day={itinerary.inputs.day} />}
+          {/* Phase 7: same CTA pattern as fresh, but starts in
+              "Saved ✓ ▼" — tap opens ConfirmModal directly. Restores
+              share + calendar export access for previously-saved plans. */}
+          <LooksGoodCTA
+            itinerary={itinerary}
+            initialSavedId={id}
+            surface="saved"
+          />
           <ItineraryView
             stops={itinerary.stops}
             walks={itinerary.walks}
@@ -110,7 +119,7 @@ export default function SavedItineraryPage({
             surface="saved"
           />
         </div>
-        <ActionBar itinerary={itinerary} initialSaved />
+        <ActionBar itinerary={itinerary} />
       </main>
     </ItineraryEngagementProvider>
   );

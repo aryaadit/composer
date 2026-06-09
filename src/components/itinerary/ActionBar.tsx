@@ -1,104 +1,21 @@
 "use client";
 
-import { useState } from "react";
+// Bottom action bar for the itinerary view. Phase 7 removed Save and
+// Share — Save moved to the prominent LooksGoodCTA near the top, and
+// Share moved into the post-save ConfirmModal's "Copy share link"
+// action. ActionBar now hosts only the Maps handoff, which is a
+// distinct navigation concern.
+
 import { motion } from "motion/react";
-import { getBrowserSupabase } from "@/lib/supabase/browser";
-import { useAuth } from "@/components/providers/AuthProvider";
-import { incrementPersonProperty } from "@/lib/analytics";
 import { useEngagement } from "@/components/itinerary/EngagementProvider";
 import type { ItineraryResponse } from "@/types";
 
 interface ActionBarProps {
   itinerary: ItineraryResponse;
-  initialSaved?: boolean;
 }
 
-export function ActionBar({
-  itinerary,
-  initialSaved = false,
-}: ActionBarProps) {
-  const { user } = useAuth();
+export function ActionBar({ itinerary }: ActionBarProps) {
   const { trackEngagement } = useEngagement();
-  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">(
-    initialSaved ? "saved" : "idle"
-  );
-  const [shareState, setShareState] = useState<"idle" | "sharing" | "copied" | "error">("idle");
-
-  const handleSave = async () => {
-    if (saveState === "saving" || saveState === "saved") return;
-    if (!user) {
-      setSaveState("error");
-      setTimeout(() => setSaveState("idle"), 2000);
-      return;
-    }
-    setSaveState("saving");
-
-    const { inputs, header, stops, walking } = itinerary;
-    const { data, error } = await getBrowserSupabase()
-      .from("composer_saved_itineraries")
-      .insert({
-        user_id: user.id,
-        title: header.title,
-        subtitle: header.subtitle,
-        occasion: inputs.occasion,
-        neighborhoods: inputs.neighborhoods,
-        budget: inputs.budget,
-        vibe: inputs.vibe,
-        day: inputs.day,
-        start_time: inputs.startTime,
-        // Legacy NOT NULL column. The authoritative start time lives in `start_time`.
-        time_block: "evening",
-        stops,
-        walking,
-        weather: header.weather,
-      })
-      .select("id")
-      .single();
-
-    if (error) {
-      console.error("[itinerary] save failed:", error.message);
-      setSaveState("error");
-      setTimeout(() => setSaveState("idle"), 2500);
-      return;
-    }
-    trackEngagement("itinerary_saved", {
-      itinerary_id: (data as { id: string } | null)?.id ?? null,
-      occasion: inputs.occasion,
-      neighborhoods: inputs.neighborhoods,
-      budget: inputs.budget,
-      vibe: inputs.vibe,
-      start_time: inputs.startTime,
-      stop_count: stops.length,
-    });
-    incrementPersonProperty("total_itineraries_saved", 1);
-    setSaveState("saved");
-  };
-
-  const handleShare = async () => {
-    if (shareState === "sharing" || shareState === "copied") return;
-    setShareState("sharing");
-
-    try {
-      const res = await fetch("/api/share", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(itinerary),
-      });
-      if (!res.ok) throw new Error("share failed");
-      const { id, url } = (await res.json()) as { id: string; url: string };
-
-      await navigator.clipboard.writeText(url);
-      trackEngagement("share_link_copied", {
-        itinerary_id: id,
-        share_method: "button_click",
-      });
-      setShareState("copied");
-      setTimeout(() => setShareState("idle"), 3000);
-    } catch {
-      setShareState("error");
-      setTimeout(() => setShareState("idle"), 2500);
-    }
-  };
 
   const handleMapsClick = () => {
     trackEngagement("maps_opened", {
@@ -107,24 +24,6 @@ export function ActionBar({
     });
   };
 
-  const saveLabel =
-    saveState === "saving"
-      ? "Saving…"
-      : saveState === "saved"
-      ? "Saved"
-      : saveState === "error"
-      ? "Try again"
-      : "Save";
-
-  const shareLabel =
-    shareState === "sharing"
-      ? "…"
-      : shareState === "copied"
-      ? "Link copied"
-      : shareState === "error"
-      ? "Try again"
-      : null; // null = show icon
-
   return (
     <motion.div
       className="w-full max-w-lg mx-auto mt-10 pt-4 border-t border-border"
@@ -132,8 +31,7 @@ export function ActionBar({
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, delay: 0.5 }}
     >
-      <div className="flex items-center justify-between font-sans text-sm">
-        {/* Left: Maps link */}
+      <div className="flex items-center justify-center font-sans text-sm">
         <a
           href={itinerary.maps_url}
           target="_blank"
@@ -144,46 +42,7 @@ export function ActionBar({
           Open in Maps
           <span aria-hidden className="text-muted">→</span>
         </a>
-
-        {/* Right: Save · Share */}
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => void handleSave()}
-            disabled={saveState === "saving" || saveState === "saved"}
-            className="text-charcoal hover:text-burgundy transition-colors disabled:text-muted"
-          >
-            {saveLabel}
-          </button>
-          <button
-            onClick={() => void handleShare()}
-            disabled={shareState === "sharing"}
-            className="text-charcoal hover:text-burgundy transition-colors ml-1 inline-flex items-center gap-1"
-          >
-            <ShareIcon />
-            <span>{shareLabel ?? "Share"}</span>
-          </button>
-        </div>
       </div>
     </motion.div>
-  );
-}
-
-function ShareIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      width="18"
-      height="18"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.6"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-    >
-      <path d="M12 3v13" />
-      <path d="m7 8 5-5 5 5" />
-      <path d="M5 14v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5" />
-    </svg>
   );
 }

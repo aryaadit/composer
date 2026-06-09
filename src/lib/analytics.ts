@@ -58,6 +58,7 @@ export const EVENTS = {
 
   // Save / share
   ITINERARY_SAVED: "itinerary_saved",
+  ITINERARY_CALENDAR_ADDED: "itinerary_calendar_added",
   SHARE_LINK_COPIED: "share_link_copied",
   SHARE_LINK_VISITED: "share_link_visited",
   ONBOARDING_COMPLETED: "onboarding_completed",

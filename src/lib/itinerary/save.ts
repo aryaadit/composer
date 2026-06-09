@@ -1,0 +1,40 @@
+// Single-source save helper. Wraps the composer_saved_itineraries
+// INSERT with the same column set ActionBar.handleSave used to do.
+// Extracted in Phase 7 so the new LooksGoodCTA + (a future restored)
+// ActionBar both call this rather than duplicating the INSERT body.
+
+import { getBrowserSupabase } from "@/lib/supabase/browser";
+import type { ItineraryResponse } from "@/types";
+
+export async function saveItineraryToSupabase(
+  itinerary: ItineraryResponse,
+  userId: string,
+): Promise<string> {
+  const { inputs, header, stops, walking } = itinerary;
+  const { data, error } = await getBrowserSupabase()
+    .from("composer_saved_itineraries")
+    .insert({
+      user_id: userId,
+      title: header.title,
+      subtitle: header.subtitle,
+      occasion: inputs.occasion,
+      neighborhoods: inputs.neighborhoods,
+      budget: inputs.budget,
+      vibe: inputs.vibe,
+      day: inputs.day,
+      start_time: inputs.startTime,
+      // Legacy NOT NULL column. The authoritative start time lives in
+      // `start_time` (Phase 1 fidelity fix); `time_block` will be
+      // dropped once nothing reads it (Phase 1 backlog).
+      time_block: "evening",
+      stops,
+      walking,
+      weather: header.weather,
+    })
+    .select("id")
+    .single();
+
+  if (error) throw new Error(error.message);
+  if (!data?.id) throw new Error("Save returned no id");
+  return data.id as string;
+}

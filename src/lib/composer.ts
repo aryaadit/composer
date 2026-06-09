@@ -51,9 +51,9 @@ export function disambiguateStop1Role(venue: Venue): StopRole {
  * selection via the venueRoleHint (e.g. drinks_led hints "drinks" so
  * stop 1 biases toward bars); main carries no hint.
  *
- * The mix_it_up vibe is resolved inside `getStop1Hint` by randomly
- * picking a concrete vibe via the seeded PRNG — same semantics the
- * deleted template-list version had.
+ * Unknown vibes (legacy "mix_it_up", "walk_explore" in old share-links)
+ * are resolved inside `getStop1Hint` by randomly picking a concrete
+ * vibe via the seeded PRNG — graceful degradation, not load-bearing.
  */
 export function planStopMix(
   answers: QuestionnaireAnswers,

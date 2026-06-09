@@ -21,6 +21,7 @@ import {
 import { CompositionHeader } from "@/components/itinerary/CompositionHeader";
 import { ItineraryView } from "@/components/itinerary/ItineraryView";
 import { ActionBar } from "@/components/itinerary/ActionBar";
+import { LooksGoodCTA } from "@/components/itinerary/LooksGoodCTA";
 import {
   ItineraryEngagementProvider,
   useEngagement,
@@ -278,6 +279,8 @@ function ItineraryBody({
       />
       <div className="w-full px-6 mt-6 flex flex-col items-center">
         <CompositionHeader header={itinerary.header} inputs={itinerary.inputs} />
+        {/* Phase 7: prominent CTA between header and stop list */}
+        <LooksGoodCTA itinerary={itinerary} />
         <ItineraryView
           stops={itinerary.stops}
           walks={itinerary.walks}
