@@ -25,6 +25,14 @@ import {
   ItineraryEngagementProvider,
   useEngagement,
 } from "@/components/itinerary/EngagementProvider";
+import { SwapReasonModal } from "@/components/itinerary/SwapReasonModal";
+import {
+  buildSkippedProps,
+  buildSubmittedProps,
+  handleNextSwapContext,
+  type SwapReasonContext,
+} from "@/lib/itinerary/swap-reason";
+import type { SwapContext } from "@/hooks/useSwapStop";
 import { StepLoading } from "@/components/questionnaire/StepLoading";
 import { Button } from "@/components/ui/Button";
 import { Header } from "@/components/Header";
@@ -141,10 +149,55 @@ function ItineraryBody({
   itinerary: ItineraryResponse;
   updateItinerary: (next: ItineraryResponse) => void;
 }) {
-  const { getTimeSinceViewed } = useEngagement();
+  const { getTimeSinceViewed, trackEngagement } = useEngagement();
+
+  // Swap-reason modal state. Owned at the page level (per Phase 4
+  // locked decision 1) so a new swap completing while the modal is
+  // still open can fire an implicit `stop_swap_reason_skipped` before
+  // overwriting with the new context.
+  const [swapReason, setSwapReason] = useState<SwapReasonContext | null>(null);
+
+  const onSwapComplete = useCallback((ctx: SwapContext) => {
+    setSwapReason((prev) =>
+      handleNextSwapContext(prev, ctx, performance.now(), track),
+    );
+  }, []);
+
+  const handleReasonSubmit = useCallback(
+    (reason: string, otherText: string | null) => {
+      const current = swapReason;
+      if (!current) return;
+      const timeToDecisionMs = Math.round(
+        performance.now() - current.shownAt,
+      );
+      // Submission is a real engagement (Phase 3 EngagementProvider) —
+      // bumps the counter and attaches time_to_first_engagement_ms when
+      // this is the user's first interaction with the itinerary.
+      trackEngagement(
+        "stop_swap_reason_submitted",
+        buildSubmittedProps(
+          current.swapContext,
+          reason,
+          otherText,
+          timeToDecisionMs,
+        ),
+      );
+      setSwapReason(null);
+    },
+    [swapReason, trackEngagement],
+  );
+
+  const handleReasonSkip = useCallback(() => {
+    const current = swapReason;
+    if (!current) return;
+    track("stop_swap_reason_skipped", buildSkippedProps(current.swapContext));
+    setSwapReason(null);
+  }, [swapReason]);
+
   const { handleSwap, swappingIndex, swapError } = useSwapStop(
     itinerary,
-    updateItinerary
+    updateItinerary,
+    onSwapComplete,
   );
 
   const [addingStop, setAddingStop] = useState(false);
@@ -242,6 +295,12 @@ function ItineraryBody({
         )}
       </div>
       <ActionBar itinerary={itinerary} />
+      <SwapReasonModal
+        isOpen={swapReason !== null}
+        swappedFromVenueName={swapReason?.swapContext.originalVenue.name ?? ""}
+        onSubmit={handleReasonSubmit}
+        onSkip={handleReasonSkip}
+      />
     </main>
   );
 }

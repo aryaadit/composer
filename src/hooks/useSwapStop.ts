@@ -3,16 +3,38 @@
 import { useCallback, useRef, useState } from "react";
 import { useToast } from "@/components/ui/Toast";
 import { getAnalyticsHeaders } from "@/lib/analytics";
-import type { ItineraryResponse, ItineraryStop, WalkSegment } from "@/types";
+import type {
+  ItineraryResponse,
+  ItineraryStop,
+  StopRole,
+  Venue,
+  WalkSegment,
+} from "@/types";
 
 interface SwapState {
   swappingIndex: number | null;
   swapError: { index: number; message: string } | null;
 }
 
+/**
+ * Context passed to onSwapComplete when a swap successfully resolves.
+ * Carries everything the swap-reason modal + its analytics events need.
+ * `surface` future-proofs the schema if swap is ever enabled on saved
+ * or share surfaces — fresh is the only surface today.
+ */
+export interface SwapContext {
+  stopIndex: number;
+  stopRole: StopRole;
+  originalVenue: Venue;
+  newVenue: Venue;
+  vibe: string;
+  surface: "fresh_itinerary" | "saved" | "share";
+}
+
 export function useSwapStop(
   itinerary: ItineraryResponse | null,
-  onUpdate: (next: ItineraryResponse) => void
+  onUpdate: (next: ItineraryResponse) => void,
+  onSwapComplete?: (ctx: SwapContext) => void,
 ) {
   const toast = useToast();
   const [state, setState] = useState<SwapState>({
@@ -69,7 +91,9 @@ export function useSwapStop(
         };
 
         const prevItinerary = itinerary;
-        const prevVenueId = itinerary.stops[index].venue.id;
+        const prevStop = itinerary.stops[index];
+        const originalVenue = prevStop.venue;
+        const prevVenueId = originalVenue.id;
 
         const nextExcluded = [...excluded, prevVenueId];
         excludedRef.current.set(index, nextExcluded);
@@ -97,6 +121,21 @@ export function useSwapStop(
         };
 
         onUpdate(next);
+
+        // Fire the swap-completion callback AFTER onUpdate so the new
+        // venue has already rendered when the modal mounts. The modal
+        // appears over the freshly-swapped stop, not over the spinner.
+        // The role is preserved across the swap, so payload.stop.role
+        // === prevStop.role; we use the new stop for consistency with
+        // the rest of the response shape.
+        onSwapComplete?.({
+          stopIndex: index,
+          stopRole: payload.stop.role,
+          originalVenue,
+          newVenue: payload.stop.venue,
+          vibe: itinerary.inputs.vibe,
+          surface: "fresh_itinerary",
+        });
 
         if (undoRef.current) {
           window.clearTimeout(undoRef.current.timer);
@@ -139,7 +178,7 @@ export function useSwapStop(
       }
       setState({ swappingIndex: null, swapError: null });
     },
-    [itinerary, state.swappingIndex, toast, onUpdate]
+    [itinerary, state.swappingIndex, toast, onUpdate, onSwapComplete]
   );
 
   return {
