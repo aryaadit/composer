@@ -11,6 +11,7 @@ import { Header } from "@/components/Header";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { useSavedPlans } from "@/hooks/useSavedPlans";
 import { SavedPlanRow } from "@/components/shared/SavedPlanRow";
+import { SavedPlanRowExpanded } from "@/components/shared/SavedPlanRowExpanded";
 import { splitPlansByDate } from "@/lib/dateUtils";
 
 function UserIcon() {
@@ -139,16 +140,25 @@ export function HomeScreen({ userName }: HomeScreenProps) {
                 <h2 className="font-sans text-xs tracking-widest uppercase text-muted mb-4">
                   Upcoming
                 </h2>
-                <div className="divide-y divide-border border-t border-border">
-                  {upcoming.map((plan) => (
-                    <SavedPlanRow
-                      key={plan.id}
-                      plan={plan}
-                      onDelete={deletePlan}
-                      onRenamed={renamePlan}
-                    />
-                  ))}
-                </div>
+                {/* Phase 6: hero treatment for the soonest upcoming. */}
+                <SavedPlanRowExpanded
+                  key={upcoming[0].id}
+                  plan={upcoming[0]}
+                  onDelete={deletePlan}
+                  onRenamed={renamePlan}
+                />
+                {upcoming.length > 1 && (
+                  <div className="divide-y divide-border border-t border-border">
+                    {upcoming.slice(1).map((plan) => (
+                      <SavedPlanRow
+                        key={plan.id}
+                        plan={plan}
+                        onDelete={deletePlan}
+                        onRenamed={renamePlan}
+                      />
+                    ))}
+                  </div>
+                )}
               </section>
             )}
             {past.length > 0 && (

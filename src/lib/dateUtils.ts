@@ -38,9 +38,23 @@ export function format12h(time24: string | undefined): string {
 /** Local-timezone today as "YYYY-MM-DD" — for comparing against an
  * itinerary's `day` field (also YYYY-MM-DD). Avoids `toISOString()`
  * which would give UTC and flip the day across midnight in NYC for
- * several hours. */
-function todayLocalISO(): string {
+ * several hours. Exported for callers that need to discriminate
+ * today/tomorrow alongside `tomorrowLocalISO`. */
+export function todayLocalISO(): string {
   const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+/** Local-timezone tomorrow as "YYYY-MM-DD". Same noon-anchor pattern
+ * as todayLocalISO — uses `setDate(getDate() + 1)` so DST transitions
+ * don't drift the date across midnight. Used by the saved-plans
+ * countdown to distinguish TONIGHT vs TOMORROW vs neither. */
+export function tomorrowLocalISO(): string {
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, "0");
   const day = String(d.getDate()).padStart(2, "0");

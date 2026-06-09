@@ -45,6 +45,44 @@ async function fetchWalkingPolyline(
   }
 }
 
+/**
+ * Build a synchronous Mapbox Static Images URL showing all itinerary
+ * stops as numbered pins. Phase 6 — used by SavedPlanRowExpanded's
+ * hero map preview. No polyline (no Directions API roundtrip), just
+ * `pin-s-${i+1}+${STROKE}(lon,lat)` for each stop, with `/auto/` bounds.
+ *
+ * Returns null when:
+ *   - No NEXT_PUBLIC_MAPBOX_TOKEN
+ *   - Empty stops array
+ *   - No stop has finite lat/lon (defensive — old saves may have NaN)
+ */
+export function buildItineraryStaticMapUrl(
+  stops: ReadonlyArray<{ latitude: number; longitude: number }>,
+  options: { width?: number; height?: number; padding?: number } = {},
+): string | null {
+  // Re-read the token at call time (not module load) so test harnesses
+  // can stub process.env before invoking. The async buildWalkMapUrl
+  // below captures TOKEN at module load for legacy reasons — leaving
+  // that alone since it's already shipped.
+  const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN ?? "";
+  if (!token) return null;
+  const valid = stops.filter(
+    (s) => Number.isFinite(s.latitude) && Number.isFinite(s.longitude),
+  );
+  if (valid.length === 0) return null;
+  const width = options.width ?? 640;
+  const height = options.height ?? 160;
+  const padding = options.padding ?? 30;
+  const pins = valid
+    .map((s, i) => `pin-s-${i + 1}+${STROKE}(${s.longitude},${s.latitude})`)
+    .join(",");
+  return (
+    `https://api.mapbox.com/styles/v1/${STYLE}/static/${pins}` +
+    `/auto/${width}x${height}@2x` +
+    `?access_token=${token}&padding=${padding}`
+  );
+}
+
 export async function buildWalkMapUrl(
   fromLat: number,
   fromLon: number,

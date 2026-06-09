@@ -7,6 +7,7 @@
 import { useMemo } from "react";
 import { useSavedPlans } from "@/hooks/useSavedPlans";
 import { SavedPlanRow } from "@/components/shared/SavedPlanRow";
+import { SavedPlanRowExpanded } from "@/components/shared/SavedPlanRowExpanded";
 import { splitPlansByDate } from "@/lib/dateUtils";
 
 interface Props {
@@ -54,17 +55,26 @@ export function SavedPlansList({ userId }: Props) {
           <h2 className="font-sans text-xs tracking-widest uppercase text-muted mb-5">
             Upcoming
           </h2>
-          <div className="divide-y divide-border border-t border-border">
-            {upcoming.map((plan) => (
-              <SavedPlanRow
-                key={plan.id}
-                plan={plan}
-                showSubtitle
-                onDelete={deletePlan}
-                onRenamed={renamePlan}
-              />
-            ))}
-          </div>
+          {/* Phase 6: hero treatment for the soonest upcoming. */}
+          <SavedPlanRowExpanded
+            key={upcoming[0].id}
+            plan={upcoming[0]}
+            onDelete={deletePlan}
+            onRenamed={renamePlan}
+          />
+          {upcoming.length > 1 && (
+            <div className="divide-y divide-border border-t border-border">
+              {upcoming.slice(1).map((plan) => (
+                <SavedPlanRow
+                  key={plan.id}
+                  plan={plan}
+                  showSubtitle
+                  onDelete={deletePlan}
+                  onRenamed={renamePlan}
+                />
+              ))}
+            </div>
+          )}
         </section>
       )}
       {past.length > 0 && (
