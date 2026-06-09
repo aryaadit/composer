@@ -26,7 +26,7 @@ export function ActionBar({ itinerary }: ActionBarProps) {
 
   return (
     <motion.div
-      className="w-full max-w-lg mx-auto mt-10 pt-4 border-t border-border"
+      className="w-full max-w-lg mx-auto mt-8"
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, delay: 0.5 }}

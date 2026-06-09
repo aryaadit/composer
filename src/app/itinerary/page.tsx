@@ -266,7 +266,10 @@ function ItineraryBody({
   };
 
   return (
-    <main className="flex flex-1 flex-col items-center min-h-screen pb-8">
+    // Bottom padding (pb-32) clears the fixed Looks Good CTA so the
+    // last content row (Open in Maps) stays visible when scrolled to
+    // the bottom of the page.
+    <main className="flex flex-1 flex-col items-center min-h-screen pb-32">
       <Header
         rightSlot={
           <Link
@@ -279,8 +282,6 @@ function ItineraryBody({
       />
       <div className="w-full px-6 mt-6 flex flex-col items-center">
         <CompositionHeader header={itinerary.header} inputs={itinerary.inputs} />
-        {/* Phase 7: prominent CTA between header and stop list */}
-        <LooksGoodCTA itinerary={itinerary} />
         <ItineraryView
           stops={itinerary.stops}
           walks={itinerary.walks}
@@ -298,6 +299,9 @@ function ItineraryBody({
         )}
       </div>
       <ActionBar itinerary={itinerary} />
+      {/* Sticky-fixed CTA — position:fixed so its inline location
+          doesn't take vertical space; pb-32 on <main> reserves room. */}
+      <LooksGoodCTA itinerary={itinerary} />
       <SwapReasonModal
         isOpen={swapReason !== null}
         swappedFromVenueName={swapReason?.swapContext.originalVenue.name ?? ""}

@@ -1,18 +1,22 @@
 "use client";
 
-// Prominent post-Phase-7 CTA. Replaces the bottom Save + Share with a
-// single "Looks Good →" button near the top of the fresh itinerary.
+// Sticky bottom CTA replacing the old bottom Save+Share. Phase 7
+// introduced it inline; Phase 8 moves it to a fixed-position bar at
+// the viewport bottom so it stays in view while the user scrolls
+// through stops.
 //
-// Pre-save: button reads "Looks Good →". Tap fires save, transitions
-//           button optimistically to "Saved ✓", opens ConfirmModal on
-//           save success. On failure, reverts + shows toast.
-// Post-save: button reads "Saved ✓ ▼". Tap opens ConfirmModal directly
-//            (no re-save).
+// Pre-save:  "Looks Good →" — burgundy fill, primary treatment.
+//            Tap fires save (optimistic visual transition), opens
+//            ConfirmModal on save success. Reverts on failure.
+// Post-save: "Saved ✓ ▼" — burgundy outlined (lighter weight) so
+//            it reads as completed without going away. Tap opens
+//            ConfirmModal directly.
 //
-// Lives between CompositionHeader and ItineraryView on the fresh page.
-// Not rendered on saved/share surfaces.
+// Share URL is prefetched in this component (one fetch per CTA
+// lifecycle, dedupe via inflight ref) and passed down to ConfirmModal
+// so the calendar event description can embed the share link.
 
-import { useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { useToast } from "@/components/ui/Toast";
 import { useEngagement } from "@/components/itinerary/EngagementProvider";
@@ -54,11 +58,46 @@ export function LooksGoodCTA({
   );
   const [modalOpen, setModalOpen] = useState(false);
 
+  // Share-URL state — prefetched after save (or on first modal open
+  // for the initial-saved surface). One fetch per CTA lifecycle; the
+  // inflight ref dedupes concurrent callers (e.g. modal mount races
+  // with the post-save kickoff).
+  const [shareUrl, setShareUrl] = useState<string | null>(null);
+  const shareInflightRef = useRef<Promise<string | null> | null>(null);
+
+  const ensureShareUrl = useCallback(async (): Promise<string | null> => {
+    if (shareUrl) return shareUrl;
+    if (shareInflightRef.current) return shareInflightRef.current;
+    const promise = fetch("/api/share", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(itinerary),
+    })
+      .then(async (res) => {
+        if (!res.ok) {
+          shareInflightRef.current = null;
+          return null;
+        }
+        const payload = (await res.json()) as { id: string; url: string };
+        setShareUrl(payload.url);
+        shareInflightRef.current = null;
+        return payload.url;
+      })
+      .catch(() => {
+        shareInflightRef.current = null;
+        return null;
+      });
+    shareInflightRef.current = promise;
+    return promise;
+  }, [shareUrl, itinerary]);
+
   const handleClick = async () => {
     if (saveState === "saving") return;
 
-    // Post-save: already have an id, just open the modal again.
+    // Post-save: id already known, just open the modal. Kick off the
+    // share-URL prefetch in the background if we don't have it yet.
     if (savedItineraryId !== null) {
+      void ensureShareUrl();
       setModalOpen(true);
       return;
     }
@@ -85,10 +124,12 @@ export function LooksGoodCTA({
         stop_count: itinerary.stops.length,
       });
       incrementPersonProperty("total_itineraries_saved", 1);
+      // Prefetch share URL in parallel with modal open — the rich
+      // description footer needs it.
+      void ensureShareUrl();
       setModalOpen(true);
     } catch (err) {
       console.error("[looks-good] save failed:", err);
-      // Revert the optimistic transition.
       setSaveState("error");
       toast.show({
         message: "Couldn't save — try again.",
@@ -117,19 +158,26 @@ export function LooksGoodCTA({
   );
 
   return (
-    <div className="w-full max-w-lg mx-auto mb-8 flex justify-center md:justify-start">
-      <button
-        type="button"
-        onClick={() => void handleClick()}
-        disabled={saveState === "saving"}
-        className={`w-full md:w-3/4 px-6 py-4 rounded-full font-sans text-base font-medium transition-colors ${
-          isPostSave
-            ? "bg-burgundy/90 text-cream hover:bg-burgundy"
-            : "bg-burgundy text-cream hover:bg-burgundy-light"
-        } disabled:opacity-70`}
+    <>
+      <div
+        className="fixed bottom-0 left-0 right-0 z-30 bg-cream/95 backdrop-blur-sm border-t border-border"
+        data-testid="looks-good-sticky"
       >
-        {label}
-      </button>
+        <div className="w-full max-w-lg mx-auto px-6 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+          <button
+            type="button"
+            onClick={() => void handleClick()}
+            disabled={saveState === "saving"}
+            className={`w-full px-6 py-4 rounded-full font-sans text-base font-medium transition-colors ${
+              isPostSave
+                ? "bg-transparent border border-burgundy text-burgundy hover:bg-burgundy/5"
+                : "bg-burgundy text-cream hover:bg-burgundy-light"
+            } disabled:opacity-70`}
+          >
+            {label}
+          </button>
+        </div>
+      </div>
 
       {savedItineraryId !== null && (
         <ConfirmModal
@@ -138,9 +186,11 @@ export function LooksGoodCTA({
           itinerary={itinerary}
           savedItineraryId={savedItineraryId}
           surface={surface}
+          shareUrl={shareUrl}
+          ensureShareUrl={ensureShareUrl}
         />
       )}
-    </div>
+    </>
   );
 }
 

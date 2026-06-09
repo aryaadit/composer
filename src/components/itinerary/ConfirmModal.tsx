@@ -27,6 +27,19 @@ interface ConfirmModalProps {
   /** Analytics surface — "fresh_itinerary" or "saved". Threaded to
    * the calendar_added events. Defaults to "fresh_itinerary". */
   surface?: "fresh_itinerary" | "saved";
+  /**
+   * Current share URL (or null if not yet fetched). LooksGoodCTA owns
+   * this state and prefetches in the background; we render the Google
+   * Calendar anchor's href reactively from the latest value.
+   */
+  shareUrl?: string | null;
+  /**
+   * Resolver that returns the share URL — fetches if needed, dedupes
+   * concurrent callers via an inflight ref in the parent. .ics and
+   * copy actions await this to guarantee the URL is in hand before
+   * generating output.
+   */
+  ensureShareUrl?: () => Promise<string | null>;
 }
 
 export function ConfirmModal({
@@ -35,6 +48,8 @@ export function ConfirmModal({
   itinerary,
   savedItineraryId,
   surface = "fresh_itinerary",
+  shareUrl = null,
+  ensureShareUrl,
 }: ConfirmModalProps) {
   // Stable ref to onClose for the Esc handler — avoids re-binding on
   // every parent render.
@@ -92,6 +107,8 @@ export function ConfirmModal({
               itinerary={itinerary}
               savedItineraryId={savedItineraryId}
               surface={surface}
+              shareUrl={shareUrl}
+              ensureShareUrl={ensureShareUrl}
               onClose={onClose}
             />
           </motion.div>
@@ -105,24 +122,28 @@ function ConfirmModalContent({
   itinerary,
   savedItineraryId,
   surface,
+  shareUrl,
+  ensureShareUrl,
   onClose,
 }: {
   itinerary: ItineraryResponse;
   savedItineraryId: string;
   surface: "fresh_itinerary" | "saved";
+  shareUrl: string | null;
+  ensureShareUrl?: () => Promise<string | null>;
   onClose: () => void;
 }) {
   const { trackEngagement } = useEngagement();
 
-  // Per-modal-session dedupe: cache the share id after the first
-  // /api/share call so subsequent taps reuse it. Spec asked for
-  // dedupe — this is the simplest form that doesn't need a DB column.
-  const [shareIdState, setShareIdState] = useState<string | null>(null);
   const [copyState, setCopyState] = useState<"idle" | "copying" | "copied" | "error">(
     "idle",
   );
 
-  const googleUrl = buildGoogleCalendarUrl(itinerary);
+  // Reactive Google Calendar href — updates when shareUrl arrives.
+  // Best-effort: if the user is fast enough to tap before the prefetch
+  // resolves, the calendar event lacks the share-link footer. .ics +
+  // copy await ensureShareUrl() so they're guaranteed correct.
+  const googleUrl = buildGoogleCalendarUrl(itinerary, shareUrl);
 
   const handleGoogleClick = () => {
     track("itinerary_calendar_added", {
@@ -133,11 +154,19 @@ function ConfirmModalContent({
     // Anchor handles the navigation — no preventDefault.
   };
 
-  const handleIcsDownload = () => {
-    const blob = generateIcsBlob(itinerary, buildIcsUid(savedItineraryId));
-    const url = URL.createObjectURL(blob);
+  const handleIcsDownload = async () => {
+    // Await the share URL so the .ics description's footer is correct.
+    // ensureShareUrl resolves to null if /api/share fails — generator
+    // falls back to plain "Composed by Composer" footer.
+    const url = ensureShareUrl ? await ensureShareUrl() : shareUrl;
+    const blob = generateIcsBlob(
+      itinerary,
+      buildIcsUid(savedItineraryId),
+      url,
+    );
+    const blobUrl = URL.createObjectURL(blob);
     const a = document.createElement("a");
-    a.href = url;
+    a.href = blobUrl;
     // Filename derived from the title — slugified for OS safety.
     const safeTitle = itinerary.header.title
       .toLowerCase()
@@ -148,7 +177,7 @@ function ConfirmModalContent({
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    URL.revokeObjectURL(blobUrl);
     track("itinerary_calendar_added", {
       provider: "ics",
       itinerary_id: savedItineraryId,
@@ -160,27 +189,11 @@ function ConfirmModalContent({
     if (copyState === "copying" || copyState === "copied") return;
     setCopyState("copying");
     try {
-      let id = shareIdState;
-      let url: string | null = null;
-      if (!id) {
-        const res = await fetch("/api/share", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(itinerary),
-        });
-        if (!res.ok) throw new Error("share failed");
-        const payload = (await res.json()) as { id: string; url: string };
-        id = payload.id;
-        url = payload.url;
-        setShareIdState(id);
-      }
-      if (!url) {
-        // Reuse path: rebuild the URL from the cached id + window origin.
-        url = `${window.location.origin}/itinerary/share/${id}`;
-      }
+      const url = ensureShareUrl ? await ensureShareUrl() : shareUrl;
+      if (!url) throw new Error("no share url");
       await navigator.clipboard.writeText(url);
       trackEngagement("share_link_copied", {
-        itinerary_id: id,
+        itinerary_id: savedItineraryId,
         share_method: "confirm_modal",
       });
       setCopyState("copied");

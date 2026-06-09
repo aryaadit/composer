@@ -87,7 +87,7 @@ export default function SavedItineraryPage({
   const isPast = isPastDate(itinerary.inputs.day);
   return (
     <ItineraryEngagementProvider source="saved" itineraryId={id}>
-      <main className="flex flex-1 flex-col items-center min-h-screen pb-8">
+      <main className="flex flex-1 flex-col items-center min-h-screen pb-32">
         <Header
           rightSlot={
             <Link
@@ -101,14 +101,6 @@ export default function SavedItineraryPage({
         <div className="w-full px-6 mt-6 flex flex-col items-center">
           <CompositionHeader header={itinerary.header} inputs={itinerary.inputs} />
           {isPast && <PastItineraryBanner day={itinerary.inputs.day} />}
-          {/* Phase 7: same CTA pattern as fresh, but starts in
-              "Saved ✓ ▼" — tap opens ConfirmModal directly. Restores
-              share + calendar export access for previously-saved plans. */}
-          <LooksGoodCTA
-            itinerary={itinerary}
-            initialSavedId={id}
-            surface="saved"
-          />
           <ItineraryView
             stops={itinerary.stops}
             walks={itinerary.walks}
@@ -120,6 +112,14 @@ export default function SavedItineraryPage({
           />
         </div>
         <ActionBar itinerary={itinerary} />
+        {/* Sticky-fixed CTA in initial-saved state — opens ConfirmModal
+            directly without re-saving. Restores share + calendar export
+            on the saved surface. */}
+        <LooksGoodCTA
+          itinerary={itinerary}
+          initialSavedId={id}
+          surface="saved"
+        />
       </main>
     </ItineraryEngagementProvider>
   );
