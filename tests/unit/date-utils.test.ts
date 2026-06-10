@@ -239,3 +239,98 @@ describe("splitPlansByDate", () => {
     expect(result.past).toHaveLength(0);
   });
 });
+
+// ── Phase 10: splitPlansByDate same-day start_time sort ───────
+//
+// Bug from the 2026-06-10 hero diagnostic: same-day plans tied on
+// `day` and fell through to the upstream created_at DESC order, so
+// whichever plan was saved most recently won the hero slot. The fix
+// composes start_time (with the legacy time_block fallback) into the
+// sort key so the soonest start wins, regardless of save order.
+
+describe("splitPlansByDate — start_time disambiguates same-day plans (Phase 10)", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 5, 9, 12, 0, 0)); // 2026-06-09 noon
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("same-day plans sort by start_time ASC, ignoring input order", () => {
+    // Mimics the actual bug: useSavedPlans returns rows in created_at
+    // DESC, so the 6 PM plan (saved later) comes first in the input.
+    // The fix must reorder so the 5 PM plan wins the hero slot.
+    const result = splitPlansByDate([
+      { id: "bedstuy_6pm", day: "2026-06-09", start_time: "18:00", time_block: "evening" },
+      { id: "chelsea_5pm", day: "2026-06-09", start_time: "17:00", time_block: "evening" },
+    ]);
+    expect(result.upcoming.map((p) => p.id)).toEqual(["chelsea_5pm", "bedstuy_6pm"]);
+  });
+
+  it("legacy plan (null start_time) uses time_block fallback for sort", () => {
+    // `afternoon` → 13:00 via startTimeFromLegacyBlock.
+    // `evening` → 19:00 via the same.
+    // Without the fallback, both would tie on day and fall to input
+    // order; with it, the afternoon plan sorts before evening.
+    const result = splitPlansByDate([
+      { id: "evening_legacy", day: "2026-06-09", start_time: null, time_block: "evening" },
+      { id: "afternoon_legacy", day: "2026-06-09", start_time: null, time_block: "afternoon" },
+    ]);
+    expect(result.upcoming.map((p) => p.id)).toEqual([
+      "afternoon_legacy",
+      "evening_legacy",
+    ]);
+  });
+
+  it("legacy null start_time interleaves with non-null on same day", () => {
+    // 13:00 (legacy afternoon) < 15:00 (non-null) — the legacy plan wins.
+    // Confirms we don't push legacy nulls to the end of the day.
+    const result = splitPlansByDate([
+      { id: "fresh_3pm", day: "2026-06-09", start_time: "15:00", time_block: "evening" },
+      { id: "legacy_afternoon", day: "2026-06-09", start_time: null, time_block: "afternoon" },
+    ]);
+    expect(result.upcoming.map((p) => p.id)).toEqual([
+      "legacy_afternoon",
+      "fresh_3pm",
+    ]);
+  });
+
+  it("different days still sort by day first; start_time only breaks same-day ties", () => {
+    // Tomorrow at 9 AM should NOT outrank today at 11 PM.
+    const result = splitPlansByDate([
+      { id: "tomorrow_morning", day: "2026-06-10", start_time: "09:00", time_block: "morning" },
+      { id: "tonight_late", day: "2026-06-09", start_time: "23:00", time_block: "evening" },
+    ]);
+    expect(result.upcoming.map((p) => p.id)).toEqual([
+      "tonight_late",
+      "tomorrow_morning",
+    ]);
+  });
+
+  it("past plans sort DESC by full datetime — same-day, earliest is most distant", () => {
+    // 2026-06-08 at 17:00 is more-recently-past than at 09:00, so the
+    // 17:00 plan wins (most-recently-past first).
+    const result = splitPlansByDate([
+      { id: "yesterday_morning", day: "2026-06-08", start_time: "09:00", time_block: "morning" },
+      { id: "yesterday_evening", day: "2026-06-08", start_time: "17:00", time_block: "evening" },
+    ]);
+    expect(result.past.map((p) => p.id)).toEqual([
+      "yesterday_evening",
+      "yesterday_morning",
+    ]);
+  });
+
+  it("old-shape callers (day-only objects) still work — start_time fields are optional", () => {
+    // Pre-Phase-10 callers may pass plans without start_time/time_block.
+    // The widened generic accepts them; the sort falls back to day-only
+    // (since startTimeFromLegacyBlock(null) returns "19:00" by default —
+    // applied uniformly, both plans tie and stable-sort preserves input
+    // order, which is acceptable).
+    const result = splitPlansByDate([
+      { id: "a", day: "2026-06-09" },
+      { id: "b", day: "2026-06-10" },
+    ]);
+    expect(result.upcoming.map((p) => p.id)).toEqual(["a", "b"]);
+  });
+});

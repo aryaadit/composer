@@ -89,6 +89,78 @@ function row(overrides: Partial<SavedItinerary>): SavedItinerary {
   };
 }
 
+// ── Phase 10: walks round-trip (route_geometry preserved on save+hydrate) ────
+//
+// Saves post-2026-06-10 persist the full WalkSegment[] (with
+// route_geometry from composer_walking_routes). Hydrate must prefer the
+// persisted walks when present so the hero card and saved page can render
+// the real street-following polylines. Legacy rows (saved.walks null) fall
+// back to rebuildWalks(stops) — straight-line stubs, no route_geometry.
+
+describe("saved itinerary walks round-trip (Phase 10)", () => {
+  const STUB_GEOMETRY = {
+    type: "LineString" as const,
+    coordinates: [
+      [-74.003, 40.733],
+      [-74.001, 40.732],
+      [-73.999, 40.730],
+    ],
+  };
+
+  it("persisted walks with route_geometry are returned verbatim on hydrate", () => {
+    const stops = [stubStop("Frog", 40.733, -74.003), stubStop("Cheeni", 40.730, -73.999)];
+    const saved = row({
+      stops,
+      walks: [
+        {
+          from: "Frog",
+          to: "Cheeni",
+          distance_km: 0.54,
+          walk_minutes: 7,
+          route_geometry: STUB_GEOMETRY,
+        },
+      ],
+    });
+    const hydrated = hydrateSavedItinerary(saved);
+    expect(hydrated.walks).toHaveLength(1);
+    expect(hydrated.walks[0].route_geometry).toEqual(STUB_GEOMETRY);
+    expect(hydrated.walks[0].walk_minutes).toBe(7);
+    expect(hydrated.walks[0].distance_km).toBeCloseTo(0.54);
+  });
+
+  it("legacy row (walks=null) falls back to rebuildWalks straight-line stubs", () => {
+    const stops = [stubStop("A", 40.733, -74.003), stubStop("B", 40.730, -73.999)];
+    const saved = row({ stops, walks: null });
+    const hydrated = hydrateSavedItinerary(saved);
+    expect(hydrated.walks).toHaveLength(1);
+    expect(hydrated.walks[0].route_geometry).toBeUndefined();
+    // walk_minutes from straight-line geo (haversine + walking speed),
+    // so it's a positive integer — but the load-bearing assertion is
+    // that no geometry survives from the legacy branch.
+    expect(hydrated.walks[0].walk_minutes).toBeGreaterThan(0);
+  });
+
+  it("walks omitted entirely (undefined, e.g. pre-Phase-10 select that didn't request the column) also falls back", () => {
+    const stops = [stubStop("A", 40.733, -74.003), stubStop("B", 40.730, -73.999)];
+    const saved = row({ stops });
+    delete (saved as Partial<SavedItinerary>).walks;
+    const hydrated = hydrateSavedItinerary(saved);
+    expect(hydrated.walks).toHaveLength(1);
+    expect(hydrated.walks[0].route_geometry).toBeUndefined();
+  });
+
+  it("walks=[] (empty array, e.g. single-stop itinerary) also falls back to rebuildWalks", () => {
+    // Edge case: a 1-stop itinerary has zero walks. saved.walks=[] is
+    // truthy but length-zero; preferring it would still produce an empty
+    // walks array, which matches rebuildWalks's output (rebuildWalks
+    // returns [] for length<2 stops). Either branch is correct here.
+    const stops = [stubStop("Solo", 40.733, -74.003)];
+    const saved = row({ stops, walks: [] });
+    const hydrated = hydrateSavedItinerary(saved);
+    expect(hydrated.walks).toHaveLength(0);
+  });
+});
+
 describe("saved itinerary start_time round-trip (Phase 1 fidelity)", () => {
   describe("fresh saves — start_time column populated", () => {
     for (const startTime of COMPOSE_START_TIMES) {

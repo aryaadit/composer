@@ -41,7 +41,17 @@ export function rebuildWalks(stops: ItineraryStop[]): WalkSegment[] {
 
 export function hydrateSavedItinerary(saved: SavedItinerary): ItineraryResponse {
   const stops = saved.stops ?? [];
-  const walks = rebuildWalks(stops);
+  // Phase 10: prefer the persisted walks if the row has them (writes
+  // post-2026-06-10 carry the full WalkSegment[] including
+  // route_geometry). Fall back to rebuildWalks(stops) — straight-line
+  // stubs from venue coords — for legacy rows where saved.walks is null
+  // or missing. Both branches return the same WalkSegment[] shape, so
+  // every downstream caller (ItineraryView, ItineraryMap, walking-meta
+  // calculation below) is agnostic to which branch fired.
+  const walks: WalkSegment[] =
+    saved.walks && saved.walks.length > 0
+      ? saved.walks
+      : rebuildWalks(stops);
   // Prefer the explicitly persisted start_time. Fall back to the legacy
   // time_block bucket mapping for rows that predate the start_time column.
   const startTime = saved.start_time ?? startTimeFromLegacyBlock(saved.time_block);

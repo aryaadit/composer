@@ -10,7 +10,7 @@ export async function saveItineraryToSupabase(
   itinerary: ItineraryResponse,
   userId: string,
 ): Promise<string> {
-  const { inputs, header, stops, walking } = itinerary;
+  const { inputs, header, stops, walks, walking } = itinerary;
   const { data, error } = await getBrowserSupabase()
     .from("composer_saved_itineraries")
     .insert({
@@ -28,6 +28,14 @@ export async function saveItineraryToSupabase(
       // dropped once nothing reads it (Phase 1 backlog).
       time_block: "evening",
       stops,
+      // Phase 10: persist the per-segment WalkSegment[] (with
+      // route_geometry from composer_walking_routes) so the home hero's
+      // static map and the saved-page interactive map can render the
+      // real street-following polylines instead of straight-line stubs
+      // reconstituted from venue coords. Requires the
+      // 20260610_add_walks_to_saved_itineraries migration; without it
+      // the INSERT errors on an unknown column.
+      walks,
       walking,
       weather: header.weather,
     })

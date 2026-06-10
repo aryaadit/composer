@@ -311,6 +311,13 @@ export interface SavedItinerary {
   start_time?: string | null;
   time_block: string;
   stops: ItineraryStop[];
+  /** Phase 10 persistence: per-segment WalkSegment[] carrying
+   * route_geometry. Optional + nullable so legacy rows (saved before
+   * the 20260610 migration) keep deserializing — the read path falls
+   * back to rebuildWalks(stops) which loses route_geometry. Don't
+   * conflate with `walking` below: that's the WalkingMeta totals
+   * (longest / total / any_over_cap / cap_min), not the segments. */
+  walks?: WalkSegment[] | null;
   walking: WalkingMeta | null;
   weather: WeatherInfo | null;
   created_at: string;

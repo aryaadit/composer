@@ -26,6 +26,7 @@ import {
   startTimeFromLegacyBlock,
 } from "@/lib/itinerary/time-blocks";
 import { neighborhoodLabel } from "@/config/neighborhoods";
+import type { LineString } from "geojson";
 import { buildItineraryStaticMapUrl } from "@/lib/mapbox";
 import { rebuildWalks } from "@/lib/itinerary/saved-hydration";
 import { ROLE_LABELS } from "@/config/roles";
@@ -79,7 +80,11 @@ export function SavedPlanRowExpanded({
 }: SavedPlanRowExpandedProps) {
   const displayName = plan.custom_name || plan.title || "Saved plan";
   const stops = plan.stops ?? [];
-  const walks = rebuildWalks(stops);
+  // Phase 10: prefer persisted walks (carry route_geometry from
+  // composer_walking_routes); fall back to straight-line stubs from
+  // venue coords for legacy rows saved before the 20260610 migration.
+  const walks =
+    plan.walks && plan.walks.length > 0 ? plan.walks : rebuildWalks(stops);
 
   // Header text content (Phase 5 secondary line format).
   const dayLabel = formatShortDateLabel(plan.day);
@@ -101,11 +106,24 @@ export function SavedPlanRowExpanded({
   // finite coords. `mapErrored` switches to "hide map zone" if the
   // image GET fails at runtime (e.g. token's Static Images scope
   // isn't granted in the Mapbox dashboard — see mapbox.ts comment).
+  //
+  // Phase 10: thread route_geometry from each WalkSegment into the
+  // builder's routeGeometries option so the hero map draws the actual
+  // street-following polylines as a `path-…` overlay (under the pins).
+  // Per-segment LineStrings come from composer_walking_routes via the
+  // persisted `walks` column; legacy rows with rebuildWalks stubs (no
+  // route_geometry) pass null entries → builder skips that segment's
+  // overlay → pins-only fallback for that gap, intact as before.
   const mapUrl = buildItineraryStaticMapUrl(
     stops.map((s) => ({
       latitude: s.venue.latitude,
       longitude: s.venue.longitude,
     })),
+    {
+      routeGeometries: walks.map(
+        (w) => (w.route_geometry as LineString | null | undefined) ?? null,
+      ),
+    },
   );
   const [mapErrored, setMapErrored] = useState(false);
 

@@ -257,3 +257,87 @@ describe("buildItineraryStaticMapUrl", () => {
     expect(result).toContain("+6B1E2E(");
   });
 });
+
+// ── Phase 10: hero map renders the route polyline when geometry exists ──
+//
+// Bug from the 2026-06-10 hero diagnostic: the home hero static map
+// rendered pins-only even for fresh itineraries with real route
+// geometry, because SavedPlanRowExpanded built the URL without the
+// routeGeometries option. The fix threads each walk's route_geometry
+// into the builder. These tests pin that contract: a geometry-bearing
+// itinerary must produce a `path-` component in the static URL, and a
+// legacy itinerary with null geometries must NOT (pins-only fallback
+// preserved verbatim).
+
+describe("hero static map — routeGeometries threading", () => {
+  beforeEach(() => {
+    // Mirror the buildItineraryStaticMapUrl suite — without a token the
+    // builder returns null and the threading is unobservable.
+    vi.stubEnv("NEXT_PUBLIC_MAPBOX_TOKEN", "test.token.value");
+  });
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  const STUB_GEOMETRY = {
+    type: "LineString" as const,
+    coordinates: [
+      [-74.003, 40.733],
+      [-74.001, 40.732],
+      [-73.999, 40.730],
+    ],
+  };
+
+  it("geometry-bearing itinerary → URL contains a path- overlay", () => {
+    const result = buildItineraryStaticMapUrl(
+      [
+        { latitude: 40.733, longitude: -74.003 },
+        { latitude: 40.730, longitude: -73.999 },
+      ],
+      { routeGeometries: [STUB_GEOMETRY] },
+    );
+    expect(result).not.toBeNull();
+    expect(result).toContain("path-");
+    // Path overlay comes BEFORE pins so the route renders under them.
+    const pathIdx = result!.indexOf("path-");
+    const pinIdx = result!.indexOf("pin-s-1");
+    expect(pathIdx).toBeGreaterThan(0);
+    expect(pinIdx).toBeGreaterThan(pathIdx);
+  });
+
+  it("null geometry (legacy itinerary) → pins-only, no path- overlay", () => {
+    const result = buildItineraryStaticMapUrl(
+      [
+        { latitude: 40.733, longitude: -74.003 },
+        { latitude: 40.730, longitude: -73.999 },
+      ],
+      { routeGeometries: [null] },
+    );
+    expect(result).not.toBeNull();
+    expect(result).not.toContain("path-");
+    // Pins still present — confirms we fell back to the existing
+    // pins-only output, not an empty URL.
+    expect(result).toContain("pin-s-1");
+    expect(result).toContain("pin-s-2");
+  });
+
+  it("mixed (real geometry + null) → one path overlay, both pins", () => {
+    // Legacy + Phase-10 segments can coexist in a single saved itinerary
+    // if a swap-stop event re-fetches one leg but not others. The
+    // builder must emit the path for the present geometry and skip the
+    // null entry without crashing.
+    const result = buildItineraryStaticMapUrl(
+      [
+        { latitude: 40.733, longitude: -74.003 },
+        { latitude: 40.731, longitude: -74.000 },
+        { latitude: 40.730, longitude: -73.999 },
+      ],
+      { routeGeometries: [STUB_GEOMETRY, null] },
+    );
+    expect(result).not.toBeNull();
+    expect(result).toContain("path-");
+    // Exactly one path overlay (the second segment was null).
+    expect((result!.match(/path-/g) ?? []).length).toBe(1);
+    expect(result).toContain("pin-s-3");
+  });
+});
