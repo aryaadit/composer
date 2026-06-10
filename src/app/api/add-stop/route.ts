@@ -5,7 +5,7 @@ import { fetchWeather } from "@/lib/weather";
 import { pickBestForRole } from "@/lib/scoring";
 import { STOP_1_POOL, disambiguateStop1Role } from "@/lib/composer";
 import { walkTimeMinutes, walkDistanceKm, buildGoogleMapsUrl } from "@/lib/geo";
-import { buildWalkMapUrl } from "@/lib/mapbox";
+import { fetchOrCacheWalkingRoute } from "@/lib/walking-routes";
 import { calculateTotalSpend, spendEstimate } from "@/config/budgets";
 import { ALCOHOL_VIBE_TAGS } from "@/config/vibes";
 import {
@@ -125,27 +125,38 @@ export async function POST(request: Request) {
       plan_b: planB,
     };
 
+    // Phase 10: fetch (or look up cached) real walking route for the
+    // new segment. Falls back to straight-line minutes/distance if
+    // Mapbox is unreachable; the UI renders a straight line instead
+    // of a curved one.
+    const fallbackKm = walkDistanceKm(
+      lastStop.venue.latitude,
+      lastStop.venue.longitude,
+      best.latitude,
+      best.longitude,
+    );
+    const fallbackMinutes = walkTimeMinutes(
+      lastStop.venue.latitude,
+      lastStop.venue.longitude,
+      best.latitude,
+      best.longitude,
+    );
+    const newWalkRoute = await fetchOrCacheWalkingRoute(
+      lastStop.venue.id,
+      best.id,
+      [lastStop.venue.longitude, lastStop.venue.latitude],
+      [best.longitude, best.latitude],
+      fallbackMinutes,
+      Math.round(fallbackKm * 1000),
+    );
     const newWalk: WalkSegment = {
       from: lastStop.venue.name,
       to: best.name,
-      distance_km: walkDistanceKm(
-        lastStop.venue.latitude,
-        lastStop.venue.longitude,
-        best.latitude,
-        best.longitude
-      ),
-      walk_minutes: walkTimeMinutes(
-        lastStop.venue.latitude,
-        lastStop.venue.longitude,
-        best.latitude,
-        best.longitude
-      ),
-      map_url: await buildWalkMapUrl(
-        lastStop.venue.latitude,
-        lastStop.venue.longitude,
-        best.latitude,
-        best.longitude
-      ),
+      distance_km: newWalkRoute.routeGeometry
+        ? newWalkRoute.walkDistanceMeters / 1000
+        : fallbackKm,
+      walk_minutes: newWalkRoute.walkMinutes,
+      route_geometry: newWalkRoute.routeGeometry ?? undefined,
     };
 
     const allVenues = [...currentStops.map((s) => s.venue), best];

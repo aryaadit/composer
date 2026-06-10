@@ -1,18 +1,38 @@
 "use client";
 
+import { useMemo } from "react";
 import { motion } from "motion/react";
+import type { LineString } from "geojson";
+import { buildWalkSegmentStaticMapUrl } from "@/lib/mapbox";
 
 interface WalkConnectorProps {
   walkMinutes: number;
   index: number;
-  mapUrl?: string | null;
+  /** Phase 10: real walking-route geometry from composer_walking_routes.
+   * Untyped (unknown) on the wire so the WalkSegment type doesn't drag
+   * the geojson dep through client-bundle imports; we cast to LineString
+   * here at the rendering boundary. Null or undefined → no static map
+   * (legacy itineraries pre-Phase 10) — the connector renders text-only,
+   * matching the existing graceful-fallback path. */
+  routeGeometry?: unknown;
 }
 
 export function WalkConnector({
   walkMinutes,
   index,
-  mapUrl,
+  routeGeometry,
 }: WalkConnectorProps) {
+  // Build the static URL once per geometry. buildWalkSegmentStaticMapUrl
+  // returns null when there's no token or no geometry — the <img> block
+  // is gated on a non-null result.
+  const mapUrl = useMemo(
+    () =>
+      buildWalkSegmentStaticMapUrl(
+        (routeGeometry as LineString | null | undefined) ?? null,
+      ),
+    [routeGeometry],
+  );
+
   return (
     <motion.div
       className="flex flex-col items-center gap-2 py-5"

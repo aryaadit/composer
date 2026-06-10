@@ -12,13 +12,14 @@
 // safe to render unconditionally — returns null when there are zero
 // stops with valid coordinates.
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
+import type { LineString } from "geojson";
 import { EVENTS } from "@/lib/analytics";
 import { useEngagement } from "@/components/itinerary/EngagementProvider";
-import type { ItineraryStop } from "@/types";
+import type { ItineraryStop, WalkSegment } from "@/types";
 import type { ItinerarySurface } from "./ItineraryView";
-import type { MapPin } from "./ItineraryMapInner";
+import type { MapPin, ItineraryRouteSegment } from "./ItineraryMapInner";
 
 // Dynamic import isolates mapbox-gl into its own chunk + skips SSR. The
 // chunk loads only when ItineraryView renders (which is itself a client
@@ -35,6 +36,12 @@ const ItineraryMapInner = dynamic(
 
 interface ItineraryMapProps {
   stops: ItineraryStop[];
+  /** Phase 10 — one walk per gap between consecutive stops (length =
+   * stops.length - 1). Each carries a `route_geometry` from the Mapbox
+   * Directions cache. When undefined or shorter than expected (legacy
+   * saved itineraries), ItineraryMapInner falls back to straight lines
+   * for the missing segments. */
+  walks?: WalkSegment[];
   surface: ItinerarySurface;
   /** Setter for the parent's highlightedStopIndex state. ItineraryMap
    * sets it on pin tap; ItineraryView watches the value, passes it to
@@ -44,6 +51,7 @@ interface ItineraryMapProps {
 
 export function ItineraryMap({
   stops,
+  walks,
   surface,
   onHighlightStop,
 }: ItineraryMapProps) {
@@ -69,6 +77,33 @@ export function ItineraryMap({
       venueId: stop.venue.id,
       venueName: stop.venue.name,
     }));
+
+  // Phase 10: align walks (stops.length - 1) with pins (post-filter).
+  // The kept-pin order mirrors stop order, so the walk that lives
+  // between two adjacent kept stops is the walk at the lower stop's
+  // original index. Filtered-out stops drop their adjacent walks
+  // entirely; the polyline falls back to a straight line for that gap.
+  const routeSegments: ItineraryRouteSegment[] | undefined = useMemo(() => {
+    if (!walks || pins.length < 2) return undefined;
+    const out: ItineraryRouteSegment[] = [];
+    for (let i = 0; i < pins.length - 1; i++) {
+      const fromOriginal = pins[i].originalIndex;
+      const toOriginal = pins[i + 1].originalIndex;
+      // Walks are 1:1 with consecutive stops in the original list. Only
+      // use the walk when both pins are adjacent stops (no filtered
+      // stops in between); otherwise leave the geometry undefined so
+      // the inner component draws a straight line.
+      if (toOriginal === fromOriginal + 1) {
+        const w = walks[fromOriginal];
+        out.push({
+          geometry: (w?.route_geometry as LineString | null | undefined) ?? null,
+        });
+      } else {
+        out.push({ geometry: null });
+      }
+    }
+    return out;
+  }, [walks, pins]);
 
   const [expanded, setExpanded] = useState(false);
 
@@ -135,6 +170,7 @@ export function ItineraryMap({
         <div className="relative h-[220px] md:h-[280px] rounded-lg overflow-hidden border border-border">
           <ItineraryMapInner
             pins={pins}
+            routeSegments={routeSegments}
             onPinClick={handlePinClick}
             onMapClick={handleMapClick}
           />
@@ -160,6 +196,7 @@ export function ItineraryMap({
           <div className="absolute inset-2 md:inset-8 rounded-lg overflow-hidden bg-cream">
             <ItineraryMapInner
               pins={pins}
+              routeSegments={routeSegments}
               onPinClick={handlePinClick}
               // No onMapClick when fullscreen — would re-expand.
             />

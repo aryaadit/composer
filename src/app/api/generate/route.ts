@@ -6,7 +6,7 @@ import { fetchWeather } from "@/lib/weather";
 import { composeItinerary, ROLE_AVG_DURATION_MIN } from "@/lib/composer";
 import { generateCopy } from "@/lib/claude";
 import { walkTimeMinutes, walkDistanceKm, buildGoogleMapsUrl } from "@/lib/geo";
-import { buildWalkMapUrl } from "@/lib/mapbox";
+import { fetchOrCacheWalkingRoute } from "@/lib/walking-routes";
 import { calculateTotalSpend, BUDGET_TIER_MAP } from "@/config/budgets";
 import { ALCOHOL_VIBE_TAGS } from "@/config/vibes";
 import {
@@ -356,26 +356,39 @@ export async function POST(request: Request) {
     const time_to_compose_ms = Math.round(performance.now() - composeStartMs);
     const enrichStartMs = performance.now();
 
-    // Enrich each walk with a Mapbox static image URL in parallel with copy
-    // generation. Failures resolve to null and render text-only in the UI.
-    const [copy, mapUrls] = await Promise.all([
+    // Phase 10: fetch real walking routes per segment in parallel with
+    // Gemini copy generation. fetchOrCacheWalkingRoute hits the
+    // composer_walking_routes cache first; misses go to Mapbox Directions
+    // and persist. Failures resolve to null geometry — the UI then
+    // falls back to a straight-line render.
+    const [copy, walkRoutes] = await Promise.all([
       generateCopy(stops, inputs, weather, prefs?.name ?? undefined),
       Promise.all(
-        walks.map((_, i) => {
+        walks.map((w, i) => {
           const from = stops[i].venue;
           const to = stops[i + 1].venue;
-          return buildWalkMapUrl(
-            from.latitude,
-            from.longitude,
-            to.latitude,
-            to.longitude
+          // Pass straight-line minutes as the fallback so Mapbox
+          // outages don't blank the walk-time label.
+          return fetchOrCacheWalkingRoute(
+            from.id,
+            to.id,
+            [from.longitude, from.latitude],
+            [to.longitude, to.latitude],
+            w.walk_minutes,
+            Math.round(w.distance_km * 1000),
           );
         })
       ),
     ]);
 
     for (let i = 0; i < walks.length; i++) {
-      walks[i].map_url = mapUrls[i];
+      const r = walkRoutes[i];
+      walks[i].route_geometry = r.routeGeometry ?? undefined;
+      // Prefer Mapbox-derived minutes/distance when geometry is real.
+      if (r.routeGeometry) {
+        walks[i].walk_minutes = r.walkMinutes;
+        walks[i].distance_km = r.walkDistanceMeters / 1000;
+      }
     }
 
     for (const stop of stops) {

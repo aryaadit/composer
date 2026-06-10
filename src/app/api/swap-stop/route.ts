@@ -16,6 +16,7 @@ import {
   walkDistanceKm,
   buildGoogleMapsUrl,
 } from "@/lib/geo";
+import { fetchOrCacheWalkingRoute } from "@/lib/walking-routes";
 import { calculateTotalSpend, spendEstimate } from "@/config/budgets";
 import { ALCOHOL_VIBE_TAGS } from "@/config/vibes";
 import type {
@@ -49,16 +50,36 @@ async function readDrinksPref(): Promise<string | null> {
   }
 }
 
-function buildWalk(from: Venue, to: Venue): WalkSegment {
+/**
+ * Build a WalkSegment between two venues using cached Mapbox
+ * Directions when available, falling back to straight-line
+ * distance/minutes if Mapbox is unreachable. Phase 10: the walks
+ * around a swapped stop now carry real route_geometry that the
+ * client renders as curved polylines on the map.
+ */
+async function buildWalk(from: Venue, to: Venue): Promise<WalkSegment> {
+  const fallbackMinutes = walkTimeMinutes(
+    from.latitude, from.longitude, to.latitude, to.longitude,
+  );
+  const fallbackKm = walkDistanceKm(
+    from.latitude, from.longitude, to.latitude, to.longitude,
+  );
+  const route = await fetchOrCacheWalkingRoute(
+    from.id,
+    to.id,
+    [from.longitude, from.latitude],
+    [to.longitude, to.latitude],
+    fallbackMinutes,
+    Math.round(fallbackKm * 1000),
+  );
   return {
     from: from.name,
     to: to.name,
-    distance_km: walkDistanceKm(
-      from.latitude, from.longitude, to.latitude, to.longitude
-    ),
-    walk_minutes: walkTimeMinutes(
-      from.latitude, from.longitude, to.latitude, to.longitude
-    ),
+    distance_km: route.routeGeometry
+      ? route.walkDistanceMeters / 1000
+      : fallbackKm,
+    walk_minutes: route.walkMinutes,
+    route_geometry: route.routeGeometry ?? undefined,
   };
 }
 
@@ -159,15 +180,17 @@ export async function POST(request: Request) {
     );
     const enrichedStop = enrichedFake.stops[0];
 
-    // Recompute only the walks adjacent to the swapped stop.
-    const walkBefore =
+    // Recompute only the walks adjacent to the swapped stop. Parallel
+    // so the two Mapbox calls (when both walks exist + cache misses)
+    // don't serialize.
+    const [walkBefore, walkAfter] = await Promise.all([
       stopIndex > 0
         ? buildWalk(currentStops[stopIndex - 1].venue, best)
-        : null;
-    const walkAfter =
+        : Promise.resolve(null),
       stopIndex < currentStops.length - 1
         ? buildWalk(best, currentStops[stopIndex + 1].venue)
-        : null;
+        : Promise.resolve(null),
+    ]);
 
     // Rebuild summary fields from the patched stop list.
     const patchedVenues = currentStops.map((s, i) =>

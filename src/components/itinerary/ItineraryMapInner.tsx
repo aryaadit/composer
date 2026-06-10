@@ -14,6 +14,7 @@ import Map, {
   type LngLatBoundsLike,
 } from "react-map-gl";
 import type { FillLayerSpecification, LineLayerSpecification } from "mapbox-gl";
+import type { LineString } from "geojson";
 import "mapbox-gl/dist/mapbox-gl.css";
 
 export interface MapPin {
@@ -30,6 +31,15 @@ export interface MapPin {
   venueName: string;
 }
 
+/** Phase 10: optional real walking route geometries between consecutive
+ * pins. When provided, the polyline layer renders one feature per
+ * walk segment using the geometry; null/missing entries fall back to a
+ * straight LineString between the two pins. Length should equal
+ * pins.length - 1 (or shorter — missing tail segments are skipped). */
+export interface ItineraryRouteSegment {
+  geometry: LineString | null | undefined;
+}
+
 interface ItineraryMapInnerProps {
   pins: MapPin[];
   /** Tap on a pin → smooth-scroll + highlight in the parent. Receives
@@ -38,6 +48,8 @@ interface ItineraryMapInnerProps {
   /** Tap anywhere on the map body (outside a pin) → expand to
    * fullscreen overlay. Not called when expanded (no recursion). */
   onMapClick?: () => void;
+  /** Phase 10 — per-segment route geometries (one per pin pair). */
+  routeSegments?: ItineraryRouteSegment[];
 }
 
 const BURGUNDY = "#6B1E2E";
@@ -50,6 +62,7 @@ export function ItineraryMapInner({
   pins,
   onPinClick,
   onMapClick,
+  routeSegments,
 }: ItineraryMapInnerProps) {
   const mapRef = useRef<MapRef | null>(null);
   const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN ?? "";
@@ -82,25 +95,38 @@ export function ItineraryMapInner({
     mapRef.current.fitBounds(bounds, { padding: FIT_PADDING, duration: 0 });
   }, [bounds]);
 
-  // Polyline only when 2+ pins. GeoJSON LineString through pins in
-  // stop order. Mapbox draws straight lines between coordinates by
-  // default — no Directions API call, per spec.
+  // Phase 10: one Feature per walk segment. If routeSegments[i].geometry
+  // is real (Mapbox Directions, cached in composer_walking_routes), the
+  // line follows actual streets; if null/missing (Mapbox failure or
+  // legacy saved itineraries pre-Phase 10), it falls back to a straight
+  // LineString between pin[i] and pin[i+1]. Mixed real + fallback is
+  // fine — every segment renders independently.
   const routeGeoJSON = useMemo(() => {
     if (pins.length < 2) return null;
+    const features = [];
+    for (let i = 0; i < pins.length - 1; i++) {
+      const segmentGeom: LineString | null | undefined =
+        routeSegments?.[i]?.geometry;
+      const coordinates: [number, number][] = segmentGeom
+        ? (segmentGeom.coordinates as [number, number][])
+        : [
+            [pins[i].lng, pins[i].lat],
+            [pins[i + 1].lng, pins[i + 1].lat],
+          ];
+      features.push({
+        type: "Feature" as const,
+        properties: { segmentIndex: i },
+        geometry: {
+          type: "LineString" as const,
+          coordinates,
+        },
+      });
+    }
     return {
       type: "FeatureCollection" as const,
-      features: [
-        {
-          type: "Feature" as const,
-          properties: {},
-          geometry: {
-            type: "LineString" as const,
-            coordinates: pins.map((p) => [p.lng, p.lat]),
-          },
-        },
-      ],
+      features,
     };
-  }, [pins]);
+  }, [pins, routeSegments]);
 
   // Initial view state for the single-pin path (no bounds to fit).
   const initialViewState = useMemo(() => {

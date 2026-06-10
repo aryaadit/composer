@@ -151,6 +151,7 @@ export function ItineraryView({
     <>
       <ItineraryMap
         stops={stops}
+        walks={walks}
         surface={surface}
         onHighlightStop={setHighlightedStopIndex}
       />
@@ -204,7 +205,7 @@ export function ItineraryView({
               <WalkConnector
                 walkMinutes={walks[i].walk_minutes}
                 index={i}
-                mapUrl={walks[i].map_url}
+                routeGeometry={walks[i].route_geometry}
               />
             )}
           </Fragment>

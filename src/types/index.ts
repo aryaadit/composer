@@ -241,9 +241,21 @@ export interface WalkSegment {
   to: string;
   distance_km: number;
   walk_minutes: number;
-  // Mapbox static image URL showing the walking route. Null when
-  // NEXT_PUBLIC_MAPBOX_TOKEN is missing or Directions failed; WalkConnector
-  // then renders text-only.
+  /** Phase 10: real walking route geometry from Mapbox Directions
+   * (cached server-side in composer_walking_routes, keyed by venue
+   * pair). Consumed directly by ItineraryMapInner as a GeoJSON
+   * LineString feature and re-encoded to Google polyline for the
+   * static map's path overlay. Null when Mapbox failed at compose
+   * time (cache miss + Directions outage) OR when this is a legacy
+   * saved itinerary serialized before Phase 10 — callers render the
+   * straight-line fallback in both cases. GeoJSON.LineString typed
+   * loosely as `unknown` here so /types doesn't pull the GeoJSON
+   * type dep into client bundles. */
+  route_geometry?: unknown;
+  /** @deprecated Pre-Phase-10 pre-baked Mapbox Static URL. Legacy
+   * saved itineraries still carry this — kept as an optional field
+   * so JSONB hydration doesn't error. Not consulted by any post-
+   * Phase-10 render path. */
   map_url?: string | null;
 }
 
