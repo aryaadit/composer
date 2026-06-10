@@ -48,7 +48,15 @@ GOOGLE_SHEET_ID                  # the venue sheet id (no hardcoded constant —
 
 # Optional enrichment
 GOOGLE_PLACES_API_KEY            # used by photo + price-tier backfill scripts
-NEXT_PUBLIC_MAPBOX_TOKEN         # walk maps + interactive itinerary map; both render without it
+
+# Mapbox — two-token model. They are not interchangeable.
+NEXT_PUBLIC_MAPBOX_TOKEN         # CLIENT-side: interactive Mapbox GL map + Static Image URLs.
+                                 # URL-restricted in the Mapbox dashboard to onpalate.com / Vercel previews / localhost
+                                 # (browser sends a matching Referer, so the restriction is fine).
+MAPBOX_SERVER_TOKEN              # SERVER-side ONLY: Directions API in src/lib/walking-routes.ts.
+                                 # NO URL restrictions. Server-side fetches don't send a matching Referer,
+                                 # so the public token would silently 403 here. Never expose this token to
+                                 # the client and never cross-fallback to NEXT_PUBLIC_MAPBOX_TOKEN.
 ```
 
 Never hardcode these. Never commit `.env.local`. Always use `process.env.*` server-side and `NEXT_PUBLIC_*` only when the value is safe to expose to the client.
@@ -178,7 +186,9 @@ All taxonomy lists generated from the Google Sheet's Master Reference tab via `n
 Display labels are overridden in:
 - **Vibes** (`src/config/vibes.ts`): `Meal` / `Drinks` / `Activity` / `Stroll` / `Variety`
 - **Budgets** (`src/config/budgets.ts`): `Casual` / `Solid` / `Splurge` / `All Out` / `No Preference`
-- **Neighborhoods** — 25 user-facing groups (Manhattan: 15, Brooklyn: 7, Queens: 2, Bronx/SI: 1) maintained as constants in `scripts/generate-configs.py`. Groups with `venueCount < ALGORITHM.pools.minGroupVenuesToRender` (50) are hidden from the picker.
+- **Neighborhoods** — 25 user-facing groups (Manhattan: 15, Brooklyn: 7, Queens: 2, Bronx/SI: 1) maintained as constants in `scripts/generate-configs.py`. Groups with `venueCount < ALGORITHM.pools.minGroupVenuesToRender` (live value: **25**) are hidden from the picker. The total-count threshold is slated for replacement by a composability-based gate (mains × OC pairs per tier) — see `docs/archive/neighborhood-coverage-audit-2026-06-10.md`.
+
+- **Baked venue counts go stale.** `npm run generate-configs` must be re-run after any venue import to refresh `venueCount` in `src/config/generated/neighborhoods.ts`. The picker reads this baked value, not a live query.
 
 Scored vibe tags map to canonical venue tags (see `VIBE_VENUE_TAGS` in the generated `vibes.ts`).
 
@@ -550,6 +560,7 @@ npx tsc --noEmit
 - Don't call anon Supabase (`lib/supabase.ts`) from client components. For user-scoped data use `getBrowserSupabase()`.
 - Don't write to `composer_users` directly from the browser. RLS now blocks it — go through `PATCH /api/profile`.
 - Don't sprinkle scoring magic numbers across files. Every weight/threshold/penalty lives in `src/config/algorithm.ts`.
+- **Don't issue a bare full-table Supabase `select` on a catalog table.** PostgREST silently caps results at 1000 rows, with a non-deterministic dropped subset (no `.order`). Every full-table read MUST use `.range()` pagination with an explicit `.order("id", asc)` AND cross-check the fetched count against `select("*", { count: "exact", head: true })` (mismatch → log, don't throw). Canonical helper: `src/lib/venues/fetch-active.ts::fetchActiveVenues`; canonical paginator pattern: `src/lib/venues/import.ts::fetchAllDbVenues`. This bug truncated 24% of the active catalog from every itinerary generation request through 2026-06-09 — see `docs/archive/runtime-fetch-truncation-diagnostic-2026-06-09.md`.
 - Don't add AI-generated venues to the database. Every venue must be human-verified.
 - Don't change the vibe tag matching from exact to substring/fuzzy. This was a deliberate fix.
 - Don't change the Gemini system prompt without founder approval.

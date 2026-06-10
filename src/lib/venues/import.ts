@@ -221,6 +221,10 @@ interface LoadResult {
   tabNames: string[];
   headers: string[];
   records: VenueRecord[];
+  /** Parallel to `records`: sheet row that produced each record.
+   * Threaded through to assertions so the canonical-neighborhoods
+   * check can report per-row offenders. */
+  recordSheetRows: number[];
   dbVenues: Record<string, VenueCellValue>[];
   dbActive: number;
   dbInactive: number;
@@ -265,12 +269,13 @@ async function loadAndDiff(opts: LoadAndDiffOptions = {}): Promise<LoadResult> {
   let headers: string[] = [];
   let rows: string[][] = [];
   let records: VenueRecord[] = [];
+  let recordSheetRows: number[] = [];
   let skipped: ReturnType<typeof transformRows>["skipped"] = [];
   let diff: ImportDiff = { add: [], modify: [], deactivate: [], unchanged: 0, skipped: [] };
 
   if (tabExists) {
     ({ headers, rows } = await readSheetRows());
-    ({ records, skipped } = transformRows(headers, rows));
+    ({ records, skipped, recordSheetRows } = transformRows(headers, rows));
   }
 
   const dbVenues = await fetchAllDbVenues();
@@ -291,6 +296,7 @@ async function loadAndDiff(opts: LoadAndDiffOptions = {}): Promise<LoadResult> {
     tabNames,
     headers,
     records,
+    recordSheetRows,
     dbVenues,
     dbActive,
     dbInactive,
@@ -328,6 +334,7 @@ export async function prepareApply(): Promise<ApplyPreparation> {
 
   const assertions = runAssertions(
     r.records,
+    r.recordSheetRows,
     r.sheetMeta,
     r.tabNames,
     r.headers,

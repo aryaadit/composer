@@ -1,5 +1,7 @@
 # Walk-segment rendering — investigation
 
+> 🗄️ **SUPERSEDED 2026-06-10.** `WalkConnector` no longer renders a per-segment static map image at all — the `<img>` and `routeGeometry`-driven static URL were removed in commit `cd8c22b` (`refactor(itinerary): drop WalkConnector segment map, overview map carries route display`). The component now renders only the "N min walk" text. Route geometry is shown once at the top of the itinerary by `ItineraryMap` via the real per-segment GeoJSON shipped from the cached Mapbox Directions response (`composer_walking_routes`, Phase 10). This document is preserved for the historical reasoning about the static-map render path that existed between 2026-05-21 and 2026-06-10; do not act on its recommendations.
+
 **Date:** 2026-05-21
 **Trigger:** Adit pushed back on the 2026-05-20 launch recon's claim that walk segments render text-only when `MAPBOX_TOKEN` is missing. Production behavior didn't match.
 

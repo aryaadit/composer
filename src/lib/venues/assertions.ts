@@ -125,8 +125,15 @@ function latLngCoverageAssertion(records: VenueRecord[]): AssertionResult {
   };
 }
 
+/** Maximum per-row offenders to surface in the assertion detail. The full
+ * list could be hundreds in pathological cases (e.g. an entire sheet
+ * column renamed); the first 10 are enough for the operator to recognize
+ * the pattern and act. */
+const OFFENDER_PREVIEW = 10;
+
 function canonicalNeighborhoodsAssertion(
   records: VenueRecord[],
+  recordSheetRows: number[],
   canonical: ReadonlySet<string>
 ): AssertionResult {
   if (records.length === 0) {
@@ -137,29 +144,50 @@ function canonicalNeighborhoodsAssertion(
       severity: "block",
     };
   }
-  let inSet = 0;
-  const offenders: string[] = [];
-  const seenOffenders = new Set<string>();
-  for (const r of records) {
+  // Strict: ANY row whose neighborhood slug isn't in ALL_NEIGHBORHOODS
+  // blocks the import. Adding a new slug requires re-running
+  // `npm run generate-configs` (which rewrites src/config/generated/
+  // neighborhoods.ts from the sheet's Master Reference tab) before this
+  // assertion will pass. That gate is intentional — it forces the
+  // group-membership decision to be made before the venue can be served
+  // to the questionnaire, instead of silently piling up orphan slugs
+  // that no neighborhood selection can ever hit.
+  const offenders: {
+    sheet_row: number;
+    name: string;
+    neighborhood: string;
+  }[] = [];
+  for (let i = 0; i < records.length; i++) {
+    const r = records[i];
     const hood = r.neighborhood;
-    if (typeof hood === "string" && canonical.has(hood)) {
-      inSet++;
-    } else if (typeof hood === "string" && !seenOffenders.has(hood)) {
-      seenOffenders.add(hood);
-      offenders.push(hood);
+    if (typeof hood === "string" && !canonical.has(hood)) {
+      offenders.push({
+        sheet_row: recordSheetRows[i] ?? -1,
+        name: typeof r.name === "string" ? r.name : "(unknown)",
+        neighborhood: hood,
+      });
     }
   }
-  const fraction = inSet / records.length;
-  const min = SANITY_THRESHOLDS.minCanonicalNeighborhoodCoverage;
-  const passed = fraction >= min;
-  let detail = `${pct(fraction)} (${fmtNum(inSet)}/${fmtNum(records.length)}) in canonical set (min ${pct(min)})`;
-  if (!passed && offenders.length > 0) {
-    detail += `. First non-canonical: ${offenders.slice(0, 5).join(", ")}`;
+  if (offenders.length === 0) {
+    return {
+      name: "Canonical neighborhoods",
+      passed: true,
+      detail: `${fmtNum(records.length)} record(s) all in canonical set`,
+      severity: "block",
+    };
   }
+  const preview = offenders
+    .slice(0, OFFENDER_PREVIEW)
+    .map((o) => `row ${o.sheet_row} (${o.name}): '${o.neighborhood}'`)
+    .join("; ");
+  const more =
+    offenders.length > OFFENDER_PREVIEW
+      ? ` …and ${offenders.length - OFFENDER_PREVIEW} more`
+      : "";
   return {
     name: "Canonical neighborhoods",
-    passed,
-    detail,
+    passed: false,
+    detail: `${fmtNum(offenders.length)} row(s) carry slugs not in ALL_NEIGHBORHOODS (re-run \`npm run generate-configs\` after adding the slug to the sheet's Master Reference tab). Offenders: ${preview}${more}`,
     severity: "block",
   };
 }
@@ -207,6 +235,7 @@ function staleSheetAssertion(metadata: SheetMetadata): AssertionResult {
  */
 export function runAssertions(
   sheetVenues: VenueRecord[],
+  sheetVenueRows: number[],
   metadata: SheetMetadata,
   tabNames: string[],
   headers: string[],
@@ -224,7 +253,13 @@ export function runAssertions(
   results.push(headersPresentAssertion(headers));
   results.push(rowCountBandAssertion(sheetVenues.length, dbActiveCount));
   results.push(latLngCoverageAssertion(sheetVenues));
-  results.push(canonicalNeighborhoodsAssertion(sheetVenues, canonicalNeighborhoods));
+  results.push(
+    canonicalNeighborhoodsAssertion(
+      sheetVenues,
+      sheetVenueRows,
+      canonicalNeighborhoods
+    )
+  );
   results.push(staleSheetAssertion(metadata));
 
   const blocked = results.some((r) => !r.passed && r.severity === "block");

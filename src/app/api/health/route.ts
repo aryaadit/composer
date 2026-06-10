@@ -138,6 +138,11 @@ async function checkScoring(): Promise<ScoringCheck> {
       top3,
     };
   } catch (err) {
+    // Surface to logs in addition to the response payload — parity with
+    // /api/generate's fetchActiveVenues().catch logging so unhealthy
+    // health checks are searchable in server logs without scraping the
+    // response.
+    console.error("[health.checkScoring] failed:", err);
     return { ok: false, error: err instanceof Error ? err.message : "unknown" };
   }
 }

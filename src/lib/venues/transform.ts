@@ -116,6 +116,11 @@ function coerceCell(col: string, raw: string | undefined): VenueCellValue {
 export interface TransformResult {
   records: VenueRecord[];
   skipped: SkippedRow[];
+  /** Parallel array to `records`: `recordSheetRows[i]` is the 1-based
+   * sheet row that produced `records[i]`. Needed for per-row offender
+   * reporting in assertions (e.g. unknown neighborhood slugs), which
+   * lose row context once a record becomes a VenueRecord. */
+  recordSheetRows: number[];
 }
 
 /**
@@ -276,6 +281,7 @@ export function transformRows(
 
   const col = buildColumnIndex(headers);
   const records: VenueRecord[] = [];
+  const recordSheetRows: number[] = [];
   const skipped: SkippedRow[] = [];
 
   rows.forEach((row, i) => {
@@ -287,12 +293,15 @@ export function transformRows(
     const result = transformRow(i, row, col);
     if (result.ok) {
       records.push(result.record);
+      // Same sheet-row math used inside transformRow (i+3 for 1-based,
+      // 2 header rows). Kept here as the assertion-facing source of truth.
+      recordSheetRows.push(i + 3);
     } else {
       skipped.push(result.skipped);
     }
   });
 
-  return { records, skipped };
+  return { records, skipped, recordSheetRows };
 }
 
 // Re-export type metadata for callers that need to know the kind of a
