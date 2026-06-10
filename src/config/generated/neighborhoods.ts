@@ -1,6 +1,6 @@
 // AUTO-GENERATED — DO NOT EDIT
 // Source: Google Sheet 1ZH8CniJglou0A72e7U4b3nvtsa7tDRVMIAzNqMqEck8
-// Generated: 2026-05-21T22:48:10.371063+00:00
+// Generated: 2026-06-10T03:33:30.555839+00:00
 
 export interface NeighborhoodGroup {
   label: string;
@@ -14,7 +14,7 @@ export const NEIGHBORHOOD_GROUPS: Record<string, NeighborhoodGroup> = {
     label: "West Village",
     borough: "Manhattan",
     slugs: ["west_village"],
-    venueCount: 130,
+    venueCount: 128,
   },
   greenwich_village: {
     label: "Greenwich Village",
@@ -26,7 +26,7 @@ export const NEIGHBORHOOD_GROUPS: Record<string, NeighborhoodGroup> = {
     label: "East Village / LES",
     borough: "Manhattan",
     slugs: ["east_village", "lower_east_side", "bowery"],
-    venueCount: 221,
+    venueCount: 220,
   },
   soho_nolita_tribeca: {
     label: "SoHo / Nolita / Tribeca",
@@ -68,7 +68,7 @@ export const NEIGHBORHOOD_GROUPS: Record<string, NeighborhoodGroup> = {
     label: "Koreatown",
     borough: "Manhattan",
     slugs: ["koreatown"],
-    venueCount: 41,
+    venueCount: 39,
   },
   chinatown: {
     label: "Chinatown",
@@ -80,7 +80,7 @@ export const NEIGHBORHOOD_GROUPS: Record<string, NeighborhoodGroup> = {
     label: "FiDi / Lower Manhattan",
     borough: "Manhattan",
     slugs: ["fidi", "lower_manhattan", "battery_park_city"],
-    venueCount: 26,
+    venueCount: 25,
   },
   upper_west_side: {
     label: "Upper West Side",
@@ -104,19 +104,19 @@ export const NEIGHBORHOOD_GROUPS: Record<string, NeighborhoodGroup> = {
     label: "Williamsburg / Greenpoint",
     borough: "Brooklyn",
     slugs: ["williamsburg", "greenpoint"],
-    venueCount: 142,
+    venueCount: 141,
   },
   east_williamsburg_bushwick: {
     label: "East Williamsburg / Bushwick",
     borough: "Brooklyn",
     slugs: ["east_williamsburg", "bushwick"],
-    venueCount: 77,
+    venueCount: 76,
   },
   dumbo_brooklyn_heights: {
     label: "DUMBO / Brooklyn Heights",
     borough: "Brooklyn",
     slugs: ["dumbo", "brooklyn_heights", "cobble_hill", "carroll_gardens"],
-    venueCount: 52,
+    venueCount: 51,
   },
   fort_greene_clinton_hill: {
     label: "Fort Greene / Clinton Hill",
@@ -140,7 +140,7 @@ export const NEIGHBORHOOD_GROUPS: Record<string, NeighborhoodGroup> = {
     label: "South Brooklyn",
     borough: "Brooklyn",
     slugs: ["red_hook", "sunset_park", "columbia_waterfront", "sheepshead_bay", "gravesend"],
-    venueCount: 15,
+    venueCount: 16,
   },
   astoria_lic: {
     label: "Astoria / LIC",

@@ -1,6 +1,6 @@
 // AUTO-GENERATED — DO NOT EDIT
 // Source: Google Sheet 1ZH8CniJglou0A72e7U4b3nvtsa7tDRVMIAzNqMqEck8
-// Generated: 2026-05-22T04:41:36.837886+00:00
+// Generated: 2026-06-10T03:33:30.555839+00:00
 
 export interface BudgetTier {
   label: string;
