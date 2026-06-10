@@ -205,7 +205,6 @@ export function ItineraryView({
               <WalkConnector
                 walkMinutes={walks[i].walk_minutes}
                 index={i}
-                routeGeometry={walks[i].route_geometry}
               />
             )}
           </Fragment>
