@@ -14,6 +14,7 @@
 import { NextResponse } from "next/server";
 import { GoogleGenerativeAI, GenerationConfig } from "@google/generative-ai";
 import { getSupabase } from "@/lib/supabase";
+import { fetchActiveVenues } from "@/lib/venues/fetch-active";
 import { pickBestForRole } from "@/lib/scoring";
 import { GEMINI_MODEL } from "@/config/prompts";
 import type { QuestionnaireAnswers, Venue } from "@/types";
@@ -106,15 +107,7 @@ async function checkSupabase(): Promise<SupabaseCheck> {
 
 async function checkScoring(): Promise<ScoringCheck> {
   try {
-    const supabase = getSupabase();
-    const { data, error } = await supabase
-      .from("composer_venues_v2")
-      .select("*")
-      .eq("active", true);
-    if (error) {
-      return { ok: false, error: error.message };
-    }
-    const venues = (data ?? []) as Venue[];
+    const venues = await fetchActiveVenues();
 
     const hardFiltered = countHardFiltered(venues, SCORING_TEST_INPUT);
 

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { getSupabase } from "@/lib/supabase";
 import { getServerSupabase } from "@/lib/supabase/server";
+import { fetchActiveVenues } from "@/lib/venues/fetch-active";
 import { trackServer } from "@/lib/analytics-server";
 import { fetchWeather } from "@/lib/weather";
 import { composeItinerary, ROLE_AVG_DURATION_MIN } from "@/lib/composer";
@@ -188,21 +188,28 @@ export async function POST(request: Request) {
     const window = resolveTimeWindow(body.startTime);
     const inputs: QuestionnaireAnswers = { ...body, endTime: window.endTime };
 
-    const [prefs, weather, venueResult] = await Promise.all([
+    // fetchActiveVenues paginates through the catalog and cross-checks
+    // against an exact count. .catch handles the throw path so we can
+    // keep the user-facing 500 message that the bare-select error
+    // branch produced.
+    const [prefs, weather, venuesAll] = await Promise.all([
       readAuthedPrefs(),
       fetchWeather(),
-      getSupabase().from("composer_venues_v2").select("*").eq("active", true),
+      fetchActiveVenues().catch((err) => {
+        console.error("[generate] fetchActiveVenues failed:", err);
+        return null;
+      }),
     ]);
     analyticsUserId = prefs?.userId ?? null;
 
-    if (venueResult.error) {
+    if (venuesAll === null) {
       return NextResponse.json(
         { error: "Failed to fetch venues" },
         { status: 500 }
       );
     }
 
-    let venues = venueResult.data as Venue[];
+    let venues: Venue[] = venuesAll;
 
     // Graceful exclude-list degradation. The list is ordered
     // most-recent-first by the client. Drop entries from the END

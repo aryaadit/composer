@@ -5,7 +5,7 @@
 // segments so the client can patch in-place.
 
 import { NextResponse } from "next/server";
-import { getSupabase } from "@/lib/supabase";
+import { fetchActiveVenues } from "@/lib/venues/fetch-active";
 import { getServerSupabase } from "@/lib/supabase/server";
 import { trackServer } from "@/lib/analytics-server";
 import { fetchWeather } from "@/lib/weather";
@@ -98,20 +98,23 @@ export async function POST(request: Request) {
 
     const stopToReplace = currentStops[stopIndex];
 
-    const [drinks, weather, venueResult] = await Promise.all([
+    const [drinks, weather, venuesAll] = await Promise.all([
       readDrinksPref(),
       fetchWeather(),
-      getSupabase().from("composer_venues_v2").select("*").eq("active", true),
+      fetchActiveVenues().catch((err) => {
+        console.error("[swap-stop] fetchActiveVenues failed:", err);
+        return null;
+      }),
     ]);
 
-    if (venueResult.error) {
+    if (venuesAll === null) {
       return NextResponse.json(
         { error: "Failed to fetch venues" },
         { status: 500 }
       );
     }
 
-    let venues = venueResult.data as Venue[];
+    let venues: Venue[] = venuesAll;
 
     if (drinks === "no") {
       venues = venues.filter(

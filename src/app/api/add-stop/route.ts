@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getSupabase } from "@/lib/supabase";
+import { fetchActiveVenues } from "@/lib/venues/fetch-active";
 import { getServerSupabase } from "@/lib/supabase/server";
 import { fetchWeather } from "@/lib/weather";
 import { pickBestForRole } from "@/lib/scoring";
@@ -61,20 +61,23 @@ export async function POST(request: Request) {
       );
     }
 
-    const [drinks, weather, venueResult] = await Promise.all([
+    const [drinks, weather, venuesAll] = await Promise.all([
       readDrinksPref(),
       fetchWeather(),
-      getSupabase().from("composer_venues_v2").select("*").eq("active", true),
+      fetchActiveVenues().catch((err) => {
+        console.error("[add-stop] fetchActiveVenues failed:", err);
+        return null;
+      }),
     ]);
 
-    if (venueResult.error) {
+    if (venuesAll === null) {
       return NextResponse.json(
         { error: "Failed to fetch venues" },
         { status: 500 }
       );
     }
 
-    let venues = venueResult.data as Venue[];
+    let venues: Venue[] = venuesAll;
 
     // Drinks filter — same rule as the generate route.
     if (drinks === "no") {
