@@ -4,6 +4,8 @@
 // the same day-description and 12-hour formatting logic. Keeping them
 // in one place eliminates the drift risk.
 
+import { startTimeFromLegacyBlock } from "@/lib/itinerary/time-blocks";
+
 /**
  * Human-friendly label for an ISO day relative to today.
  *   - today    → "tonight"
@@ -136,26 +138,51 @@ export function formatShortDateLabel(dayISO: string | undefined | null): string 
  * runtime dependency on SavedItinerary — the type-only constraint is
  * structural and any compatible row shape works.
  */
-export function splitPlansByDate<T extends { day: string | null }>(
-  plans: T[],
-): { upcoming: T[]; past: T[] } {
+export function splitPlansByDate<
+  T extends {
+    day: string | null;
+    start_time?: string | null;
+    time_block?: string | null;
+  },
+>(plans: T[]): { upcoming: T[]; past: T[] } {
   const upcoming: T[] = [];
   const past: T[] = [];
   for (const plan of plans) {
     if (isPastDate(plan.day)) past.push(plan);
     else upcoming.push(plan);
   }
+  // Compose a `YYYY-MM-DDTHH:MM` sort key per plan so same-day plans
+  // are ordered by their actual start time, not the upstream created_at
+  // ordering (which would make whichever plan was saved most recently
+  // win the hero slot — the wrong-hero Bug 2 from the 2026-06-10 hero
+  // diagnostic). Start time resolution mirrors saved-hydration: prefer
+  // `start_time` (Phase 1 fidelity column), fall back to
+  // `startTimeFromLegacyBlock(time_block)` for pre-fidelity rows.
+  // A single localeCompare on the concatenated string is correct
+  // because `day` is YYYY-MM-DD and `start_time` is HH:MM — both are
+  // lexicographically equivalent to chronological — so no Date
+  // construction is needed.
+  const sortKey = (plan: T): string => {
+    if (!plan.day) return "";
+    const start =
+      plan.start_time ?? startTimeFromLegacyBlock(plan.time_block ?? null);
+    return `${plan.day}T${start}`;
+  };
   upcoming.sort((a, b) => {
-    if (!a.day && !b.day) return 0;
-    if (!a.day) return 1; // nulls to end
-    if (!b.day) return -1;
-    return a.day.localeCompare(b.day); // ASC — soonest first
+    const ka = sortKey(a);
+    const kb = sortKey(b);
+    if (!ka && !kb) return 0;
+    if (!ka) return 1; // nulls to end
+    if (!kb) return -1;
+    return ka.localeCompare(kb); // ASC — soonest first
   });
   past.sort((a, b) => {
-    if (!a.day && !b.day) return 0;
-    if (!a.day) return 1;
-    if (!b.day) return -1;
-    return b.day.localeCompare(a.day); // DESC — most-recently-past first
+    const ka = sortKey(a);
+    const kb = sortKey(b);
+    if (!ka && !kb) return 0;
+    if (!ka) return 1;
+    if (!kb) return -1;
+    return kb.localeCompare(ka); // DESC — most-recently-past first
   });
   return { upcoming, past };
 }
