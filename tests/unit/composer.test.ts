@@ -192,27 +192,29 @@ describe("composeItinerary — STOP_1_POOL composition", () => {
     expect(["opener-1", "closer-1"]).toContain(stops[0].venue.id);
   });
 
-  it("main-tagged venues are excluded from stop 1's pool", () => {
-    // If the only non-main venue is also tagged main, stop 1 must fail
-    // → single-stop fallback. The composer should still return Main.
+  it("main-tagged venues are excluded from stop 1's pool — empty stops on stop-1 failure (2026-06-11 strict-filters)", () => {
+    // If the only non-main venue is also tagged main, stop 1 cannot be
+    // filled. The single-stop fallback was REMOVED — the composer now
+    // returns an empty stops array and the route handler turns that
+    // into a ComposeFailure with zeroingStage="proximity".
     const venues = [
       makeVenue({ id: "main-1", name: "Main Spot", stop_roles: ["main"], ...NEAR }),
       makeVenue({ id: "main-2", name: "Another Main", stop_roles: ["main"], ...NEAR, category: "french" }),
     ];
     const { stops } = composeItinerary(venues, ANSWERS, CLEAR, 0, () => 0.5);
-    expect(stops).toHaveLength(1);
-    expect(stops[0].role).toBe("main");
+    expect(stops).toHaveLength(0);
   });
 
-  it("falls back to a single-stop (Main only) when no STOP_1_POOL candidate is in walking range", () => {
+  it("returns empty stops when no STOP_1_POOL candidate is in walking range — no single-stop fallback (2026-06-11 strict-filters)", () => {
     // Stop 1 candidate exists but is FAR from Main (well beyond 1.5km cap).
+    // Previously: returned a single Main stop. Now: returns empty so the
+    // caller can emit an honest ComposeFailure.
     const venues = [
       makeVenue({ id: "main-1", stop_roles: ["main"], latitude: 40.7336, longitude: -74.0027 }),
       makeVenue({ id: "far-opener", stop_roles: ["opener"], latitude: 40.8500, longitude: -73.9000, category: "wine_bar" }),
     ];
     const { stops } = composeItinerary(venues, ANSWERS, CLEAR, 0, () => 0.5);
-    expect(stops).toHaveLength(1);
-    expect(stops[0].role).toBe("main");
+    expect(stops).toHaveLength(0);
   });
 
   it("Main carries a plan_b (not null) when an alternative main exists", () => {

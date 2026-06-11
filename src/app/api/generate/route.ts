@@ -3,26 +3,27 @@ import { getServerSupabase } from "@/lib/supabase/server";
 import { fetchActiveVenues } from "@/lib/venues/fetch-active";
 import { trackServer } from "@/lib/analytics-server";
 import { fetchWeather } from "@/lib/weather";
-import { composeItinerary, ROLE_AVG_DURATION_MIN } from "@/lib/composer";
+import { composeItinerary } from "@/lib/composer";
 import { generateCopy } from "@/lib/claude";
 import { walkTimeMinutes, walkDistanceKm, buildGoogleMapsUrl } from "@/lib/geo";
 import { fetchOrCacheWalkingRoute } from "@/lib/walking-routes";
-import { calculateTotalSpend, BUDGET_TIER_MAP } from "@/config/budgets";
-import { ALCOHOL_VIBE_TAGS } from "@/config/vibes";
+import { calculateTotalSpend } from "@/config/budgets";
 import {
   resolveTimeWindow,
   dateToDayColumn,
-  venueOpenForWindow,
   isComposeStartTime,
 } from "@/lib/itinerary/time-blocks";
 import { enrichWithAvailability } from "@/lib/itinerary/availability-enrichment";
 import { computeRequestSeed, createSeededRandom } from "@/lib/itinerary/seed";
+import { applyPreFilters, buildPreFilterArgs } from "@/lib/itinerary/pre-filter";
+import {
+  composeFailure,
+  type ComposeFailure,
+} from "@/lib/itinerary/compose-failure";
 import type {
   GenerateRequestBody,
   QuestionnaireAnswers,
-  Venue,
   ItineraryResponse,
-  ItineraryStop,
   WalkSegment,
   WalkingMeta,
   WeatherInfo,
@@ -31,55 +32,34 @@ import type {
 // Tuning constants live in src/config/algorithm.ts — adjust there, not here.
 import { ALGORITHM } from "@/config/algorithm";
 
-function parseHHMM(hhmm: string): number {
-  const [h, m] = hhmm.split(":").map(Number);
-  return h * 60 + m;
-}
-
-/**
- * Walk the composed stops computing actual arrival times from per-venue
- * duration_hours (converted to minutes, or role-average fallback). Drops any trailing
- * stop whose arrival lands within ALGORITHM.composition.lastStartBufferMin of endTime — so a
- * 7-10pm plan can't push a bar to 9:55.
- */
-function applyEndTimeBuffer(
-  stops: ItineraryStop[],
-  walks: WalkSegment[],
-  startTime: string,
-  endTime: string
-): { stops: ItineraryStop[]; walks: WalkSegment[]; truncated: boolean } {
-  if (stops.length === 0) return { stops, walks, truncated: false };
-
-  const startMin = parseHHMM(startTime);
-  let endMin = parseHHMM(endTime);
-  if (endMin <= startMin) endMin += 24 * 60; // wrap past midnight
-  const lastStartMin = endMin - ALGORITHM.composition.lastStartBufferMin;
-
-  const kept: ItineraryStop[] = [];
-  let currentMin = startMin;
-  let truncated = false;
-
-  for (let i = 0; i < stops.length; i++) {
-    if (i > 0) {
-      currentMin += walks[i - 1]?.walk_minutes ?? 0;
-    }
-    // Never drop the first stop — it's the anchor of the night.
-    if (i > 0 && currentMin > lastStartMin) {
-      truncated = true;
-      break;
-    }
-    kept.push(stops[i]);
-    const stop = stops[i];
-    // duration_hours stores 1/2/3; convert to minutes for the buffer
-    // check. Falls back to the role average when the venue has no value.
-    const dur = stop.venue.duration_hours
-      ? stop.venue.duration_hours * 60
-      : ROLE_AVG_DURATION_MIN[stop.role];
-    currentMin += dur;
-  }
-
-  const keptWalks = walks.slice(0, Math.max(0, kept.length - 1));
-  return { stops: kept, walks: keptWalks, truncated };
+/** Single instrumentation entry point for the new structured-failure
+ * mode. Same event name across /api/generate, /api/swap-stop,
+ * /api/add-stop so the funnel rolls up cleanly. Lives at module scope
+ * because both swap-stop and add-stop import it through a shared
+ * helper — co-located here only to keep diffs small in this commit. */
+function trackComposeFailed(
+  endpoint: "generate" | "swap-stop" | "add-stop",
+  zeroingStage: ComposeFailure["zeroingStage"],
+  inputs: Pick<
+    QuestionnaireAnswers,
+    "budget" | "day" | "startTime" | "endTime" | "neighborhoods"
+  >,
+  userId: string | null,
+  distinctId: string | null,
+  sessionId: string | null,
+): Promise<void> {
+  return trackServer(
+    "compose_failed",
+    { userId, distinctId, sessionId },
+    {
+      endpoint,
+      zeroing_stage: zeroingStage,
+      group: inputs.neighborhoods?.[0] ?? null,
+      tier: inputs.budget,
+      day: inputs.day,
+      window: `${inputs.startTime}-${inputs.endTime}`,
+    },
+  );
 }
 
 function computeWalkingMeta(
@@ -209,100 +189,33 @@ export async function POST(request: Request) {
       );
     }
 
-    let venues: Venue[] = venuesAll;
-
-    // Graceful exclude-list degradation. The list is ordered
-    // most-recent-first by the client. Drop entries from the END
-    // (oldest) until the pool clears minPoolSize.
-    if (excludeVenueIds.length > 0) {
-      const ids = [...excludeVenueIds];
-      let toExclude = new Set(ids);
-      let filtered = venues.filter((v) => !toExclude.has(v.id));
-      const trimmed: string[] = [];
-      while (
-        filtered.length < ALGORITHM.pools.minPoolSize &&
-        ids.length > 0
-      ) {
-        const dropped = ids.pop();
-        if (!dropped) break;
-        trimmed.push(dropped);
-        toExclude = new Set(ids);
-        filtered = venues.filter((v) => !toExclude.has(v.id));
-      }
-      if (trimmed.length > 0) {
-        console.info(
-          `[generate] partial exclusion: dropped ${trimmed.length} oldest IDs to keep pool ≥ ${ALGORITHM.pools.minPoolSize}`
-        );
-      }
-      venues = filtered;
+    // Strict canonical pre-filter stack — same shape across /api/generate,
+    // /api/swap-stop, /api/add-stop. Every stage enforces a user input;
+    // nothing widens, drops, or relaxes. A zeroed pool returns a typed
+    // ComposeFailure naming the stage so the UI can surface an
+    // actionable next move instead of a generic "no results."
+    const pre = applyPreFilters(
+      buildPreFilterArgs({
+        venues: venuesAll,
+        inputs: {
+          budget: body.budget,
+          day: inputs.day,
+          startTime: inputs.startTime,
+          endTime: inputs.endTime,
+          neighborhoods: inputs.neighborhoods ?? [],
+        },
+        exclude: new Set(excludeVenueIds),
+        drinks: prefs?.drinks ?? null,
+      }),
+    );
+    if (!pre.ok) {
+      void trackComposeFailed("generate", pre.zeroingStage, inputs, analyticsUserId, distinctId, sessionId);
+      return NextResponse.json(composeFailure(pre.zeroingStage), {
+        status: 422,
+      });
     }
-
-    if (venues.length === 0) {
-      return NextResponse.json(
-        { error: "No venues available" },
-        { status: 404 }
-      );
-    }
-
-    // Drinks filter — if the signed-in user said no to drinks in their
-    // profile, drop alcohol-forward venues entirely.
-    if (prefs?.drinks === "no") {
-      venues = venues.filter(
-        (v) => !v.vibe_tags.some((t) => ALCOHOL_VIBE_TAGS.has(t))
-      );
-    }
-
-    // Time window filter — only venues whose effective open hours
-    // overlap the user's window on the selected day. Per-day blocks
-    // override global time_blocks (hybrid rule). Replaces the prior
-    // single-block filter; venues open in evening AND/OR late_night
-    // both qualify for late-start windows that wrap past 22:00.
+    const venues = pre.venues;
     const dayColumn = dateToDayColumn(inputs.day);
-    const preBlockCount = venues.length;
-    venues = venues.filter((v) =>
-      venueOpenForWindow(v, dayColumn, window)
-    );
-    if (venues.length < 30) {
-      console.warn(
-        `[generate] time window filter: ${preBlockCount} → ${venues.length} venues (${window.startTime}-${window.endTime} on ${dayColumn})`
-      );
-    }
-
-    // Filter out permanently/temporarily closed venues
-    venues = venues.filter(
-      (v) =>
-        v.business_status !== "CLOSED_PERMANENTLY" &&
-        v.business_status !== "CLOSED_TEMPORARILY"
-    );
-
-    // Budget hard filter — keep venues whose tier is in the bucket's
-    // allowed set (downward-permissive: nice_out admits tier-1 too). If
-    // the pool drops below the threshold AND we can still widen up, add
-    // one tier above the bucket's max. Downward widening is no longer
-    // needed because BUDGET_TIER_MAP already includes the cheaper tier.
-    // Null price_tier defaults to tier 2 ("nice_out") — same as scoring.
-    // Phase 1 dropped the `no_preference` budget; every ComposeBudget
-    // value maps to a concrete tier set so the filter always runs.
-    {
-      const allowedTiers = BUDGET_TIER_MAP[body.budget] ?? [1, 2, 3, 4];
-      let budgetFiltered = venues.filter(
-        (v) => allowedTiers.includes(v.price_tier ?? 2)
-      );
-      const maxTier = Math.max(...allowedTiers);
-      if (
-        budgetFiltered.length < ALGORITHM.pools.minBudgetWideningThreshold &&
-        maxTier < 4
-      ) {
-        const widened = [...allowedTiers, maxTier + 1];
-        budgetFiltered = venues.filter(
-          (v) => widened.includes(v.price_tier ?? 2)
-        );
-        console.info(
-          `[generate] budget pool thin (${budgetFiltered.length} after upward widening from [${allowedTiers}] to [${widened}])`
-        );
-      }
-      venues = budgetFiltered;
-    }
 
     // Start "compose" timing here — all in-process CPU work below this
     // line is what we mean by "the algorithm" (filtering already happened
@@ -320,10 +233,15 @@ export async function POST(request: Request) {
     const composed = composeItinerary(venues, inputs, weather, undefined, random, dayColumn, window);
 
     if (composed.stops.length === 0) {
-      return NextResponse.json(
-        { error: "No matching venues found" },
-        { status: 404 }
-      );
+      // The pre-filter cleared every user-input stage. Composer
+      // returns `zeroingStage` explaining which downstream gate
+      // emptied the pool — "fit" when no Main/stop-1 combination
+      // projects within the user's window; "proximity" when stop 1
+      // can't reach Main within the walking cap; defaults to
+      // "proximity" if composer didn't tag it.
+      const stage = composed.zeroingStage ?? "proximity";
+      void trackComposeFailed("generate", stage, inputs, analyticsUserId, distinctId, sessionId);
+      return NextResponse.json(composeFailure(stage), { status: 422 });
     }
 
     const allWalks: WalkSegment[] = [];
@@ -348,13 +266,15 @@ export async function POST(request: Request) {
       });
     }
 
-    const { stops, walks, truncated } = applyEndTimeBuffer(
-      composed.stops,
-      allWalks,
-      inputs.startTime,
-      inputs.endTime
-    );
-
+    // 2026-06-11: applyEndTimeBuffer was deleted. It was the other
+    // silent shape-change path — when the composed timeline overflowed
+    // endTime by < lastStartBufferMin, it dropped the trailing stop
+    // and set truncated_for_end_time=true (a flag no UI ever read).
+    // Strict-filters principle: don't second-guess the composer. If a
+    // future timeline-validation step is needed, fail honestly via
+    // ComposeFailure instead of silently truncating.
+    const stops = composed.stops;
+    const walks = allWalks;
     const maps_url = buildGoogleMapsUrl(stops.map((s) => s.venue));
 
     // Compose done; enrich starts here. Enrichment is dominated by external
@@ -418,7 +338,6 @@ export async function POST(request: Request) {
       stops,
       walks,
       walking,
-      truncated_for_end_time: truncated,
       maps_url,
       inputs,
     };
@@ -459,35 +378,16 @@ export async function POST(request: Request) {
         neighborhoods_used: enriched.stops.map((s) => s.venue.neighborhood),
         total_walk_min: enriched.walking?.total_walk_min ?? 0,
         longest_walk_min: enriched.walking?.longest_walk_min ?? 0,
-        truncated_for_end_time: enriched.truncated_for_end_time ?? false,
         time_total_ms: Math.round(performance.now() - generationStartMs),
         time_to_compose_ms,
         time_to_enrich_ms,
       }
     );
 
-    // Single-stop fallback signal: when the composer couldn't pair Main
-    // with a stop-1 candidate (e.g. nothing in STOP_1_POOL within the
-    // proximity cap of the picked Main), the response degrades to a
-    // single-stop itinerary. Reuse the failure-event reason taxonomy
-    // so dashboards can correlate fallback with full-fail rates.
-    if (actualStopCount < requestedStopCount) {
-      void trackServer(
-        "itinerary_fallback_single_stop",
-        { userId: analyticsUserId, distinctId, sessionId },
-        {
-          requested_stop_count: requestedStopCount,
-          actual_stop_count: actualStopCount,
-          reason: "no_pairs_walkable",
-          occasion: inputs.occasion,
-          vibe: inputs.vibe,
-          budget: inputs.budget,
-          start_time: inputs.startTime,
-          day: inputs.day,
-          neighborhoods: inputs.neighborhoods ?? [],
-        }
-      );
-    }
+    // 2026-06-11: itinerary_fallback_single_stop removed. The
+    // single-stop fallback in composer.ts that this event tracked was
+    // deleted; the same condition now fires compose_failed with
+    // zeroing_stage="proximity" earlier in this handler.
 
     return NextResponse.json(enriched);
   } catch (error) {

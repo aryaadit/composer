@@ -65,6 +65,31 @@ export function useSwapStop(
           }),
         });
 
+        // 422 is the new structured-failure path (typed ComposeFailure).
+        // The UI shows the title as the toast message — the body
+        // suggestion would require restructuring the toast widget, so
+        // we surface the headline here and let the user retry with
+        // different inputs from the questionnaire if needed.
+        if (res.status === 422) {
+          const body = (await res.json().catch(() => ({}))) as {
+            failed?: boolean;
+            title?: string;
+          };
+          setState({
+            swappingIndex: null,
+            swapError: {
+              index,
+              message: body.title ?? "No other good matches right now",
+            },
+          });
+          setTimeout(
+            () => setState((s) => ({ ...s, swapError: null })),
+            5000
+          );
+          return;
+        }
+        // Legacy 404 fallback — pre-refactor swap-stop returned this
+        // for any zero-pool condition. Left in place defensively.
         if (res.status === 404) {
           const msg = await res.json().catch(() => ({}));
           setState({

@@ -74,7 +74,6 @@ export function hydrateSavedItinerary(saved: SavedItinerary): ItineraryResponse 
         any_over_cap: false,
         cap_min: 15,
       },
-    truncated_for_end_time: false,
     maps_url: buildGoogleMapsUrl(stops.map((s) => s.venue)),
     // Budget is cast through the wider DB type since old saves can
     // carry "all_out" / "no_preference"; ComposeBudget would reject

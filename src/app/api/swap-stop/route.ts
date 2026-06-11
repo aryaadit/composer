@@ -1,8 +1,10 @@
 // POST /api/swap-stop — replace one stop in an existing itinerary.
 //
-// Reuses pickBestForRole with the same scoring/proximity rules as the
-// initial generation. Returns the replacement stop + adjacent walk
-// segments so the client can patch in-place.
+// Reuses pickBestForRole + the canonical pre-filter stack so a swap can
+// never return a venue that /api/generate's strict filters would have
+// rejected. Returns the replacement stop + adjacent walk segments so
+// the client can patch in-place, or a structured ComposeFailure when
+// the pool empties.
 
 import { NextResponse } from "next/server";
 import { fetchActiveVenues } from "@/lib/venues/fetch-active";
@@ -10,6 +12,7 @@ import { getServerSupabase } from "@/lib/supabase/server";
 import { trackServer } from "@/lib/analytics-server";
 import { fetchWeather } from "@/lib/weather";
 import { pickBestForRole } from "@/lib/scoring";
+import { itineraryFits } from "@/lib/composer";
 import { enrichWithAvailability } from "@/lib/itinerary/availability-enrichment";
 import {
   walkTimeMinutes,
@@ -18,7 +21,10 @@ import {
 } from "@/lib/geo";
 import { fetchOrCacheWalkingRoute } from "@/lib/walking-routes";
 import { calculateTotalSpend, spendEstimate } from "@/config/budgets";
-import { ALCOHOL_VIBE_TAGS } from "@/config/vibes";
+import { applyPreFilters, buildPreFilterArgs } from "@/lib/itinerary/pre-filter";
+import { composeFailure } from "@/lib/itinerary/compose-failure";
+import { computeRequestSeed, createSeededRandom } from "@/lib/itinerary/seed";
+import { ALGORITHM } from "@/config/algorithm";
 import type {
   Venue,
   ItineraryResponse,
@@ -32,31 +38,24 @@ interface SwapRequest {
   excludeVenueIds: string[];
 }
 
-async function readDrinksPref(): Promise<string | null> {
+async function readDrinksPref(): Promise<{ userId: string | null; drinks: string | null }> {
   try {
     const supabase = await getServerSupabase();
     const {
       data: { user },
     } = await supabase.auth.getUser();
-    if (!user) return null;
+    if (!user) return { userId: null, drinks: null };
     const { data } = await supabase
       .from("composer_users")
       .select("drinks")
       .eq("id", user.id)
       .maybeSingle();
-    return (data?.drinks as string | null) ?? null;
+    return { userId: user.id, drinks: (data?.drinks as string | null) ?? null };
   } catch {
-    return null;
+    return { userId: null, drinks: null };
   }
 }
 
-/**
- * Build a WalkSegment between two venues using cached Mapbox
- * Directions when available, falling back to straight-line
- * distance/minutes if Mapbox is unreachable. Phase 10: the walks
- * around a swapped stop now carry real route_geometry that the
- * client renders as curved polylines on the map.
- */
 async function buildWalk(from: Venue, to: Venue): Promise<WalkSegment> {
   const fallbackMinutes = walkTimeMinutes(
     from.latitude, from.longitude, to.latitude, to.longitude,
@@ -98,7 +97,7 @@ export async function POST(request: Request) {
 
     const stopToReplace = currentStops[stopIndex];
 
-    const [drinks, weather, venuesAll] = await Promise.all([
+    const [{ userId, drinks }, weather, venuesAll] = await Promise.all([
       readDrinksPref(),
       fetchWeather(),
       fetchActiveVenues().catch((err) => {
@@ -114,43 +113,167 @@ export async function POST(request: Request) {
       );
     }
 
-    let venues: Venue[] = venuesAll;
-
-    if (drinks === "no") {
-      venues = venues.filter(
-        (v) => !v.vibe_tags.some((t) => ALCOHOL_VIBE_TAGS.has(t))
-      );
-    }
-
-    // Exclude every venue already in the itinerary + any the user
-    // previously rejected for this slot.
+    // Exclusion set: client-supplied rejects + every current stop +
+    // every plan_b — same monotonic shape as before, NO graceful trim.
     const usedIds = new Set<string>(excludeVenueIds);
     for (const s of currentStops) {
       usedIds.add(s.venue.id);
       if (s.plan_b) usedIds.add(s.plan_b.id);
     }
 
-    // Anchor on Main for geographic coherence (unless we're swapping
-    // Main itself, in which case pick freely).
+    // Strict shared pre-filter stack — identical predicates and order
+    // to /api/generate. No widening, no relaxation, no per-endpoint
+    // skip. Neighborhood is now enforced here at the data layer; the
+    // proximity-to-Main cap inside pickBestForRole is an ADDITIONAL
+    // geographic constraint, not a substitute for honoring the user's
+    // neighborhood pick.
+    const pre = applyPreFilters(
+      buildPreFilterArgs({
+        venues: venuesAll,
+        inputs: {
+          budget: inputs.budget,
+          day: inputs.day,
+          startTime: inputs.startTime,
+          endTime: inputs.endTime,
+          neighborhoods: inputs.neighborhoods ?? [],
+        },
+        exclude: usedIds,
+        drinks,
+      }),
+    );
+    if (!pre.ok) {
+      void trackServer(
+        "compose_failed",
+        { userId, distinctId, sessionId },
+        {
+          endpoint: "swap-stop",
+          zeroing_stage: pre.zeroingStage,
+          group: inputs.neighborhoods?.[0] ?? null,
+          tier: inputs.budget,
+          day: inputs.day,
+          window: `${inputs.startTime}-${inputs.endTime}`,
+        },
+      );
+      return NextResponse.json(composeFailure(pre.zeroingStage), { status: 422 });
+    }
+
+    // Anchor on Main for non-Main swaps. For swap-Main the anchor is
+    // null — but neighborhood is already enforced via the pre-filter,
+    // so the "anchor=null cascades inside scoring" behavior the old
+    // regime depended on is gone. proximity stays an additional
+    // constraint when anchor is non-null.
     const mainStop = currentStops.find((s) => s.role === "main");
     const anchor =
       stopToReplace.role === "main" ? null : (mainStop?.venue ?? null);
 
+    // Hygiene: seeded PRNG keyed on inputs + the growing exclude set
+    // so successive swaps converge deterministically without the
+    // Math.random non-determinism the audit flagged.
+    // ALGORITHM.jitter.magnitude replaces the prior hardcoded literal
+    // 10. Swap context (stopIndex / role) rides in as synthetic
+    // exclude markers so the seed varies per swap target without
+    // changing the canonical seed shape.
+    const swapContextMarker = `__swap:${stopIndex}:${stopToReplace.role}`;
+    const seed = computeRequestSeed({
+      occasion: inputs.occasion,
+      vibe: inputs.vibe,
+      budget: inputs.budget,
+      day: inputs.day,
+      neighborhoods: inputs.neighborhoods,
+      startTime: inputs.startTime,
+      excludeVenueIds: [...Array.from(usedIds), swapContextMarker],
+    });
+    const random = createSeededRandom(seed);
+
     const { best, scored } = pickBestForRole(
-      venues,
+      pre.venues,
       stopToReplace.role,
       inputs,
       weather,
       usedIds,
       anchor,
-      10
+      ALGORITHM.jitter.magnitude,
+      random,
     );
 
     if (!best) {
-      return NextResponse.json(
-        { error: "No other good matches — try adjusting your filters" },
-        { status: 404 }
+      // Pre-filter cleared every user-input stage; per-role cascade
+      // exhausted too. Honest failure — almost always proximity (no
+      // role-eligible venue within walking range of Main for non-Main
+      // swaps; no role-eligible venue at all for swap-Main).
+      void trackServer(
+        "compose_failed",
+        { userId, distinctId, sessionId },
+        {
+          endpoint: "swap-stop",
+          zeroing_stage: "proximity",
+          group: inputs.neighborhoods?.[0] ?? null,
+          tier: inputs.budget,
+          day: inputs.day,
+          window: `${inputs.startTime}-${inputs.endTime}`,
+        },
       );
+      return NextResponse.json(composeFailure("proximity"), { status: 422 });
+    }
+
+    // Invariant: when the swapped stop is Main, the candidate Main must
+    // satisfy the proximity cap against EVERY remaining stop, not just
+    // the one anchor. pickBestForRole only enforces proximity against
+    // the passed anchor (null in this branch). Without this check, a
+    // swap-Main could ship a Main that's farther from the existing
+    // opener/closer than the strict generate cascade would have
+    // allowed.
+    if (stopToReplace.role === "main") {
+      const maxKm = weather?.is_bad_weather
+        ? ALGORITHM.distance.maxWalkKmBadWeather
+        : ALGORITHM.distance.maxWalkKmNormal;
+      const others = currentStops.filter((_, i) => i !== stopIndex);
+      const tooFar = others.some(
+        (other) =>
+          walkDistanceKm(
+            best.latitude,
+            best.longitude,
+            other.venue.latitude,
+            other.venue.longitude,
+          ) > maxKm,
+      );
+      if (tooFar) {
+        void trackServer(
+          "compose_failed",
+          { userId, distinctId, sessionId },
+          {
+            endpoint: "swap-stop",
+            zeroing_stage: "proximity",
+            group: inputs.neighborhoods?.[0] ?? null,
+            tier: inputs.budget,
+            day: inputs.day,
+            window: `${inputs.startTime}-${inputs.endTime}`,
+          },
+        );
+        return NextResponse.json(composeFailure("proximity"), { status: 422 });
+      }
+    }
+
+    // End-time fit invariant: the patched itinerary's projected
+    // timeline must fit the user's window. Replaces a swap of a short
+    // venue with a long one cannot silently push Main past endTime.
+    const patchedForFit = currentStops.map((s, i) =>
+      i === stopIndex ? { venue: best, role: s.role } : { venue: s.venue, role: s.role },
+    );
+    if (!itineraryFits(patchedForFit, inputs.startTime, inputs.endTime)) {
+      void trackServer(
+        "compose_failed",
+        { userId, distinctId, sessionId },
+        {
+          endpoint: "swap-stop",
+          zeroing_stage: "fit",
+          group: inputs.neighborhoods?.[0] ?? null,
+          tier: inputs.budget,
+          day: inputs.day,
+          window: `${inputs.startTime}-${inputs.endTime}`,
+        },
+      );
+      return NextResponse.json(composeFailure("fit"), { status: 422 });
     }
 
     const planB = scored.find((v) => v.id !== best.id) ?? null;
@@ -165,11 +288,10 @@ export async function POST(request: Request) {
     };
 
     // Enrich the new stop with Resy availability so the StopAvailability
-    // widget renders (status, slots, bookingUrlBase). Wrap-and-extract:
-    // enrichWithAvailability operates on a whole ItineraryResponse, so
-    // we build a minimal one containing just newStop, enrich it, and
-    // pull the enriched stop back out. candidatePool=undefined disables
-    // the recursive swap-on-empty-slots — we're already in a swap.
+    // widget renders. Wrap-and-extract: enrichWithAvailability operates
+    // on a whole ItineraryResponse, so we build a minimal one and pull
+    // the enriched stop back out. candidatePool=undefined disables the
+    // recursive swap-on-empty-slots — we're already in a swap.
     const fakeResponse: ItineraryResponse = {
       ...itinerary,
       stops: [newStop],
@@ -177,15 +299,12 @@ export async function POST(request: Request) {
     const enrichedFake = await enrichWithAvailability(
       fakeResponse,
       inputs.day,
-      2, // default party size — matches /api/generate
+      2,
       { startTime: inputs.startTime, endTime: inputs.endTime },
       undefined
     );
     const enrichedStop = enrichedFake.stops[0];
 
-    // Recompute only the walks adjacent to the swapped stop. Parallel
-    // so the two Mapbox calls (when both walks exist + cache misses)
-    // don't serialize.
     const [walkBefore, walkAfter] = await Promise.all([
       stopIndex > 0
         ? buildWalk(currentStops[stopIndex - 1].venue, best)
@@ -195,20 +314,14 @@ export async function POST(request: Request) {
         : Promise.resolve(null),
     ]);
 
-    // Rebuild summary fields from the patched stop list.
     const patchedVenues = currentStops.map((s, i) =>
       i === stopIndex ? best : s.venue
     );
 
-    // Track stop swap server-side so it's correlated with itinerary_generated.
-    const supabase = await getServerSupabase();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
     const fromVenue = stopToReplace.venue;
     void trackServer(
       "stop_swapped",
-      { userId: user?.id ?? null, distinctId, sessionId },
+      { userId, distinctId, sessionId },
       {
         stop_index: stopIndex,
         stop_role: stopToReplace.role,

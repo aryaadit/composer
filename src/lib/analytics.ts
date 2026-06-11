@@ -42,7 +42,10 @@ export const EVENTS = {
   ITINERARY_VIEWED: "itinerary_viewed",
   ITINERARY_DWELL_TIME: "itinerary_dwell_time",
   ITINERARY_ZERO_ENGAGEMENT: "itinerary_zero_engagement",
-  ITINERARY_FALLBACK_SINGLE_STOP: "itinerary_fallback_single_stop",
+  // Removed 2026-06-11: ITINERARY_FALLBACK_SINGLE_STOP. The composer
+  // single-stop fallback was deleted with the strict-filters change —
+  // unfillable stop 1 now fires `compose_failed` with
+  // zeroing_stage="proximity" before the response is built.
   ITINERARY_EXTENDED_TO_THREE: "itinerary_extended_to_three",
   STOP_SWAPPED: "stop_swapped",
   STOP_SWAP_REASON_SHOWN: "stop_swap_reason_shown",

@@ -196,28 +196,13 @@ export const ALGORITHM = {
   },
 
   pools: {
-    /**
-     * Below this venue count, the exclude-list (recently-seen venues)
-     * is ignored to avoid producing empty itineraries.
-     *
-     * Sane range: 3-10.
-     */
-    minPoolSize: 4,
-
-    /**
-     * Below this venue count after the budget hard filter, widen the
-     * allowed tiers UPWARD by 1 (e.g., splurge [2,3] → [2,3,4]). Downward
-     * widening is unnecessary because BUDGET_TIER_MAP is already
-     * downward-permissive (nice_out → [1,2], splurge → [2,3], etc.).
-     * No-op for all_out (already at max tier).
-     *
-     * Higher = more aggressive widening (more venues, less budget
-     * precision). Lower = stricter budget adherence, more risk of
-     * thin pools in niche neighborhoods.
-     *
-     * Sane range: 15-50.
-     */
-    minBudgetWideningThreshold: 30,
+    // Note: `minPoolSize` and `minBudgetWideningThreshold` were removed
+    // 2026-06-11 with the strict-filters change. The exclude-list
+    // graceful-trim that consumed minPoolSize and the budget upward
+    // widening that consumed minBudgetWideningThreshold both violated
+    // the "user inputs are inviolable" principle — exclusions and the
+    // user's picked budget tier are now strict. See
+    // docs/algorithm-relaxation-audit.md items 1 and 3.
 
     /**
      * Number of top-scored candidates to consider for weighted random
@@ -253,7 +238,8 @@ export const ALGORITHM = {
      * picked from STOP_1_POOL (opener or closer canonical) and stop 2
      * always Main. Tap "+ Add another stop" extends to 3 from STOP_1_POOL
      * excluding stop 1's venue. Used as `requested_stop_count` in the
-     * itinerary_generated and itinerary_fallback_single_stop events.
+     * itinerary_generated event (the matching fallback event was
+     * removed 2026-06-11 with the single-stop degradation deletion).
      */
     stopDefaultCount: 2,
 
@@ -292,13 +278,13 @@ export const ALGORITHM = {
      */
     budgetSlackMin: 15,
 
-    /**
-     * Don't start a new stop within this many minutes of the user's
-     * endTime. Prevents "bar at 9:55 for a 10pm end."
-     *
-     * Sane range: 15-45.
-     */
-    lastStartBufferMin: 30,
+    // Note: `lastStartBufferMin` was removed 2026-06-11. The buffer
+    // truncation in /api/generate that consumed it was the other
+    // silent shape-change path (trailing stop dropped when timeline
+    // overflowed) — deleted alongside the single-stop fallback in
+    // composer.ts. If a future timeline-fits-window check is
+    // re-introduced, it should fail honestly via ComposeFailure, not
+    // truncate the itinerary in place.
   },
 
   distance: {

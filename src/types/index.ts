@@ -285,7 +285,6 @@ export interface ItineraryResponse {
   stops: ItineraryStop[];
   walks: WalkSegment[];
   walking: WalkingMeta;
-  truncated_for_end_time: boolean;
   maps_url: string;
   inputs: QuestionnaireAnswers;
 }

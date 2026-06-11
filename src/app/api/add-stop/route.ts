@@ -1,15 +1,25 @@
+// POST /api/add-stop — extend an existing itinerary with another stop.
+//
+// Same shared pre-filter stack as /api/generate and /api/swap-stop, so
+// the added stop can never violate budget, hours, neighborhood,
+// exclusions, or closed status. proximity-to-Main is an additional
+// constraint applied inside pickBestForRole.
+
 import { NextResponse } from "next/server";
 import { fetchActiveVenues } from "@/lib/venues/fetch-active";
 import { getServerSupabase } from "@/lib/supabase/server";
+import { trackServer } from "@/lib/analytics-server";
 import { fetchWeather } from "@/lib/weather";
 import { pickBestForRole } from "@/lib/scoring";
-import { STOP_1_POOL, disambiguateStop1Role } from "@/lib/composer";
+import { STOP_1_POOL, disambiguateStop1Role, itineraryFits } from "@/lib/composer";
 import { walkTimeMinutes, walkDistanceKm, buildGoogleMapsUrl } from "@/lib/geo";
 import { fetchOrCacheWalkingRoute } from "@/lib/walking-routes";
 import { calculateTotalSpend, spendEstimate } from "@/config/budgets";
-import { ALCOHOL_VIBE_TAGS } from "@/config/vibes";
+import { applyPreFilters, buildPreFilterArgs } from "@/lib/itinerary/pre-filter";
+import { composeFailure } from "@/lib/itinerary/compose-failure";
+import { computeRequestSeed, createSeededRandom } from "@/lib/itinerary/seed";
+import { ALGORITHM } from "@/config/algorithm";
 import {
-  Venue,
   ItineraryResponse,
   ItineraryStop,
   WalkSegment,
@@ -19,25 +29,28 @@ interface AddStopRequest {
   itinerary: ItineraryResponse;
 }
 
-async function readDrinksPref(): Promise<string | null> {
+async function readDrinksPref(): Promise<{ userId: string | null; drinks: string | null }> {
   try {
     const supabase = await getServerSupabase();
     const {
       data: { user },
     } = await supabase.auth.getUser();
-    if (!user) return null;
+    if (!user) return { userId: null, drinks: null };
     const { data } = await supabase
       .from("composer_users")
       .select("drinks")
       .eq("id", user.id)
       .maybeSingle();
-    return (data?.drinks as string | null) ?? null;
+    return { userId: user.id, drinks: (data?.drinks as string | null) ?? null };
   } catch {
-    return null;
+    return { userId: null, drinks: null };
   }
 }
 
 export async function POST(request: Request) {
+  const distinctId = request.headers.get("x-ph-distinct-id");
+  const sessionId = request.headers.get("x-ph-session-id");
+
   try {
     const { itinerary } = (await request.json()) as AddStopRequest;
     const { inputs, stops: currentStops } = itinerary;
@@ -49,10 +62,6 @@ export async function POST(request: Request) {
       );
     }
 
-    // Anchor on Main explicitly — Phase 2 collapsed the base shape to
-    // [stop_1, main], so "last stop" and Main are usually the same, but
-    // pinning to Main avoids surprises if the stop list is ever reordered
-    // or if a future surface extends a 3-stop saved itinerary.
     const mainStop = currentStops.find((s) => s.role === "main");
     if (!mainStop) {
       return NextResponse.json(
@@ -61,7 +70,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const [drinks, weather, venuesAll] = await Promise.all([
+    const [{ userId, drinks }, weather, venuesAll] = await Promise.all([
       readDrinksPref(),
       fetchWeather(),
       fetchActiveVenues().catch((err) => {
@@ -77,43 +86,139 @@ export async function POST(request: Request) {
       );
     }
 
-    let venues: Venue[] = venuesAll;
-
-    // Drinks filter — same rule as the generate route.
-    if (drinks === "no") {
-      venues = venues.filter(
-        (v) => !v.vibe_tags.some((t) => ALCOHOL_VIBE_TAGS.has(t))
-      );
-    }
-
-    // Exclude every venue already in the itinerary, including current
-    // Plan Bs. The spec calls out "EXCLUDES the venue used in stop 1"
-    // explicitly — that's covered here by adding every current stop.
     const usedIds = new Set<string>();
     for (const s of currentStops) {
       usedIds.add(s.venue.id);
       if (s.plan_b) usedIds.add(s.plan_b.id);
     }
 
-    // Pick from STOP_1_POOL (opener-or-closer canonical) anchored to
-    // Main. Phase 2 replaced the always-"closer" rule with the same
-    // pool that drives stop 1 — adding a stop is a sibling of stop 1,
-    // not a "nightcap" suffix.
+    const pre = applyPreFilters(
+      buildPreFilterArgs({
+        venues: venuesAll,
+        inputs: {
+          budget: inputs.budget,
+          day: inputs.day,
+          startTime: inputs.startTime,
+          endTime: inputs.endTime,
+          neighborhoods: inputs.neighborhoods ?? [],
+        },
+        exclude: usedIds,
+        drinks,
+      }),
+    );
+    if (!pre.ok) {
+      void trackServer(
+        "compose_failed",
+        { userId, distinctId, sessionId },
+        {
+          endpoint: "add-stop",
+          zeroing_stage: pre.zeroingStage,
+          group: inputs.neighborhoods?.[0] ?? null,
+          tier: inputs.budget,
+          day: inputs.day,
+          window: `${inputs.startTime}-${inputs.endTime}`,
+        },
+      );
+      return NextResponse.json(composeFailure(pre.zeroingStage), { status: 422 });
+    }
+
+    // Seeded PRNG keyed on inputs + the current usedIds + an
+    // add-stop discriminator (rides in as a synthetic exclude marker
+    // so the canonical seed shape is unchanged).
+    const seed = computeRequestSeed({
+      occasion: inputs.occasion,
+      vibe: inputs.vibe,
+      budget: inputs.budget,
+      day: inputs.day,
+      neighborhoods: inputs.neighborhoods,
+      startTime: inputs.startTime,
+      excludeVenueIds: [...Array.from(usedIds), "__add-stop"],
+    });
+    const random = createSeededRandom(seed);
+
     const { best, scored } = pickBestForRole(
-      venues,
+      pre.venues,
       STOP_1_POOL,
       inputs,
       weather,
       usedIds,
       mainStop.venue,
-      10
+      ALGORITHM.jitter.magnitude,
+      random,
     );
 
     if (!best) {
-      return NextResponse.json(
-        { error: "No nearby venues available to extend" },
-        { status: 404 }
+      void trackServer(
+        "compose_failed",
+        { userId, distinctId, sessionId },
+        {
+          endpoint: "add-stop",
+          zeroing_stage: "proximity",
+          group: inputs.neighborhoods?.[0] ?? null,
+          tier: inputs.budget,
+          day: inputs.day,
+          window: `${inputs.startTime}-${inputs.endTime}`,
+        },
       );
+      return NextResponse.json(composeFailure("proximity"), { status: 422 });
+    }
+
+    // Proximity invariant vs the actual walk the user takes. The
+    // pickBestForRole anchor above is mainStop.venue, so `best` is
+    // within maxKm of Main. But the user walks from the EXISTING last
+    // stop to the new one, not from Main — and for a 3-stop itinerary
+    // where Main→lastStop is already near the cap, the candidate could
+    // still be 2-3 km from lastStop. Mirror the swap-Main invariant
+    // here so add-stop honors the same geographic contract /api/generate
+    // would have produced.
+    const maxKm = weather?.is_bad_weather
+      ? ALGORITHM.distance.maxWalkKmBadWeather
+      : ALGORITHM.distance.maxWalkKmNormal;
+    const walkFromLast = walkDistanceKm(
+      lastStop.venue.latitude,
+      lastStop.venue.longitude,
+      best.latitude,
+      best.longitude,
+    );
+    if (walkFromLast > maxKm) {
+      void trackServer(
+        "compose_failed",
+        { userId, distinctId, sessionId },
+        {
+          endpoint: "add-stop",
+          zeroing_stage: "proximity",
+          group: inputs.neighborhoods?.[0] ?? null,
+          tier: inputs.budget,
+          day: inputs.day,
+          window: `${inputs.startTime}-${inputs.endTime}`,
+        },
+      );
+      return NextResponse.json(composeFailure("proximity"), { status: 422 });
+    }
+
+    // End-time fit invariant: the extended itinerary's projected
+    // timeline must fit the user's window. add-stop appends a new
+    // stop1-pool venue AFTER the current last stop; its duration +
+    // the new walk could push the total past endTime.
+    const extendedRole = disambiguateStop1Role(best);
+    const extendedForFit = [
+      ...currentStops.map((s) => ({ venue: s.venue, role: s.role })),
+      { venue: best, role: extendedRole },
+    ];
+    if (!itineraryFits(extendedForFit, inputs.startTime, inputs.endTime)) {
+      void trackServer(
+        "compose_failed",
+        { userId, distinctId, sessionId },
+        {
+          endpoint: "add-stop",
+          zeroing_stage: "fit",
+          group: inputs.neighborhoods?.[0] ?? null,
+          tier: inputs.budget,
+          day: inputs.day,
+          window: `${inputs.startTime}-${inputs.endTime}`,
+        },
+      );
+      return NextResponse.json(composeFailure("fit"), { status: 422 });
     }
 
     const planB = scored.find((v) => v.id !== best.id) ?? null;
@@ -128,10 +233,6 @@ export async function POST(request: Request) {
       plan_b: planB,
     };
 
-    // Phase 10: fetch (or look up cached) real walking route for the
-    // new segment. Falls back to straight-line minutes/distance if
-    // Mapbox is unreachable; the UI renders a straight line instead
-    // of a curved one.
     const fallbackKm = walkDistanceKm(
       lastStop.venue.latitude,
       lastStop.venue.longitude,

@@ -15,6 +15,8 @@ import { ALGORITHM } from "@/config/algorithm";
 import { getStop1Hint } from "@/config/templates";
 import { ROLE_EXPANSION } from "@/config/generated/stop-roles";
 import type { DayColumn, TimeWindow } from "@/lib/itinerary/time-blocks";
+import { walkTimeMinutes } from "@/lib/geo";
+import type { ZeroingStage } from "@/lib/itinerary/pre-filter";
 
 export type { StopPattern };
 
@@ -55,6 +57,84 @@ export function disambiguateStop1Role(venue: Venue): StopRole {
  * are resolved inside `getStop1Hint` by randomly picking a concrete
  * vibe via the seeded PRNG — graceful degradation, not load-bearing.
  */
+// ── End-time fit projection ──────────────────────────────────────
+// Restored 2026-06-11 after the strict-filters change over-deleted the
+// post-compose buffer truncation. End time is a user input; a 2-stop
+// itinerary whose projected timeline overflows the user's window is
+// an honest "doesn't fit" failure, not a silent overshoot.
+//
+// Two gates:
+//   1. Main candidate fit: loose upper bound — assume the shortest
+//      possible stop 1 + a conservative walk estimate. Rejects mains
+//      whose duration alone forces overshoot regardless of stop 1.
+//   2. Stop 1 candidate fit: exact projection against the picked Main —
+//      uses real venue coords for the walk and the picked Main's
+//      actual duration.
+//
+// Both gates skip when `window` is null (legacy/test callers that pass
+// no window).
+
+function parseHHMM(hhmm: string): number {
+  const [h, m] = hhmm.split(":").map(Number);
+  return h * 60 + m;
+}
+
+function windowEndMin(startTime: string, endTime: string): number {
+  const s = parseHHMM(startTime);
+  let e = parseHHMM(endTime);
+  if (e <= s) e += 24 * 60; // wrap past midnight (e.g. 19:00 → 00:00)
+  return e;
+}
+
+function durationMin(venue: Venue, role: StopRole): number {
+  return venue.duration_hours
+    ? Math.round(venue.duration_hours * 60)
+    : ROLE_AVG_DURATION_MIN[role];
+}
+
+/** Conservative lower-bound inter-stop walk estimate, used at the Main-
+ * fit gate before stop 1 is known. The exact walk replaces this at the
+ * stop-1 gate. 5 min ≈ 400 m at 4.8 km/h — well below the proximity cap
+ * but realistic for adjacent venues. */
+const MIN_INTER_STOP_WALK_MIN = 5;
+
+/** True if Main `m` could possibly fit a 2-stop itinerary in the user's
+ * window — uses the shortest STOP_1_POOL duration + the minimum walk
+ * estimate as the loosest bound. False mains are dropped before the
+ * Main pick. */
+function mainCouldFit(
+  m: Venue,
+  startMin: number,
+  endMin: number,
+): boolean {
+  const minStop1 = Math.min(
+    ROLE_AVG_DURATION_MIN.opener,
+    ROLE_AVG_DURATION_MIN.closer,
+  );
+  return startMin + minStop1 + MIN_INTER_STOP_WALK_MIN + durationMin(m, "main") <= endMin;
+}
+
+/** True if (`stop1`, picked `main`) project a finish time within the
+ * user's window. Uses real coords for the walk and the picked Main's
+ * actual duration. Stop 1's role is "opener" — both opener and closer
+ * carry the same average so the choice is symmetric. */
+function pairFits(
+  stop1: Venue,
+  main: Venue,
+  startMin: number,
+  endMin: number,
+): boolean {
+  const s1Dur = durationMin(stop1, "opener");
+  const mainDur = durationMin(main, "main");
+  const walk = walkTimeMinutes(
+    stop1.latitude,
+    stop1.longitude,
+    main.latitude,
+    main.longitude,
+  );
+  return startMin + s1Dur + walk + mainDur <= endMin;
+}
+
 export function planStopMix(
   answers: QuestionnaireAnswers,
   random: () => number = Math.random,
@@ -94,14 +174,56 @@ export function composeItinerary(
   random: () => number = Math.random,
   dayColumn: DayColumn | null = null,
   window: TimeWindow | null = null,
-): { stops: ItineraryStop[]; pattern: StopPattern } {
+): {
+  stops: ItineraryStop[];
+  pattern: StopPattern;
+  /** Populated when stops is empty so /api/generate can surface the
+   * right ComposeFailure stage. `"proximity"` for unfillable stop 1
+   * after the cascade; `"fit"` when the projected timeline overshoots
+   * endTime; `"hours"` when Main has no role-eligible candidate at all. */
+  zeroingStage?: ZeroingStage;
+} {
   const pattern = planStopMix(answers, random);
   const usedIds = new Set<string>();
   const usedCategories = new Set<string>();
 
-  // 1. Pick Main first — it anchors geographic clustering for stop 1.
+  // End-time fit projection. Skipped when window is null (test/health
+  // callers); always active in production where route.ts builds a real
+  // window from the user's startTime.
+  const fitGate = window !== null;
+  const startMin = fitGate ? parseHHMM(answers.startTime) : 0;
+  const endMin = fitGate ? windowEndMin(answers.startTime, answers.endTime) : 0;
+
+  // 1. Filter Main candidates whose duration alone forces overshoot —
+  // loose upper bound (shortest stop-1 + minimum walk). This narrows
+  // the pool passed to pickBestForRole so a too-long Main can't win
+  // the scoring race only to be rejected after the fact.
+  const mainPool = fitGate
+    ? venues.filter((v) => {
+        // Only gate venues that ARE main-eligible. Non-mains are
+        // dropped by pickBestForRole's role filter anyway.
+        if (!v.stop_roles.some((r) => (ROLE_EXPANSION[r] ?? []).includes("main"))) {
+          return true;
+        }
+        return mainCouldFit(v, startMin, endMin);
+      })
+    : venues;
+
+  // If every main-eligible venue was dropped by the fit gate, the
+  // failure is "fit" — not "proximity" or "hours" — and the user's
+  // window is the actionable lever.
+  if (fitGate) {
+    const survivedMains = mainPool.filter((v) =>
+      v.stop_roles.some((r) => (ROLE_EXPANSION[r] ?? []).includes("main")),
+    );
+    if (survivedMains.length === 0) {
+      return { stops: [], pattern, zeroingStage: "fit" };
+    }
+  }
+
+  // 2. Pick Main first — it anchors geographic clustering for stop 1.
   const { best: main, scored: mainScored } = pickBestForRole(
-    venues,
+    mainPool,
     "main",
     answers,
     weather,
@@ -113,17 +235,26 @@ export function composeItinerary(
     dayColumn,
     window,
   );
-  if (!main) return { stops: [], pattern };
+  if (!main) return { stops: [], pattern, zeroingStage: "proximity" };
   usedIds.add(main.id);
   if (main.category) usedCategories.add(main.category);
   const mainPlanB = mainScored.find((v) => v.id !== main.id) ?? null;
   const mainStop = makeStop("main", main, main.curation_note ?? "", true, mainPlanB);
 
-  // 2. Pick stop 1 from STOP_1_POOL, anchored to Main.
+  // 3. Filter stop 1 candidates by exact projection against the picked
+  // Main. Real walk distance, real Main duration — no estimates.
+  const stop1Pool = fitGate
+    ? venues.filter((v) => v.id !== main.id && pairFits(v, main, startMin, endMin))
+    : venues;
+  if (fitGate && stop1Pool.length === 0) {
+    return { stops: [], pattern, zeroingStage: "fit" };
+  }
+
+  // 4. Pick stop 1 from STOP_1_POOL, anchored to Main.
   const stop1Hint = pattern[0];
   const stop1HintRole = (stop1Hint?.venueRoleHint as VenueRole | undefined) ?? undefined;
   const { best: stop1Venue, scored: stop1Scored } = pickBestForRole(
-    venues,
+    stop1Pool,
     STOP_1_POOL,
     answers,
     weather,
@@ -137,8 +268,12 @@ export function composeItinerary(
     stop1HintRole,
   );
 
-  // Single-stop fallback: if no STOP_1_POOL match in range, return Main alone.
-  if (!stop1Venue) return { stops: [mainStop], pattern };
+  // 2026-06-11: the single-stop fallback was removed (composer used to
+  // return { stops: [mainStop] } here). A null stop1 means proximity-
+  // restricted candidates ran out — the route handler turns that into
+  // an honest ComposeFailure with zeroingStage="proximity" rather than
+  // silently shipping a one-stop itinerary.
+  if (!stop1Venue) return { stops: [], pattern, zeroingStage: "proximity" };
 
   usedIds.add(stop1Venue.id);
   if (stop1Venue.category) usedCategories.add(stop1Venue.category);
@@ -153,6 +288,33 @@ export function composeItinerary(
   );
 
   return { stops: [stop1, mainStop], pattern };
+}
+
+/** Exported for swap-stop / add-stop to post-validate a patched
+ * itinerary's timeline. Returns true iff every stop in `stops` (with
+ * walk segments between consecutive stops) finishes within the user's
+ * window. */
+export function itineraryFits(
+  stops: { venue: Venue; role: StopRole }[],
+  startTime: string,
+  endTime: string,
+): boolean {
+  if (stops.length === 0) return true;
+  const startMin = parseHHMM(startTime);
+  const endMin = windowEndMin(startTime, endTime);
+  let cursor = startMin;
+  for (let i = 0; i < stops.length; i++) {
+    if (i > 0) {
+      cursor += walkTimeMinutes(
+        stops[i - 1].venue.latitude,
+        stops[i - 1].venue.longitude,
+        stops[i].venue.latitude,
+        stops[i].venue.longitude,
+      );
+    }
+    cursor += durationMin(stops[i].venue, stops[i].role);
+  }
+  return cursor <= endMin;
 }
 
 function makeStop(

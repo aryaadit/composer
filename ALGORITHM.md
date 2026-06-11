@@ -27,29 +27,33 @@ POST /api/generate
   └─→ ItineraryResponse
 ```
 
-## The five filters (Stage 2)
+## The six filters (Stage 2)
 
-Filters run in sequence. Each narrows the pool. If a filter would leave fewer than `ALGORITHM.pools.minPoolSize` venues, it's skipped with a logged warning.
+Filters run in sequence in a single shared module (`src/lib/itinerary/pre-filter.ts`) consumed by `/api/generate`, `/api/swap-stop`, and `/api/add-stop`. Each narrows the pool. **None widen, relax, or skip.** If any filter zeroes the pool, the endpoint returns a structured `ComposeFailure` naming the stage so the UI can surface an actionable next move.
 
 ### Active and business status
 
-Fetches all rows with `active = true` from `composer_venues_v2`. Then drops `CLOSED_PERMANENTLY` and `CLOSED_TEMPORARILY` in memory. This catches venues that Google flagged but the sheet hasn't updated yet.
+Fetches all rows with `active = true` from `composer_venues_v2`. Then drops `CLOSED_PERMANENTLY` and `CLOSED_TEMPORARILY` in memory. This catches venues that Google flagged but the sheet hasn't updated yet. A zero here is reported as `zeroingStage: "hours"` (no separate failure stage — closed-business is effectively a "hours" UX problem from the user's perspective).
 
-### Neighborhood match
+### Exclusions
 
-Hard filter: if the user selected neighborhoods, only venues in those neighborhoods pass. Neighborhoods arrive as expanded storage slugs (the questionnaire expands group IDs like "east_village_les" into individual slugs like "east_village", "lower_east_side", "bowery"). Relaxation happens later in scoring — if the hard filter + proximity filter leaves zero candidates for a role, `pickBestForRole` drops the neighborhood requirement.
-
-### Time block coverage
-
-Uses the hybrid per-day/global rule (`venueOpenForBlock` in `time-blocks.ts`): if any per-day column is populated across all 7 days, trust the per-day data for the requested day. If all per-day columns are empty, fall back to the global `time_blocks` array. A venue with no data for the requested day is treated as closed.
-
-### Budget tier
-
-Hard filter, **downward-permissive** by default. Maps the user's budget slug to a tier set that includes the picked tier and the one below (casual → [1], nice_out → [1,2], splurge → [2,3], all_out → [3,4], no_preference → [1,2,3,4]) and drops venues outside that set. If the filtered pool drops below `ALGORITHM.pools.minBudgetWideningThreshold`, widens **upward** by one tier (e.g., splurge [2,3] → [2,3,4]); no-op for all_out which is already at the max tier. Venues with null price_tier are treated as tier 2. The +15 scoring bonus (see "Budget match" below) still only fires on the bucket's exact primary tier so the user's intended center-of-mass dominates the ranking even after widening.
+The recently-rejected list (from the client) + every current itinerary stop + every plan_b. **Strict.** The previous regime trimmed the oldest IDs from this list when the pool dropped below `minPoolSize`; that graceful trim was removed 2026-06-11 — exclusions are now inviolable. Zero pool → `zeroingStage: "exclusions"`.
 
 ### Drinks preference
 
 If the authenticated user's profile has `drinks = "no"`, drops all venues whose vibe_tags include any tag from the "drinks_led" vibe set (cocktail_forward, wine_bar, speakeasy, drinks).
+
+### Time block coverage
+
+Uses the hybrid per-day/global rule (`venueOpenForWindow` in `time-blocks.ts`): if any per-day column is populated across all 7 days, trust the per-day data for the requested day. If all per-day columns are empty, fall back to the global `time_blocks` array. A venue with no data for the requested day is treated as closed. Zero pool → `zeroingStage: "hours"`.
+
+### Budget tier
+
+Hard filter, **downward-permissive** by default. Maps the user's budget slug to a tier set that includes the picked tier and the one below (casual → [1], nice_out → [1,2], splurge → [2,3], all_out → [3,4], no_preference → [1,2,3,4]) and drops venues outside that set. **No upward widening** — the previous behavior that widened to `[maxTier+1]` when the pool dropped below `minBudgetWideningThreshold` was the silent casual-upsell path the June 10 coverage audit identified, removed 2026-06-11. Venues with null price_tier are treated as tier 2. The +15 scoring bonus (see "Budget match" below) still only fires on the bucket's exact primary tier so the user's intended center-of-mass dominates the ranking. Zero pool → `zeroingStage: "budget"`.
+
+### Neighborhood match
+
+Strict. If the user selected neighborhoods, only venues whose stored slug is in that union pass. Neighborhoods arrive as expanded storage slugs (the questionnaire expands group IDs like "east_village_les" into individual slugs like "east_village", "lower_east_side", "bowery"). The previous regime allowed `pickBestForRole` to drop the neighborhood requirement when proximity-filtered candidates for stop 1 came up empty; that `relaxedFilter` cascade step was removed 2026-06-11. Geography is hard on every stop, every endpoint. Zero pool → `zeroingStage: "neighborhood"`.
 
 ## The scoring components (Stage 3)
 
@@ -109,7 +113,16 @@ Each vibe maps to its own sequence of stop patterns in `src/config/templates.ts`
 - **activity_food**: opener (hint: activity) → main → closer — starts with something to do
 - **mix_it_up**: randomly picks one of the three concrete vibes at runtime
 
-Each slot has a canonical `role` (opener, main, closer) and an optional `venueRoleHint` that biases candidate selection. When the hinted pool is empty, `pickBestForRole` falls back gracefully via cascade relaxation: strict (with hint) → drop hint → drop neighborhood.
+Each slot has a canonical `role` (opener, main, closer) and an optional `venueRoleHint` that biases candidate selection. `pickBestForRole`'s two-step cascade: strict (with hint) → drop hint. The hint is an internal vibe-driven heuristic, not a user input, so dropping it on empty is honest flex. **Neighborhood is no longer droppable** — that third cascade step was removed 2026-06-11 with the strict-filters change. If both cascade steps + proximity yield zero candidates, the composer returns an empty itinerary and the route handler emits a `ComposeFailure` with `zeroingStage: "proximity"`. **No single-stop fallback** (the previous `composer.ts:140-141` `return { stops: [mainStop] }` was also removed): an unfillable stop 1 is an honest failure, not a 1-stop itinerary masquerading as a 2-stop one.
+
+### End-time fit
+
+The user's `startTime` resolves to a 5-hour window with `endTime = startTime + 5h` (wrapping past midnight). End time is a user input, so the projected itinerary must finish inside that window. The composer enforces this via two gates:
+
+- **Main fit (upper bound)**: a Main candidate is dropped if `startTime + minStop1Dur + minWalk(5min) + durationMin(main) > endTime`. Drops mains whose duration alone makes overshoot inevitable regardless of stop 1.
+- **Stop-1 fit (exact projection)**: once Main is picked, a stop-1 candidate is dropped if `startTime + durationMin(stop1) + walkTimeMinutes(stop1, main) + durationMin(main) > endTime`. Uses real coordinates and the picked Main's actual duration.
+
+Per-venue `duration_hours` overrides `ALGORITHM.composition.roleDurationMin` when present. Empty pool at either gate → `zeroingStage: "fit"` (title "Won't fit your window", suggestion "Try an earlier start or a different neighborhood"). Swap-stop and add-stop validate the patched/extended itinerary via the exported `itineraryFits` helper before returning; both emit the same `fit` failure on overshoot. Replaces the deleted `applyEndTimeBuffer` truncation, which silently dropped the trailing stop instead of failing honestly.
 
 `planStopMix` picks the largest template whose time budget fits the user's window. Main is picked first as the geographic anchor. All other stops must be within `ALGORITHM.distance.maxWalkKmNormal` (1.5km) of Main.
 

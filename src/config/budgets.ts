@@ -18,10 +18,16 @@ const BUDGET_LABEL_OVERRIDES: Record<string, string> = {
 };
 
 const BUDGET_DESCRIPTIONS: Record<string, string> = {
-  casual: "Around $30–60 per person, nothing fussy",
-  nice_out: "Roughly $60–120, a proper sit-down",
-  splurge: "$120–200, treat yourself",
-  all_out: "$200+, tasting menus and fancy cocktails",
+  // Reconciled 2026-06-11: tier 1 is $15–30 per stop per
+  // PRICE_TIER_RANGES (below). The prior "$30–60 per person" copy
+  // overlapped with nice_out's tier-2 range and contributed to the
+  // perception of silent upsell flagged by the June 10 coverage audit
+  // (docs/algorithm-relaxation-audit.md). Budget is now strict — copy
+  // matches the tier the user actually gets.
+  casual: "Around $15–30 per person, nothing fussy",
+  nice_out: "Roughly $35–65, a proper sit-down",
+  splurge: "$75–150, treat yourself",
+  all_out: "$150+, tasting menus and fancy cocktails",
   no_preference: "Any price point",
 };
 
@@ -83,10 +89,15 @@ export const PRICE_TIER_RANGES: Record<number, readonly [number, number]> = {
 
 export const DEFAULT_PRICE_RANGE: readonly [number, number] = [30, 60];
 
-// Note: `widenBudgetTiers` (±1 in each direction) was removed 2026-05-22
-// when BUDGET_TIER_MAP became downward-permissive by default. Thin-pool
-// widening now happens inline in /api/generate/route.ts as upward-only
-// (adds max_tier+1 to allowedTiers when pool < minBudgetWideningThreshold).
+// Note: budget is strict at the pre-filter layer
+// (src/lib/itinerary/pre-filter.ts step 5) — NO thin-pool widening.
+// Casual stays tier-1, period; nice_out stays tier-1-or-2;
+// splurge stays tier-2-or-3. The earlier `widenBudgetTiers` helper
+// was removed 2026-05-22 when BUDGET_TIER_MAP became
+// downward-permissive by default. The upward-widening branch in
+// /api/generate that read `minBudgetWideningThreshold` was removed
+// 2026-06-11 with the strict-filters change (the silent casual-upsell
+// path the June 10 coverage audit flagged).
 
 function rangeForTier(tier: number): readonly [number, number] {
   return PRICE_TIER_RANGES[tier] ?? DEFAULT_PRICE_RANGE;

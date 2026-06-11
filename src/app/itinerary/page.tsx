@@ -13,6 +13,10 @@ import { decodeParamsToInputs } from "@/lib/sharing";
 import { STORAGE_KEYS } from "@/config/storage";
 import { useSwapStop } from "@/hooks/useSwapStop";
 import {
+  isComposeFailure,
+  type ComposeFailure,
+} from "@/lib/itinerary/compose-failure";
+import {
   getAnalyticsHeaders,
   incrementPersonProperty,
   setPersonProperties,
@@ -46,11 +50,27 @@ function persist(it: ItineraryResponse) {
   );
 }
 
+/** Thrown by fetchItinerary when the server returns a 422 with a typed
+ * ComposeFailure body. Caught at the page level so the failure state
+ * can render the typed title + suggestion. */
+class ComposeFailureError extends Error {
+  constructor(public readonly failure: ComposeFailure) {
+    super(failure.title);
+    this.name = "ComposeFailureError";
+  }
+}
+
 function ItineraryContent() {
   const searchParams = useSearchParams();
   const [itinerary, setItinerary] = useState<ItineraryResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Structured failure from the generation endpoint (422 with a typed
+  // ComposeFailure body). Held separately from `error` so the UI can
+  // render the title + suggestion as a real state instead of a generic
+  // "something went wrong."
+  const [composeFailureState, setComposeFailureState] =
+    useState<ComposeFailure | null>(null);
 
   // Fire itinerary_viewed exactly once per mount.
   const viewedFiredRef = useRef(false);
@@ -67,6 +87,15 @@ function ItineraryContent() {
         headers: { "Content-Type": "application/json", ...getAnalyticsHeaders() },
         body: JSON.stringify({ ...inputs, excludeVenueIds }),
       });
+      // 422 is the structured-failure status. The body is a typed
+      // ComposeFailure with a title + suggestion the UI surfaces as
+      // its own state.
+      if (res.status === 422) {
+        const body = (await res.json()) as unknown;
+        if (isComposeFailure(body)) {
+          throw new ComposeFailureError(body);
+        }
+      }
       if (!res.ok) throw new Error("Generation failed");
       const data = (await res.json()) as ItineraryResponse;
       // Person property bumps — done client-side per spec so they fire
@@ -98,8 +127,12 @@ function ItineraryContent() {
         }
         setError("We don't have a plan loaded. Start from the top.");
         setLoading(false);
-      } catch {
-        setError("That didn't work. Try again.");
+      } catch (err) {
+        if (err instanceof ComposeFailureError) {
+          setComposeFailureState(err.failure);
+        } else {
+          setError("That didn't work. Try again.");
+        }
         setLoading(false);
       }
     }
@@ -120,6 +153,22 @@ function ItineraryContent() {
   }, [itinerary]);
 
   if (loading) return <StepLoading />;
+
+  // Structured failure state — server returned a 422 with title +
+  // suggestion. Render as a real surface, not a toast.
+  if (composeFailureState) {
+    return (
+      <main className="flex flex-1 flex-col items-center justify-center min-h-screen px-6 text-center">
+        <h1 className="font-serif text-3xl text-charcoal mb-3">
+          {composeFailureState.title}
+        </h1>
+        <p className="font-sans text-base text-warm-gray mb-6 max-w-md">
+          {composeFailureState.suggestion}
+        </p>
+        <Button href="/compose">Change your picks</Button>
+      </main>
+    );
+  }
 
   if (error || !itinerary) {
     return (
@@ -214,6 +263,15 @@ function ItineraryBody({
         headers: { "Content-Type": "application/json", ...getAnalyticsHeaders() },
         body: JSON.stringify({ itinerary }),
       });
+      // 422 → structured ComposeFailure. Surface the typed title as
+      // the inline error message so the user sees the same brand-voice
+      // copy as the compose page.
+      if (res.status === 422) {
+        const body = (await res.json().catch(() => ({}))) as {
+          title?: string;
+        };
+        throw new Error(body.title ?? "Couldn't add a stop");
+      }
       if (!res.ok) {
         const msg = await res.json().catch(() => ({}));
         throw new Error(msg.error ?? "Couldn't add a stop");

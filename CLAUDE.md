@@ -272,7 +272,7 @@ All weights from `ALGORITHM.weights` in `src/config/algorithm.ts`:
 |---|---|---|
 | Vibe match (2+ tags) | 35 | Falls to 25 (1 tag), 10 (0 tags). `mix_it_up` baseline = 25. |
 | Occasion | 15 | Binary tag-include check |
-| Budget | 15 | Exact-primary-tier bonus (filter is downward-permissive) |
+| Budget | 15 | Exact-primary-tier bonus (filter is downward-permissive, NO upward widening) |
 | Neighborhood | 10 | Binary in-neighborhood check |
 | Time relevance | 0–10 | `blockCoverageFraction()` × 10. 1.0/0.5/0.0 based on per-day + global block coverage |
 | Quality | 0–10 | `(quality_score / 10) × 10` |
@@ -286,15 +286,23 @@ Jitter (`random() * jitter` per venue) is seeded via FNV-1a hash of request inpu
 
 ### Hard Filters (Pre-Scoring)
 
-Applied in this order in `route.ts` and `scoring.ts`:
-1. `active = true` (SQL)
-2. Exclude IDs (graceful trim — drops oldest IDs to keep pool ≥ `minPoolSize`)
-3. Drinks = "no" → drop alcohol vibe venues
-4. Time block coverage (`venueOpenForBlock` hybrid per-day/global rule)
-5. Closed status (`business_status NOT IN ('CLOSED_PERMANENTLY', 'CLOSED_TEMPORARILY')`)
-6. Budget tier — hard filter, downward-permissive (nice_out admits tier-1 too, splurge admits tier-2, etc.). Thin pool (<`minBudgetWideningThreshold` = 30) widens UPWARD by one tier only (no-op for all_out). Null `price_tier` treated as tier 2. The +15 scoring bonus is exact-primary-tier only, so the bucket's intended tier still dominates.
-7. Neighborhood (in `pickBestForRole`, relaxes when zero candidates)
-8. Outdoor + bad weather → drop
+Identical stack across `/api/generate`, `/api/swap-stop`, `/api/add-stop` — implemented once in `src/lib/itinerary/pre-filter.ts` and consumed by all three. Order chosen so the cheapest cut runs first and so the `zeroingStage` reported on failure is the most user-actionable answer:
+
+1. `active = true` (SQL via `fetchActiveVenues`).
+2. **Exclusions** — strict. The recently-rejected list + every current itinerary stop + every plan_b. NO graceful trim. If exclusions empty the pool, ComposeFailure with `zeroingStage: "exclusions"`.
+3. **Drinks = "no"** (profile) → drop alcohol-tagged venues.
+4. **Hours** — `venueOpenForWindow(v, dayColumn, window)`. Per-day blocks override global via the hybrid rule. Empty → `zeroingStage: "hours"`.
+5. **Closed status** — drop `CLOSED_PERMANENTLY` / `CLOSED_TEMPORARILY`. Failure bundled into `"hours"`.
+6. **Budget tier** — strict `BUDGET_TIER_MAP` membership. Downward-permissive (`nice_out` admits tier 1 too, `splurge` admits tier 2) but NO upward widening. Null `price_tier` treated as tier 2. The +15 scoring bonus is exact-primary-tier only. Empty → `zeroingStage: "budget"`.
+7. **Neighborhood** — strict union membership on the chosen group slugs. NO cascade drop. Empty → `zeroingStage: "neighborhood"`.
+
+Inside `pickBestForRole` (per-role) the role/hint/weather cascade is:
+- Strict (role + hint + outdoor-in-bad-weather) → if empty AND a hint was supplied, retry without hint.
+- Proximity to anchor (`maxWalkKmNormal = 1.5km` normal, `0.4km` bad weather) applied at each step.
+- No `relaxedFilter` step. The previous neighborhood-drop cascade is gone — geography is hard on every endpoint.
+- Empty after cascade → ComposeFailure with `zeroingStage: "proximity"` (returned from the route handler, not the composer).
+
+**End-time fit gate** (in `composer.ts`): the user's endTime is a strict constraint on the projected timeline. Candidate Mains whose `startTime + minStop1Dur + minWalk + mainDuration > endTime` are dropped before the Main pick (loose upper bound). After Main is picked, candidate stop-1s whose exact projection `startTime + stop1Dur + walk(stop1, main) + mainDur > endTime` are dropped. Per-venue `duration_hours` overrides the role-average when present. Empty pool at either gate → `zeroingStage: "fit"`. Swap-stop and add-stop call the same projection via the exported `itineraryFits(stops, startTime, endTime)` helper to validate the patched/extended itinerary before returning it — no silent overshoot from a swap or extension, either.
 
 ### Composition
 
@@ -329,7 +337,7 @@ Defined in `config/options.ts`. Five steps, each with an explicit "Next →" but
    Display labels: Dating, Relationship, Friends Night Out, Family, Solo
 2. **Neighborhoods** — pick up to 3 from borough-grouped picker (25 groups; thin groups <50 venues are hidden)
 3. **Budget** — `casual` | `nice_out` | `splurge` | `all_out` | `no_preference`
-   Display labels: Casual, Solid, Splurge, All Out, No Preference
+   Display labels: Budget, Solid, Splurge, All Out, No Preference (`casual` slug renders as **"Budget"** per `BUDGET_LABEL_OVERRIDES` in `src/config/budgets.ts:13-18` — code wins over older "Casual" docs)
 4. **Vibe** — `food_forward` | `drinks_led` | `activity_food` | `mix_it_up`
    Display labels: Meal, Drinks, Activity, Variety
 5. **When** — day (7-day pills + custom date picker) + time block (morning / afternoon / evening / late_night)

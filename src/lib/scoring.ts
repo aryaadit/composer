@@ -147,42 +147,32 @@ function scoreVenue(
   return score;
 }
 
+// Role-level filter. The pre-filter stack in src/lib/itinerary/pre-filter.ts
+// has already narrowed `venues` to active rows that satisfy every user
+// input (budget, hours, closed status, neighborhood, exclusions). This
+// per-role filter only cuts on what the pre-filter couldn't know about:
+// the role pool being chosen for this pick, the optional venueRoleHint
+// (a vibe-driven heuristic), the per-stop exclude set, and the
+// weather/outdoor drop.
+//
+// Removed 2026-06-11 with the strict-filters change:
+//   - the neighborhood predicate (now handled by the pre-filter; it was
+//     also conditional on `enforceNeighborhood` here, which produced
+//     the silent cross-neighborhood reach the audit identified)
+//   - the relaxedFilter sibling (the cascade no longer drops
+//     neighborhood; geography is hard everywhere)
 function hardFilter(
   venues: Venue[],
   roles: readonly StopRole[],
-  answers: QuestionnaireAnswers,
   weather: WeatherInfo | null,
   exclude: Set<string>,
-  enforceNeighborhood: boolean = true,
-  venueRoleHint?: VenueRole
+  venueRoleHint?: VenueRole,
 ): Venue[] {
   return venues.filter((v) => {
     if (!v.active) return false;
     if (exclude.has(v.id)) return false;
     if (!venueMatchesAnyRole(v, roles)) return false;
     if (venueRoleHint && !v.stop_roles.includes(venueRoleHint)) return false;
-    if (
-      enforceNeighborhood &&
-      answers.neighborhoods.length > 0 &&
-      !answers.neighborhoods.includes(v.neighborhood)
-    ) {
-      return false;
-    }
-    if (weather?.is_bad_weather && v.outdoor_seating === "yes") return false;
-    return true;
-  });
-}
-
-function relaxedFilter(
-  venues: Venue[],
-  roles: readonly StopRole[],
-  exclude: Set<string>,
-  weather: WeatherInfo | null
-): Venue[] {
-  return venues.filter((v) => {
-    if (!v.active) return false;
-    if (exclude.has(v.id)) return false;
-    if (!venueMatchesAnyRole(v, roles)) return false;
     if (weather?.is_bad_weather && v.outdoor_seating === "yes") return false;
     return true;
   });
@@ -216,8 +206,12 @@ function applyProximity(candidates: Venue[], anchor: Venue | null, maxKm: number
  * (opener-OR-closer canonical) in a single pass. Single-role callers
  * are unchanged.
  *
- * Cascade relaxation: strict (with `venueRoleHint`) → drop hint → drop
- * neighborhood. Proximity to `anchor` is always hard.
+ * Cascade: strict (with `venueRoleHint`) → drop hint. Both steps apply
+ * the anchor's proximity cap. Neighborhood was previously droppable as
+ * a third step but the 2026-06-11 strict-filters change made geography
+ * hard on every endpoint — venues entering this function already
+ * satisfy every user input via the pre-filter stack in
+ * `src/lib/itinerary/pre-filter.ts`.
  *
  * After scoring + sort, samples from the top N candidates using
  * `weightedPickByRank` (top 5, weights `[5,4,3,2,1]`). When `jitter === 0`
@@ -261,21 +255,20 @@ export function pickBestForRole(
     ? (role as readonly StopRole[])
     : [role as StopRole];
   const maxWalkKm = getMaxWalkKm(weather);
-  const enforceNeighborhood = anchor === null;
 
-  // Cascade: strict (with hint) → drop hint → drop neighborhood.
-  // Proximity to anchor is always hard.
-  let candidates = hardFilter(venues, roles, answers, weather, usedIds, enforceNeighborhood, venueRoleHint);
+  // Two-step cascade: strict (with hint) → drop hint. The hint is an
+  // internal vibe-driven heuristic, not a user input, so dropping it
+  // when no candidate matches is honest flex. Neighborhood, budget,
+  // hours, etc. are user inputs and stay strict (enforced upstream in
+  // the pre-filter — by the time we get here, `venues` already
+  // satisfies them). Proximity to anchor remains an always-hard
+  // constraint applied to each cascade step.
+  let candidates = hardFilter(venues, roles, weather, usedIds, venueRoleHint);
   candidates = applyProximity(candidates, anchor, maxWalkKm);
 
   if (candidates.length === 0 && venueRoleHint) {
-    candidates = hardFilter(venues, roles, answers, weather, usedIds, enforceNeighborhood);
+    candidates = hardFilter(venues, roles, weather, usedIds);
     candidates = applyProximity(candidates, anchor, maxWalkKm);
-  }
-  if (candidates.length === 0) {
-    candidates = applyProximity(
-      relaxedFilter(venues, roles, usedIds, weather), anchor, maxWalkKm
-    );
   }
 
   const scored: ScoredVenue[] = candidates.map((v) => {

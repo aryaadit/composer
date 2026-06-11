@@ -1,5 +1,9 @@
 # Algorithm relaxation audit — 2026-06-11
 
+> ✅ **RESOLVED 2026-06-11 (same day):** The principles this audit identified — silent budget upsell, cross-neighborhood reach, exclude-list trim, single-stop degradation, missing pre-filters on swap/add — were addressed by the strict-filters change documented in the new shared `src/lib/itinerary/pre-filter.ts` module and the simplified `pickBestForRole` cascade. Each disagreement row at the bottom of this doc carries a STATUS marker noting whether it was fixed in that change.
+
+> ⚠️ This audit captured the state **before** the strict-filters fix. The narrative + rule inventory below remain accurate as a historical reference for what the algorithm USED to do; the live behavior now matches the description in CLAUDE.md's Hard Filters section and ALGORITHM.md's "six filters." Use this doc to understand why things changed; use CLAUDE.md / ALGORITHM.md for ground truth on current behavior.
+
 Read-only inventory of every relaxation, fallback, widening, and degradation rule across the three generation endpoints (`/api/generate`, `/api/swap-stop`, `/api/add-stop`). Built from a code-first trace; where ALGORITHM.md, CLAUDE.md, or `src/config/algorithm.ts` comments disagree with code, **code wins** and the disagreement is logged.
 
 ---
@@ -168,25 +172,28 @@ The user-selected neighborhood union is honored only on /api/generate, and only 
 
 ## Code vs docs / config disagreements
 
-Severity legend: **blocker** (breaks behavior or design intent), **misleading** (docs say something the code doesn't do), **cosmetic** (style or wording).
+Severity legend: **blocker** (breaks behavior or design intent), **misleading** (docs say something the code doesn't do), **cosmetic** (style or wording). STATUS column added 2026-06-11 with the strict-filters change.
 
-| # | area | code | docs / config | severity | citation |
-| --- | --- | --- | --- | --- | --- |
-| 1 | Casual tier-set "downward-permissive" | `BUDGET_TIER_MAP.casual = [1]` — no room to go down | `src/config/algorithm.ts:207-220` comment frames widening as "downward-permissive [so] no separate downward needed". True in aggregate, **misleading for casual specifically** because casual has no downward direction; the comment uses splurge as the only example. | misleading | [budgets.ts:11-13](../src/config/generated/budgets.ts#L11), [algorithm.ts:207-220](../src/config/algorithm.ts#L207) |
-| 2 | swap-stop / add-stop respecting budget | not applied — any tier can be returned | CLAUDE.md "Hard Filters (Pre-Scoring)" lists budget as filter #6 implying universal | **blocker** | [swap-stop/route.ts:117-147](../src/app/api/swap-stop/route.ts#L117), [add-stop/route.ts:80-110](../src/app/api/add-stop/route.ts#L80), CLAUDE.md |
-| 3 | swap-stop / add-stop respecting time window | not applied | CLAUDE.md "Hard Filters" same as above (#4 in that list) | blocker | same |
-| 4 | swap-stop / add-stop respecting business_status | not applied | CLAUDE.md "Hard Filters" #5 | blocker | same |
-| 5 | swap-stop / add-stop respecting neighborhood | only enforced for swap-Main (anchor=null); never for non-Main swaps or add-stop | CLAUDE.md "Hard Filters" #7 says neighborhood is applied "in pickBestForRole, relaxes when zero candidates" — does not flag that it's gated on `anchor===null` and thus inert for these endpoints | misleading | [scoring.ts:164-170, 264](../src/lib/scoring.ts#L164), CLAUDE.md |
-| 6 | swap-stop / add-stop determinism | `Math.random` (no seeded PRNG passed) | CLAUDE.md "Determinism": "Same inputs → same seed → identical picks" — implicit but unscoped | misleading | [scoring.ts:254](../src/lib/scoring.ts#L254), [swap-stop/route.ts:139-147](../src/app/api/swap-stop/route.ts#L139), [add-stop/route.ts:102-110](../src/app/api/add-stop/route.ts#L102) |
-| 7 | Jitter magnitude `10` hardcoded | literal `10` in swap-stop:146 and add-stop:109 | CLAUDE.md "Canonical Modules" + "What NOT To Do": every jitter magnitude lives in `algorithm.ts` | cosmetic | [swap-stop/route.ts:146](../src/app/api/swap-stop/route.ts#L146), [add-stop/route.ts:109](../src/app/api/add-stop/route.ts#L109) |
-| 8 | minPoolSize gating filters | used only by the exclude-list trim ([route.ts:223](../src/app/api/generate/route.ts#L223)) | ALGORITHM.md line 32: "If a filter would leave fewer than minPoolSize venues, it's skipped with a logged warning" — implies universal | misleading | route.ts (verified by inspection: only one caller), ALGORITHM.md:32 |
-| 9 | Silent skip for unfillable roles | composer.ts only has the explicit single-stop fallback at [composer.ts:141](../src/lib/composer.ts#L141); no per-role `continue` loop | ALGORITHM.md:128-130 describes `if (!best) continue` referring to an older variable-length template architecture | misleading | composer.ts:141, ALGORITHM.md:128-130 |
-| 10 | Per-vibe stop patterns | single map `VIBE_STOP_1_HINTS`; always `[stop1, main]`; no closer | ALGORITHM.md:105-110 still describes `opener → main → closer` per-vibe patterns with "drinks bookend" — Phase 2 collapsed this | misleading | [templates.ts:23-27](../src/config/templates.ts#L23), [composer.ts:58-70](../src/lib/composer.ts#L58), ALGORITHM.md:105-110 |
-| 11 | `truncated_for_end_time` flag | set on response | ALGORITHM.md:130 implies it's surfaced; grep confirms **no UI reads it** | misleading | route.ts:351-356, grep across `src/components/` and `src/app/itinerary/` |
-| 12 | "Casual" label | UI shows **"Budget"** ([budgets.ts:13-18](../src/config/budgets.ts#L13)) | CLAUDE.md "Display labels: Casual / Solid / Splurge / All Out / No Preference" | misleading | budgets.ts:13-18, CLAUDE.md |
-| 13 | Casual description vs tier-1 range | description says **"$30–60 per person"**; tier-1 range is `[15, 30]` ([budgets.ts:78](../src/config/budgets.ts#L78)) | The promised range starts where tier-1 ENDS — so even a strict tier-1 casual itinerary renders `spend_estimate = "$15–30"` per stop, below the $30 the user expected | cosmetic | [budgets.ts:20-26](../src/config/budgets.ts#L20), [budgets.ts:78](../src/config/budgets.ts#L78) |
+| # | area | severity | STATUS (2026-06-11 strict-filters change) |
+| --- | --- | --- | --- |
+| 1 | Casual tier-set "downward-permissive" | misleading | ✅ **RESOLVED** — upward widening deleted; the misleading "downward-permissive" framing no longer matters because there is no widening at all. Casual is strict tier-1. |
+| 2 | swap-stop / add-stop respecting budget | blocker | ✅ **RESOLVED** — both endpoints now apply the shared `pre-filter.ts` stack including budget. |
+| 3 | swap-stop / add-stop respecting time window | blocker | ✅ **RESOLVED** — same shared pre-filter. |
+| 4 | swap-stop / add-stop respecting business_status | blocker | ✅ **RESOLVED** — same shared pre-filter. |
+| 5 | swap-stop / add-stop respecting neighborhood | misleading | ✅ **RESOLVED** — neighborhood is now enforced at the data layer in the pre-filter; the `enforceNeighborhood = anchor === null` gating inside `pickBestForRole` was deleted. Every stop on every endpoint is in-neighborhood. |
+| 6 | swap-stop / add-stop determinism | misleading | ✅ **RESOLVED** — both endpoints now pass a seeded PRNG built from `computeRequestSeed` + a swap/add discriminator. |
+| 7 | Jitter magnitude `10` hardcoded | cosmetic | ✅ **RESOLVED** — replaced with `ALGORITHM.jitter.magnitude` in both endpoints. |
+| 8 | minPoolSize gating filters | misleading | ✅ **RESOLVED** — `minPoolSize` was deleted along with the exclude-list graceful-trim. No other consumer existed. ALGORITHM.md updated. |
+| 9 | Silent skip for unfillable roles | misleading | ✅ **RESOLVED** — the single-stop fallback in `composer.ts:140-141` was deleted. Unfillable stop 1 returns `{ stops: [] }`; the route handler turns that into a ComposeFailure with `zeroingStage: "proximity"`. ALGORITHM.md updated. |
+| 10 | Per-vibe stop patterns | misleading | ⏳ **CARRY** — ALGORITHM.md still describes `opener → main → closer` per-vibe patterns. The strict-filters change touched the filter stack and the cascade, NOT the template architecture. Phase 2 collapse remains undocumented in ALGORITHM.md; flagging for a separate pass. |
+| 11 | `truncated_for_end_time` flag | misleading | ✅ **RESOLVED** (corrected post-launch-review): the flag was deleted from `ItineraryResponse`. The buffer truncation in `/api/generate` was also deleted, but that over-deleted the *behavior* — end time is a user input, not just an internal flag. The fit behavior was **restored 2026-06-11** as a strict per-candidate gate inside the composer (Main upper bound + stop-1 exact projection) and via the exported `itineraryFits` helper in swap-stop / add-stop. Empty pool → `zeroingStage: "fit"`. The original `truncated_for_end_time` flag stays gone; the fit constraint is now enforced honestly instead. See ALGORITHM.md "End-time fit." |
+| 12 | "Casual" label | misleading | ✅ **RESOLVED** — CLAUDE.md updated to read "Budget" matching `BUDGET_LABEL_OVERRIDES.casual`. |
+| 13 | Casual description vs tier-1 range | cosmetic | ✅ **RESOLVED** — `BUDGET_DESCRIPTIONS.casual` updated to "Around $15–30 per person" matching tier-1's `PRICE_TIER_RANGES[1] = [15, 30]`. Other tiers reconciled to match too. |
 
-The **blockers** (#2-#4) all stem from one root cause: swap-stop and add-stop start from `fetchActiveVenues()` and apply only the drinks filter before reaching `pickBestForRole`. They inherited the scoring entry point but not the pre-scoring filter stack from /api/generate.
+**Remaining (still open):**
+- #10 per-vibe stop pattern description in ALGORITHM.md. Phase 2 collapsed templates to `[stop1, main]` with a single `VIBE_STOP_1_HINTS` map; the doc describes the older architecture.
+
+The original "blockers" (#2-#4) all stemmed from one root cause: swap-stop and add-stop reached `pickBestForRole` after applying only the drinks filter. The shared `pre-filter.ts` module resolved all three in a single change.
 
 ---
 
