@@ -553,6 +553,26 @@ npx tsc --noEmit
 
 **Neighborhood groups are NOT derived from the sheet.** They live as a constant in `scripts/generate-configs.py` (`NEIGHBORHOOD_GROUPS` list, currently 25 groups). The generator queries Supabase for active venue counts per slug and bakes a `venueCount` field into each group — used by `NeighborhoodPicker` to hide thin groups (< `ALGORITHM.pools.minGroupVenuesToRender`).
 
+#### generate-configs is the vocabulary gate
+
+`scripts/generate-configs.py` does NOT just emit TypeScript — it also enforces vocabulary completeness between the sheet and the implementation. Two hard gates run before any file is written; on failure the script exits nonzero and the generated files are left untouched:
+
+1. **Neighborhood grouping completeness.** Every neighborhood slug in the sheet's Master Reference column A OR in active venue rows must appear in at least one entry of `NEIGHBORHOOD_GROUPS`. Orphan slugs are unreachable from the questionnaire and would silently hide their venues. Error output lists each offender with its observed row count.
+
+2. **stop_roles vocabulary.** Every stop_roles value in the sheet (column F) or in active venue rows must be a key of `STOP_ROLE_EXPANSION` (or one of the canonical `opener` / `main` / `closer` roles, kept as a defensive set). Unknown roles get silently dropped by scoring and the venue becomes invisible to the composer. Error output lists each offender with its observed row count.
+
+A warning-only check also runs and does NOT block: group slugs with zero observed venue rows (currently `queens`, `gramercy_kips_bay`) print as info so the operator notices empty-future-coverage slots without failing the build.
+
+**Vibe tags are intentionally NOT validated.** The vibe vocabulary is open while founders decide which new tags graduate into the scoring matrix. Adding a vibe tag to the sheet does not require a matching entry in `VIBE_SCORING_MATRIX` — the emitter naturally splits scored vs cross-cutting tags.
+
+When adding a new slug to the sheet, the workflow becomes:
+- Add the slug in Master Reference (and to any venue rows that need it)
+- For a neighborhood slug: also add it to `NEIGHBORHOOD_GROUPS` in `generate-configs.py` (existing UI group or new one)
+- For a stop_role: also add it to `STOP_ROLE_EXPANSION` mapping to one or more canonical roles
+- Then run `npm run generate-configs`
+
+If you forget step 2 or 3, the script will refuse to regenerate the configs and tell you exactly which slug is unbound.
+
 ---
 
 ## What NOT To Do

@@ -1,6 +1,6 @@
 // AUTO-GENERATED — DO NOT EDIT
 // Source: Google Sheet 1ZH8CniJglou0A72e7U4b3nvtsa7tDRVMIAzNqMqEck8
-// Generated: 2026-06-10T03:33:30.555839+00:00
+// Generated: 2026-06-11T18:28:52.002690+00:00
 
 export const VIBE_VENUE_TAGS: Record<string, string[]> = {
   food_forward: ["food_forward", "tasting", "dinner", "bistro"],

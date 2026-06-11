@@ -22,7 +22,7 @@ import {
   BOROUGH_ORDER,
   type Borough,
 } from "@/config/neighborhoods";
-import { ALGORITHM } from "@/config/algorithm";
+import { isGroupVisible } from "@/config/group-visibility";
 
 interface NeighborhoodPickerProps {
   /** Group IDs to pre-select. */
@@ -81,9 +81,15 @@ export function NeighborhoodPicker({
     [selectedSet, atMax, onChange, singleSelect]
   );
 
-  const minVenues = ALGORITHM.pools.minGroupVenuesToRender;
-  const filtered = NEIGHBORHOOD_GROUPS.filter((g) => g.venueCount >= minVenues);
-  // Fallback to unfiltered if threshold hides everything
+  // Native-composability gate (src/config/group-visibility.ts) replaced
+  // the venueCount < 25 rule on 2026-06-11. A group renders iff the
+  // median of its three per-tier native itinerary counts clears the
+  // bar (currently 25); a tiny venueCount can still pass if it
+  // composes densely, and a fat venueCount can fail if the tiers are
+  // lopsided.
+  const filtered = NEIGHBORHOOD_GROUPS.filter(isGroupVisible);
+  // Fallback to unfiltered if the gate hides everything (defensive — a
+  // bake misconfiguration shouldn't blank the picker).
   const groups = filtered.length > 0 ? filtered : NEIGHBORHOOD_GROUPS;
 
   // ── Flat list ────────────────────────────────────────────────────────

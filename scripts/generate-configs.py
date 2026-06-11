@@ -20,8 +20,10 @@ Usage:
 """
 
 from __future__ import annotations
+import json
 import os
 import re
+import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -139,6 +141,39 @@ def fetch_venue_counts_by_neighborhood(supabase) -> dict[str, int]:
         slug = row.get("neighborhood")
         if slug:
             counts[slug] = counts.get(slug, 0) + 1
+    return counts
+
+
+def fetch_stop_role_counts(supabase) -> dict[str, int]:
+    """Fetch observed stop_role occurrences across active venues.
+
+    `stop_roles` is a TEXT[] in Postgres — one venue can carry multiple
+    roles, and a count of N means N venue-row mentions of that role
+    (not N distinct venues). The number is supplementary error-message
+    context for the vocabulary gate, not load-bearing on scoring.
+
+    Returns {} when Supabase is unavailable — the gate still runs
+    against the canonical sheet vocabulary; the row-count display
+    falls back to 0 for unknown values.
+    """
+    if supabase is None:
+        return {}
+    counts: dict[str, int] = {}
+    page_size = 1000
+    offset = 0
+    while True:
+        res = supabase.table("composer_venues_v2") \
+            .select("stop_roles") \
+            .eq("active", True) \
+            .range(offset, offset + page_size - 1) \
+            .execute()
+        for row in res.data:
+            for role in (row.get("stop_roles") or []):
+                if role:
+                    counts[role] = counts.get(role, 0) + 1
+        if len(res.data) < page_size:
+            break
+        offset += page_size
     return counts
 
 
@@ -377,6 +412,13 @@ STOP_ROLE_EXPANSION = {
     "coffee": ["opener"],
 }
 
+# Canonical composition roles. Always accepted by the vocabulary gate
+# even if STOP_ROLE_EXPANSION is ever edited to remove their identity
+# entries — these three are load-bearing on planStopMix and removing
+# them from the gate would let a sheet typo silently invisibly drop
+# every main-role venue.
+CANONICAL_STOP_ROLES = {"opener", "main", "closer"}
+
 
 # ═══════════════════════════════════════════════════════════════════════
 # Sheet readers — pull flat value lists from Master Reference
@@ -473,9 +515,14 @@ def emit_vibes(service) -> str:
     return "".join(lines)
 
 
-def emit_neighborhoods(service, venue_counts: dict[str, int] | None = None) -> str:
+def emit_neighborhoods(
+    service,
+    venue_counts: dict[str, int] | None = None,
+    itineraries_by_group: dict[str, dict[str, int]] | None = None,
+) -> str:
     all_hoods = read_neighborhoods(service)
     counts = venue_counts or {}
+    itin = itineraries_by_group or {}
 
     lines = [HEADER]
 
@@ -486,6 +533,17 @@ def emit_neighborhoods(service, venue_counts: dict[str, int] | None = None) -> s
         "  borough: string;\n"
         "  slugs: string[];\n"
         "  venueCount: number;\n"
+        "  /** Native composability per budget tier — count of distinct\n"
+        "   *  (main, stop1) pairs that satisfy ALL hard filters with NO\n"
+        "   *  relaxation, NO cascade, NO widening, NO degradation, for\n"
+        "   *  Friday evening (strictest common slot). Baked by\n"
+        "   *  scripts/native-composability.ts via generate-configs.py.\n"
+        "   *  Drives the visibility predicate in src/config/group-visibility.ts. */\n"
+        "  itinerariesByTier: {\n"
+        "    casual: number;\n"
+        "    nice_out: number;\n"
+        "    splurge: number;\n"
+        "  };\n"
         "}\n\n"
     )
 
@@ -494,12 +552,18 @@ def emit_neighborhoods(service, venue_counts: dict[str, int] | None = None) -> s
     for g in NEIGHBORHOOD_GROUPS:
         slugs = ", ".join(quote(s) for s in g["slugs"])
         venue_count = sum(counts.get(s, 0) for s in g["slugs"])
+        tiers = itin.get(g["id"], {"casual": 0, "nice_out": 0, "splurge": 0})
         lines.append(
             f"  {g['id']}: {{\n"
             f"    label: {quote(g['label'])},\n"
             f"    borough: {quote(g['borough'])},\n"
             f"    slugs: [{slugs}],\n"
             f"    venueCount: {venue_count},\n"
+            f"    itinerariesByTier: {{ "
+            f"casual: {tiers['casual']}, "
+            f"nice_out: {tiers['nice_out']}, "
+            f"splurge: {tiers['splurge']} "
+            f"}},\n"
             f"  }},\n"
         )
     lines.append("};\n\n")
@@ -508,6 +572,54 @@ def emit_neighborhoods(service, venue_counts: dict[str, int] | None = None) -> s
     lines.append(emit_string_array("ALL_NEIGHBORHOODS", all_hoods))
 
     return "".join(lines)
+
+
+def fetch_native_composability() -> dict[str, dict[str, int]]:
+    """Invoke scripts/native-composability.ts --json and parse the
+    itinerariesByTier dict per group.
+
+    The TS script is the canonical owner of the composability computation —
+    it reuses src/lib/scoring + src/lib/composer primitives so the bake
+    reflects what production actually filters. This Python orchestrator
+    just shells out and merges the result into the generated emitter.
+    Failure here BLOCKS generation: a stale or missing itinerariesByTier
+    silently breaks the visibility gate.
+    """
+    cmd = ["npx", "tsx", "scripts/native-composability.ts", "--json"]
+    print(f"  invoking: {' '.join(cmd)}", file=sys.stderr)
+    proc = subprocess.run(
+        cmd,
+        cwd=str(ROOT),
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if proc.returncode != 0:
+        print(proc.stderr, file=sys.stderr)
+        raise SystemExit(
+            f"native-composability.ts --json failed with exit {proc.returncode}"
+        )
+    # Forward the script's stderr (count check log) so the operator
+    # sees it inline with the generate-configs progress output.
+    if proc.stderr.strip():
+        for line in proc.stderr.strip().splitlines():
+            print(f"  {line}", file=sys.stderr)
+    try:
+        data = json.loads(proc.stdout)
+    except json.JSONDecodeError as e:
+        print(proc.stdout[:200], file=sys.stderr)
+        raise SystemExit(
+            f"native-composability.ts --json produced unparseable output: {e}"
+        )
+    out: dict[str, dict[str, int]] = {}
+    for entry in data.get("groups", []):
+        gid = entry["groupId"]
+        out[gid] = {
+            "casual": int(entry["itinerariesByTier"]["casual"]),
+            "nice_out": int(entry["itinerariesByTier"]["nice_out"]),
+            "splurge": int(entry["itinerariesByTier"]["splurge"]),
+        }
+    return out
 
 
 def emit_stop_roles(_service) -> str:
@@ -562,6 +674,117 @@ def emit_categories(service) -> str:
 
 
 # ═══════════════════════════════════════════════════════════════════════
+# Vocabulary gate (2026-06-10)
+#
+# This script is the single gate between the sheet's vocabulary and the
+# generated TypeScript taxonomy. Adding a neighborhood slug to the
+# Master Reference tab without also adding it to NEIGHBORHOOD_GROUPS used
+# to silently produce orphan venues (no questionnaire neighborhood
+# selection ever hit them). Adding a stop_role without expanding
+# STOP_ROLE_EXPANSION used to silently drop the role at scoring time.
+# Both classes of typo now block generation.
+#
+# Vibe tags are intentionally NOT validated — the vibe vocabulary is
+# open while the founders decide which new tags graduate into the
+# scoring matrix. Adding a vibe tag to the sheet does not require a
+# matching entry in VIBE_SCORING_MATRIX; the emitter naturally splits
+# scored vs cross-cutting tags.
+# ═══════════════════════════════════════════════════════════════════════
+
+def validate_vocabulary(
+    sheet_neighborhoods: list[str],
+    sheet_stop_roles: list[str],
+    neighborhood_counts: dict[str, int],
+    role_counts: dict[str, int],
+    supabase_available: bool,
+) -> tuple[list[str], list[str]]:
+    """Run the vocabulary gates. Returns (errors, warnings).
+
+    Errors (any → hard fail, generated files NOT written):
+      - Neighborhood slugs from the sheet (Master Reference column A)
+        OR carried by observed venue rows that aren't covered by any
+        entry in NEIGHBORHOOD_GROUPS. The UI picker is gated by group
+        membership; an orphan slug is unreachable.
+      - stop_roles values from the sheet (Master Reference column F)
+        OR carried by observed venue rows that STOP_ROLE_EXPANSION
+        (plus the CANONICAL_STOP_ROLES defensive set) doesn't recognize.
+        Unknown roles get silently dropped at scoring time.
+
+    Warnings (info only, generation proceeds):
+      - Group slugs with zero observed venue rows. These are slots
+        carried for future curation (e.g. queens, gramercy_kips_bay
+        as of 2026-06-10) — not wrong, just empty.
+
+    Supplementary row counts come from Supabase. When Supabase is
+    unavailable the orphan + unknown-role error checks still run using
+    just the sheet vocabulary (counts default to 0 in the output); the
+    zero-observed warning is skipped because we have no observed-counts
+    data to drive it.
+    """
+    errors: list[str] = []
+    warnings: list[str] = []
+
+    # ── 1. Neighborhood grouping completeness ─────────────────────
+    group_slugs: set[str] = set()
+    for g in NEIGHBORHOOD_GROUPS:
+        group_slugs.update(g["slugs"])
+
+    observed_neighborhoods = (
+        set(sheet_neighborhoods) | set(neighborhood_counts.keys())
+    )
+    orphan_neighborhoods = sorted(observed_neighborhoods - group_slugs)
+    if orphan_neighborhoods:
+        errors.append(
+            "Neighborhood slugs not covered by any entry in NEIGHBORHOOD_GROUPS:"
+        )
+        for slug in orphan_neighborhoods:
+            count = neighborhood_counts.get(slug, 0)
+            errors.append(f"  - {slug} (rows: {count})")
+        errors.append(
+            "  → Add the slug to NEIGHBORHOOD_GROUPS in this script (assign it"
+        )
+        errors.append(
+            "    to an existing UI group or create a new one), then re-run."
+        )
+
+    if supabase_available:
+        nonzero_slugs = {s for s, c in neighborhood_counts.items() if c > 0}
+        zero_observed = sorted(group_slugs - nonzero_slugs)
+        if zero_observed:
+            warnings.append(
+                "Group slugs with zero observed venue rows (info — not a failure):"
+            )
+            for slug in zero_observed:
+                warnings.append(f"  - {slug}")
+            warnings.append(
+                "  → Either intentional (placeholder for future coverage) or a"
+            )
+            warnings.append(
+                "    typo in NEIGHBORHOOD_GROUPS that doesn't match a real slug."
+            )
+
+    # ── 2. Stop-role vocabulary ───────────────────────────────────
+    allowed_roles = set(STOP_ROLE_EXPANSION.keys()) | CANONICAL_STOP_ROLES
+    observed_roles = set(sheet_stop_roles) | set(role_counts.keys())
+    unknown_roles = sorted(observed_roles - allowed_roles)
+    if unknown_roles:
+        errors.append(
+            "stop_roles values not in STOP_ROLE_EXPANSION (or the canonical set):"
+        )
+        for role in unknown_roles:
+            count = role_counts.get(role, 0)
+            errors.append(f"  - {role} (rows: {count})")
+        errors.append(
+            "  → Either add the role to STOP_ROLE_EXPANSION (mapping it to one"
+        )
+        errors.append(
+            "    or more canonical roles) or correct the sheet/venue data."
+        )
+
+    return errors, warnings
+
+
+# ═══════════════════════════════════════════════════════════════════════
 # Main
 # ═══════════════════════════════════════════════════════════════════════
 
@@ -583,13 +806,60 @@ def main() -> int:
     print("Fetching venue counts from Supabase...", file=sys.stderr)
     supabase = get_supabase()
     venue_counts = fetch_venue_counts_by_neighborhood(supabase)
-    print(f"  {sum(venue_counts.values())} active venues across {len(venue_counts)} neighborhoods", file=sys.stderr)
+    role_counts = fetch_stop_role_counts(supabase)
+    print(
+        f"  {sum(venue_counts.values())} active venues across {len(venue_counts)} neighborhoods",
+        file=sys.stderr,
+    )
+
+    # ── Vocabulary gate ────────────────────────────────────────
+    # Any sheet vocabulary value that isn't covered by NEIGHBORHOOD_GROUPS
+    # or STOP_ROLE_EXPANSION blocks generation. Warnings (e.g. group
+    # slugs with zero rows) print but don't fail. See CLAUDE.md
+    # "generate-configs is the vocabulary gate" section.
+    print("Validating vocabulary...", file=sys.stderr)
+    sheet_neighborhoods = read_neighborhoods(service)
+    sheet_stop_roles = read_stop_roles(service)
+    errors, warnings = validate_vocabulary(
+        sheet_neighborhoods,
+        sheet_stop_roles,
+        venue_counts,
+        role_counts,
+        supabase_available=supabase is not None,
+    )
+    for w in warnings:
+        print(f"  {w}", file=sys.stderr)
+    if errors:
+        print(
+            "\nVocabulary gate FAILED — generated files NOT written:",
+            file=sys.stderr,
+        )
+        for e in errors:
+            print(f"  {e}", file=sys.stderr)
+        return 1
+    print("  ✓ vocabulary OK", file=sys.stderr)
+
+    # ── Native composability bake ──────────────────────────────
+    # Shell out to scripts/native-composability.ts --json so the
+    # canonical TS computation (which reuses src/lib/scoring primitives)
+    # is the single source of truth for itinerariesByTier. Folded into
+    # this orchestrator so `npm run generate-configs` is the one entry
+    # point for refreshing the generated taxonomy AND its composability
+    # counts. The visibility gate (src/config/group-visibility.ts)
+    # reads itinerariesByTier from the baked file; a stale bake silently
+    # breaks the gate, so this failure mode is fatal.
+    print("Baking native composability counts...", file=sys.stderr)
+    itineraries_by_group = fetch_native_composability()
+    print(
+        f"  ✓ baked itinerariesByTier for {len(itineraries_by_group)} groups",
+        file=sys.stderr,
+    )
 
     OUT_DIR.mkdir(parents=True, exist_ok=True)
 
     for filename, emitter in OUTPUTS:
         if emitter == emit_neighborhoods:
-            content = emitter(service, venue_counts)
+            content = emitter(service, venue_counts, itineraries_by_group)
         else:
             content = emitter(service)
         out_path = OUT_DIR / filename

@@ -72,13 +72,17 @@ export const BOROUGH_LABELS: Record<Borough, string> = {
 export const BOROUGH_ORDER: readonly Borough[] = ["manhattan", "brooklyn", "queens", "outer"];
 
 // Convert the generated Record to the ordered array the UI iterates.
+// itinerariesByTier is the native composability count (Friday evening,
+// all hard filters, no relaxation) baked by scripts/native-composability.ts
+// — drives the visibility predicate in @/config/group-visibility.
 export const NEIGHBORHOOD_GROUPS = Object.entries(GEN_GROUPS).map(
-  ([id, { label, borough, slugs, venueCount }]) => ({
+  ([id, { label, borough, slugs, venueCount, itinerariesByTier }]) => ({
     id,
     label,
     borough: borough.toLowerCase() as Borough,
     slugs,
     venueCount,
+    itinerariesByTier,
   })
 );
 

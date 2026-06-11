@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useReducer, useRef } from "react";
+import { useCallback, useEffect, useMemo, useReducer, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "motion/react";
 import { questionSteps } from "@/config/options";
@@ -13,7 +13,13 @@ import type { ComposeStartTime } from "@/lib/itinerary/time-blocks";
 import {
   expandNeighborhoodGroup,
   deriveGroupIds,
+  NEIGHBORHOOD_GROUPS,
 } from "@/config/neighborhoods";
+import {
+  COMPOSE_TIERS,
+  TIER_UNAVAILABLE_COPY,
+  isTierSelectableForGroups,
+} from "@/config/group-visibility";
 import {
   questionnaireReducer,
   initialState,
@@ -229,6 +235,29 @@ export function QuestionnaireShell() {
     [state.answers, submitAnswers, trackStepCompleted]
   );
 
+  // Budget step: disable any tier that no selected neighborhood group
+  // can serve under the native-composability bar. Computed from the
+  // (already expanded) storage slugs in state.answers.neighborhoods →
+  // reverse-derive group IDs → look up NeighborhoodGroup objects.
+  // Recomputed only when the neighborhoods answer changes. When the
+  // user hasn't picked any neighborhoods yet (shouldn't happen on the
+  // budget step but defensive), every tier stays enabled.
+  //
+  // Placement: must run BEFORE every conditional early-return below so
+  // the hook order is stable (react-hooks/rules-of-hooks).
+  const disabledBudgetTiers = useMemo<ReadonlySet<string>>(() => {
+    const slugs = state.answers.neighborhoods ?? [];
+    if (slugs.length === 0) return new Set<string>();
+    const groupIds = new Set(deriveGroupIds(slugs));
+    const groups = NEIGHBORHOOD_GROUPS.filter((g) => groupIds.has(g.id));
+    if (groups.length === 0) return new Set<string>();
+    const disabled = new Set<string>();
+    for (const tier of COMPOSE_TIERS) {
+      if (!isTierSelectableForGroups(groups, tier)) disabled.add(tier);
+    }
+    return disabled;
+  }, [state.answers.neighborhoods]);
+
   if (state.status === "loading") {
     return (
       <StepLoading
@@ -304,6 +333,12 @@ export function QuestionnaireShell() {
                     state.answers[step.id] as string | undefined
                   }
                   onSelect={(value) => handleCardSelect(step.id, value)}
+                  disabledValues={
+                    step.id === "budget" ? disabledBudgetTiers : undefined
+                  }
+                  disabledNote={
+                    step.id === "budget" ? TIER_UNAVAILABLE_COPY : undefined
+                  }
                 />
               )}
 

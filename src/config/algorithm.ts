@@ -237,20 +237,13 @@ export const ALGORITHM = {
      */
     pickWeights: [5, 4, 3, 2, 1] as readonly number[],
 
-    /**
-     * Minimum total active venues a neighborhood group must have to
-     * appear in the picker.
-     *
-     * Higher = stricter; only well-populated groups appear. Lower = more
-     * groups visible but some may produce thin itineraries.
-     *
-     * Sane range: 20-40. Below ~20 individual venues per bucket become
-     * too sparse for itinerary composition.
-     *
-     * Calibrated 2026-05-21 at 25 — lowered from 50 to expand
-     * CBS-relevant coverage (UWS, UES, Hell's Kitchen, Astoria, etc.)
-     */
-    minGroupVenuesToRender: 25,
+    // Note: `minGroupVenuesToRender` (raw venueCount gate, 2026-05-21
+    // calibration of 25) was removed 2026-06-11 in favor of the native
+    // composability gate in src/config/group-visibility.ts. The new
+    // predicate reads itinerariesByTier baked into
+    // src/config/generated/neighborhoods.ts and treats a group as
+    // visible iff the median of its three per-tier itinerary counts
+    // clears GROUP_VISIBILITY.bar.
   },
 
   composition: {
