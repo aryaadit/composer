@@ -2,7 +2,7 @@
 // routes) go through this — never call posthog.capture from posthog-node
 // directly. Mirrors the client wrapper:
 //   1. PostHog (posthog-node) capture
-//   2. Supabase analytics_events insert via the existing service-role
+//   2. Supabase composer_analytics_events insert via the existing service-role
 //      client (getServiceSupabase)
 //
 // CRITICAL: skip when no stable identifier. Don't fall back to a literal
@@ -17,7 +17,7 @@ type EventProps = Record<string, unknown>;
 
 export interface TrackServerContext {
   /** Authenticated Supabase user id. Preferred. Used to populate
-   *  analytics_events.user_id and as the PostHog distinctId. */
+   *  composer_analytics_events.user_id and as the PostHog distinctId. */
   userId?: string | null;
   /** Anonymous PostHog distinct_id passed through from the client.
    *  Used as the distinctId only when userId is absent. */
@@ -38,7 +38,7 @@ export interface TrackServerContext {
  *     merging via $identify events client-side; the Supabase mirror tracks
  *     the merged identity.
  *   - If we ever need to preserve the original device id post-signin, add an
- *     anonymous_id column to analytics_events and forward posthog.get_property('$device_id')
+ *     anonymous_id column to composer_analytics_events and forward posthog.get_property('$device_id')
  *     separately from the headers.
  */
 export async function trackServer(
@@ -73,7 +73,7 @@ export async function trackServer(
   // 2. Supabase mirror via service-role client (bypasses RLS).
   try {
     const supabase = getServiceSupabase();
-    await supabase.from("analytics_events").insert({
+    await supabase.from("composer_analytics_events").insert({
       user_id: context.userId ?? null,
       distinct_id: distinctId,
       session_id: context.sessionId ?? null,

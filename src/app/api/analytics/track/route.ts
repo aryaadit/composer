@@ -1,6 +1,6 @@
 // POST /api/analytics/track — internal endpoint called by the client
 // analytics wrapper (src/lib/analytics.ts) to mirror PostHog captures
-// into the Supabase analytics_events table.
+// into the Supabase composer_analytics_events table.
 //
 // Why a separate endpoint? Browsers can't talk to service-role Supabase
 // directly. The route reads the auth cookie to associate the row with
@@ -46,7 +46,7 @@ export async function POST(req: Request) {
     } = await supabase.auth.getUser();
 
     const serviceRole = getServiceSupabase();
-    const { error } = await serviceRole.from("analytics_events").insert({
+    const { error } = await serviceRole.from("composer_analytics_events").insert({
       user_id: user?.id ?? null,
       distinct_id,
       session_id: typeof session_id === "string" ? session_id : null,
@@ -55,7 +55,7 @@ export async function POST(req: Request) {
     });
 
     if (error) {
-      console.error("analytics_events insert failed:", error);
+      console.error("composer_analytics_events insert failed:", error);
       return NextResponse.json({ ok: false }, { status: 500 });
     }
 

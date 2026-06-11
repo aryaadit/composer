@@ -2,7 +2,7 @@
 
 // Client-side analytics wrapper. ALL client event captures go through
 // this — never call `posthog.capture` directly. Two reasons:
-//   1. PostHog and Supabase analytics_events stay in lockstep.
+//   1. PostHog and Supabase composer_analytics_events stay in lockstep.
 //   2. The trust boundary (which client may insert what) is enforced
 //      by /api/analytics/track + RLS, not the browser.
 //
