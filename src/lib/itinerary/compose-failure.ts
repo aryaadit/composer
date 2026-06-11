@@ -60,8 +60,14 @@ const COPY_BY_STAGE: Record<ZeroingStage, FailureCopy> = {
     suggestion: "Try a different area, or update your drinks preference.",
   },
   fit: {
-    title: "Won't fit your window",
-    suggestion: "Try an earlier start or a different neighborhood.",
+    // The user only picks startTime — the 5-hour envelope is a product
+    // policy (COMPOSE_WINDOW_HOURS in src/lib/itinerary/time-blocks.ts),
+    // not a user input. Honest framing: the pairing the algorithm
+    // surfaced runs too long to fit one night. Switching startTime
+    // doesn't help because the window length is invariant; switching
+    // vibe (focus) or neighborhood pulls a different duration profile.
+    title: "Too much for one night",
+    suggestion: "Try a different focus or neighborhood.",
   },
 };
 

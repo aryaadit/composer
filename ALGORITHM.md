@@ -117,7 +117,7 @@ Each slot has a canonical `role` (opener, main, closer) and an optional `venueRo
 
 ### End-time fit
 
-The user's `startTime` resolves to a 5-hour window with `endTime = startTime + 5h` (wrapping past midnight). End time is a user input, so the projected itinerary must finish inside that window. The composer enforces this via two gates:
+The user's `startTime` resolves to a 5-hour window with `endTime = startTime + COMPOSE_WINDOW_HOURS` (5h, wrapping past midnight). **The 5-hour envelope is a product policy** (`COMPOSE_WINDOW_HOURS` in `src/lib/itinerary/time-blocks.ts`), **not a user input** — the available duration is invariant across user choices, so the fit gate is enforcing the "one night" envelope, not a length the user could widen by picking a different startTime. The composer enforces this via two gates:
 
 - **Main fit (upper bound)**: a Main candidate is dropped if `startTime + minStop1Dur + minWalk(5min) + durationMin(main) > endTime`. Drops mains whose duration alone makes overshoot inevitable regardless of stop 1.
 - **Stop-1 fit (exact projection)**: once Main is picked, a stop-1 candidate is dropped if `startTime + durationMin(stop1) + walkTimeMinutes(stop1, main) + durationMin(main) > endTime`. Uses real coordinates and the picked Main's actual duration.

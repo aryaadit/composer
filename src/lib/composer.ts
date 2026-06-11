@@ -59,9 +59,20 @@ export function disambiguateStop1Role(venue: Venue): StopRole {
  */
 // ── End-time fit projection ──────────────────────────────────────
 // Restored 2026-06-11 after the strict-filters change over-deleted the
-// post-compose buffer truncation. End time is a user input; a 2-stop
-// itinerary whose projected timeline overflows the user's window is
-// an honest "doesn't fit" failure, not a silent overshoot.
+// post-compose buffer truncation. A 2-stop itinerary whose projected
+// timeline overflows the user's window is an honest "doesn't fit"
+// failure, not a silent overshoot.
+//
+// IMPORTANT — constraint source: the user only picks `startTime`. The
+// `endTime` on QuestionnaireAnswers is derived from a fixed
+// `COMPOSE_WINDOW_HOURS = 5` policy in src/lib/itinerary/time-blocks.ts
+// (`resolveTimeWindow`). That makes the available duration invariant
+// across user choices — moving startTime moves endTime by the same
+// amount. So the fit gate enforces a PRODUCT POLICY (the 5-hour
+// "one night" envelope), NOT a user input. The failure copy and
+// suggestions reflect this: there's no "earlier start" the user can
+// pick to widen the window; the actionable levers are vibe (different
+// duration profile) and neighborhood (different venue mix).
 //
 // Two gates:
 //   1. Main candidate fit: loose upper bound — assume the shortest
