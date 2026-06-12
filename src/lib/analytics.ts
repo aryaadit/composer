@@ -1,128 +1,139 @@
 "use client";
 
-// Client-side analytics wrapper. ALL client event captures go through
-// this — never call `posthog.capture` directly. Two reasons:
+// Client-side analytics transport. The schema (EVENTS + EventSchemas +
+// context builders) lives in src/lib/analytics/events.ts and is
+// isomorphic; this file is the type-narrowed `track()` plus PostHog ↔
+// Supabase mirror plumbing. Two reasons to never bypass it:
 //   1. PostHog and Supabase composer_analytics_events stay in lockstep.
 //   2. The trust boundary (which client may insert what) is enforced
 //      by /api/analytics/track + RLS, not the browser.
 //
 // Failures are swallowed (fire-and-forget). Analytics must never break
-// the app. PostHog client capture is best-effort; the Supabase mirror
-// is best-effort. If one succeeds and the other fails, that's fine.
+// the app.
+//
+// PII handling: a small subset of events (today: swap_reason_submitted)
+// carry free-text fields that should NOT reach PostHog but SHOULD reach
+// the Supabase mirror for ad-hoc analysis. Use the `{ props,
+// mirrorOnlyProps }` call shape: PostHog gets `props`; the mirror gets
+// `{ ...props, ...mirrorOnlyProps }`. The narrow shape stays typed via
+// EventSchemas; mirrorOnlyProps is loosely typed since it's PII-class.
 
 import posthog from "posthog-js";
+import type { EventName, EventSchemas } from "@/lib/analytics/events";
 
-type EventProps = Record<string, unknown>;
+export {
+  EVENTS,
+  buildComposeContext,
+  buildItineraryContext,
+  type ComposeContext,
+  type ComposeContextInputs,
+  type ItineraryRef,
+  type VenueRef,
+  type EventName,
+  type EventSchemas,
+} from "@/lib/analytics/events";
 
 interface PosthogWithDistinct {
   get_distinct_id?: () => string | undefined;
   get_session_id?: () => string | undefined;
 }
 
-/**
- * Canonical event names. Use these at call sites instead of string literals
- * to get autocomplete and grep-ability. Adding a new event? Add it here.
- */
-export const EVENTS = {
-  // Identity
-  USER_SIGNED_UP: "user_signed_up",
-  USER_SIGNED_IN: "user_signed_in",
-  USER_SIGNED_OUT: "user_signed_out",
+/** Production-only gate. Vercel populates NEXT_PUBLIC_VERCEL_ENV via
+ * "System Environment Variables" — must be enabled on the project (it
+ * is by default for new Vercel projects, but verify). When the env
+ * variable is absent (localhost without `vercel dev`), captures are
+ * suppressed so dev traffic doesn't pollute the prod project. */
+function isProductionEnv(): boolean {
+  return process.env.NEXT_PUBLIC_VERCEL_ENV === "production";
+}
 
-  // Compose funnel
-  COMPOSE_STARTED: "compose_started",
-  COMPOSE_STEP_COMPLETED: "compose_step_completed",
-  COMPOSE_START_TIME_SELECTED: "compose_start_time_selected",
-  COMPOSE_SUBMITTED: "compose_submitted",
-  COMPOSE_ABANDONED: "compose_abandoned",
-  ITINERARY_GENERATED: "itinerary_generated",
-  ITINERARY_GENERATION_FAILED: "itinerary_generation_failed",
+interface TrackOptions<E extends EventName> {
+  /** PostHog + mirror payload, narrowed by event name. */
+  props: EventSchemas[E];
+  /** Mirror-only payload. Concatenated with `props` for the Supabase
+   * insert; NEVER sent to PostHog. Use for free-text PII (e.g.
+   * `swap_reason_submitted`'s `reason_text`). */
+  mirrorOnlyProps?: Record<string, unknown>;
+}
 
-  // Engagement
-  ITINERARY_VIEWED: "itinerary_viewed",
-  ITINERARY_DWELL_TIME: "itinerary_dwell_time",
-  ITINERARY_ZERO_ENGAGEMENT: "itinerary_zero_engagement",
-  // Removed 2026-06-11: ITINERARY_FALLBACK_SINGLE_STOP. The composer
-  // single-stop fallback was deleted with the strict-filters change —
-  // unfillable stop 1 now fires `compose_failed` with
-  // zeroing_stage="proximity" before the response is built.
-  ITINERARY_EXTENDED_TO_THREE: "itinerary_extended_to_three",
-  STOP_SWAPPED: "stop_swapped",
-  STOP_SWAP_REASON_SHOWN: "stop_swap_reason_shown",
-  STOP_SWAP_REASON_SUBMITTED: "stop_swap_reason_submitted",
-  STOP_SWAP_REASON_SKIPPED: "stop_swap_reason_skipped",
-  STOP_ADDED: "stop_added",
-  TIME_SLOT_SELECTED: "time_slot_selected",
-  RESERVATION_CLICKED: "reservation_clicked",
-  MAPS_OPENED: "maps_opened",
-  VENUE_DETAIL_OPENED: "venue_detail_opened",
-  ITINERARY_MAP_PIN_TAPPED: "itinerary_map_pin_tapped",
-  ITINERARY_MAP_EXPANDED: "itinerary_map_expanded",
-
-  // Save / share
-  ITINERARY_SAVED: "itinerary_saved",
-  ITINERARY_CALENDAR_ADDED: "itinerary_calendar_added",
-  SHARE_LINK_COPIED: "share_link_copied",
-  SHARE_LINK_VISITED: "share_link_visited",
-  ONBOARDING_COMPLETED: "onboarding_completed",
-
-  // Errors
-  ERROR_ENCOUNTERED: "error_encountered",
-  FEATURE_BLOCKED: "feature_blocked",
-} as const;
-
-export function track(eventName: string, properties: EventProps = {}) {
+/** Typed event capture. PostHog gets `opts.props`; the Supabase mirror
+ * gets `{ ...opts.props, ...opts.mirrorOnlyProps }`. */
+export function track<E extends EventName>(event: E, opts: TrackOptions<E>): void;
+/** Sugar: omit the wrapper when there are no mirror-only props. */
+export function track<E extends EventName>(event: E, props: EventSchemas[E]): void;
+export function track<E extends EventName>(
+  event: E,
+  arg: TrackOptions<E> | EventSchemas[E],
+): void {
   if (typeof window === "undefined") {
-    console.warn(`track() called server-side for ${eventName} — use trackServer instead`);
+    console.warn(`track() called server-side for ${event} — use trackServer instead`);
     return;
   }
+  if (!isProductionEnv()) {
+    return;
+  }
+  const { props, mirrorOnlyProps } =
+    isTrackOptions<E>(arg)
+      ? arg
+      : { props: arg, mirrorOnlyProps: undefined };
 
-  // 1. PostHog
+  // PostHog gets `props` only — never the mirror-only payload.
   try {
-    posthog.capture(eventName, properties);
+    posthog.capture(event, props as Record<string, unknown>);
   } catch (err) {
     console.error("PostHog capture failed:", err);
   }
 
-  // 2. Supabase mirror (via internal API route to use the service role server-side)
   const ph = posthog as PosthogWithDistinct;
   const distinctId = ph.get_distinct_id?.();
-
   if (!distinctId) {
-    // PostHog not initialized yet — skip Supabase mirror.
-    // PostHog client buffers and will deliver once init completes.
+    // PostHog buffers and delivers when init completes; mirror row is
+    // dropped for events that fire before init. Acceptable per the
+    // 2026-06-11 audit.
     return;
   }
 
-  // Fire-and-forget. The `void` discards the Promise so this never blocks the caller.
-  // Do NOT add `await` — that would tie user-perceived latency to /api/analytics/track.
+  // Mirror gets the union — PII-class fields land in Supabase only.
+  const mirrorPayload = mirrorOnlyProps
+    ? { ...(props as Record<string, unknown>), ...mirrorOnlyProps }
+    : (props as Record<string, unknown>);
+
   void fetch("/api/analytics/track", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      event_name: eventName,
-      properties,
+      event_name: event,
+      properties: mirrorPayload,
       distinct_id: distinctId,
       session_id: ph.get_session_id?.() ?? null,
     }),
   })
     .then((res) => {
       if (!res.ok) {
-        console.error(`analytics mirror failed: ${res.status} for ${eventName}`);
+        console.error(`analytics mirror failed: ${res.status} for ${event}`);
       }
     })
     .catch(() => {
-      // Network failure swallowed — PostHog still has the data
+      // Network failure swallowed — PostHog still has the data.
     });
 }
 
-/**
- * Build x-ph-* headers to forward the current PostHog distinct_id /
- * session_id to server routes that emit events via trackServer. Spread
- * into fetch's headers when calling /api/generate, /api/swap-stop, etc.
- * Without these, server-side captures fall back to userId-only and skip
- * entirely for anonymous users.
- */
+function isTrackOptions<E extends EventName>(
+  arg: TrackOptions<E> | EventSchemas[E],
+): arg is TrackOptions<E> {
+  return (
+    typeof arg === "object" &&
+    arg !== null &&
+    "props" in arg &&
+    // Differentiate from an EventSchemas[E] payload that happens to have
+    // a `props` field (none today; if one ever does, switch to a more
+    // specific marker).
+    Object.keys(arg).every((k) => k === "props" || k === "mirrorOnlyProps")
+  );
+}
+
+/** Build x-ph-* headers to forward distinct_id / session_id to server
+ * routes that emit via trackServer. Spread into fetch's headers. */
 export function getAnalyticsHeaders(): Record<string, string> {
   if (typeof window === "undefined") return {};
   const ph = posthog as PosthogWithDistinct;
@@ -134,13 +145,15 @@ export function getAnalyticsHeaders(): Record<string, string> {
   return headers;
 }
 
-/**
- * Person-property helpers. PostHog $set updates the latest values;
+/** Person-property helpers. PostHog $set updates the latest values;
  * $set_once only writes on first identify (signup_at, signup_source).
  * No Supabase mirror — person properties live on PostHog only.
- */
-export function setPersonProperties(props: EventProps) {
+ *
+ * PII denylist enforced via tests/unit/analytics-pii-denylist.test.ts —
+ * don't pass `email`, `phone`, or `name` here. */
+export function setPersonProperties(props: Record<string, unknown>) {
   if (typeof window === "undefined") return;
+  if (!isProductionEnv()) return;
   try {
     posthog.setPersonProperties(props);
   } catch (err) {
@@ -148,22 +161,20 @@ export function setPersonProperties(props: EventProps) {
   }
 }
 
-export function setPersonPropertiesOnce(props: EventProps) {
+export function setPersonPropertiesOnce(props: Record<string, unknown>) {
   if (typeof window === "undefined") return;
+  if (!isProductionEnv()) return;
   try {
-    // posthog-js exposes the once variant via the second arg.
     posthog.setPersonProperties(undefined, props);
   } catch (err) {
     console.error("PostHog setPersonPropertiesOnce failed:", err);
   }
 }
 
-/**
- * Increment a numeric person property. Wraps posthog.people.increment
- * with a safe no-op fallback when the SDK shape varies.
- */
+/** Increment a numeric person property. */
 export function incrementPersonProperty(name: string, amount = 1) {
   if (typeof window === "undefined") return;
+  if (!isProductionEnv()) return;
   try {
     const people = (posthog as { people?: { increment?: (p: Record<string, number>) => void } }).people;
     people?.increment?.({ [name]: amount });

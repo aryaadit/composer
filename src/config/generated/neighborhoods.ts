@@ -199,3 +199,7 @@ export const NEIGHBORHOOD_GROUPS: Record<string, NeighborhoodGroup> = {
 };
 
 export const ALL_NEIGHBORHOODS: string[] = ["arthur_avenue", "astoria", "battery_park_city", "bed_stuy", "bowery", "bronx", "bronx_concourse", "bronx_fordham", "brooklyn_heights", "bushwick", "carroll_gardens", "chelsea", "chinatown", "city_island", "clinton_hill", "cobble_hill", "columbia_waterfront", "crown_heights", "dumbo", "east_village", "east_williamsburg", "fidi", "flatiron", "flushing", "fort_greene", "gowanus", "gramercy", "gravesend", "greenpoint", "greenwich_village", "harlem", "howard_beach", "hudson_square", "jackson_heights", "koreatown", "little_italy", "long_island_city", "lower_east_side", "lower_manhattan", "midtown_east", "midtown_west", "mott_haven", "murray_hill", "noho", "nolita", "nomad", "park_slope", "prospect_heights", "prospect_lefferts", "red_hook", "ridgewood", "sheepshead_bay", "soho_nolita", "south_ozone_park", "stapleton_heights", "staten_island", "sunnyside", "sunset_park", "tribeca", "upper_east_side", "upper_west_side", "washington_heights", "west_village", "williamsburg"];
+// Placeholder — overwritten by the next `npm run generate-configs`.
+// Travels on neighborhood_options_shown so picker behavior can be
+// attributed to a specific bake (see scripts/generate-configs.py).
+export const BAKE_VERSION = "pre-bake";

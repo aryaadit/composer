@@ -130,7 +130,7 @@ export function ItineraryMap({
 
   const handlePinClick = useCallback(
     (pin: MapPin) => {
-      trackEngagement(EVENTS.ITINERARY_MAP_PIN_TAPPED, {
+      trackEngagement(EVENTS.MAP_PIN_TAPPED, {
         stop_index: pin.originalIndex,
         venue_id: pin.venueId,
         venue_name: pin.venueName,
@@ -155,7 +155,7 @@ export function ItineraryMap({
     // Only the inline map should expand. When already fullscreen, taps
     // on the map body do nothing (backdrop has its own handler).
     if (expanded) return;
-    trackEngagement(EVENTS.ITINERARY_MAP_EXPANDED, { from_surface: surface });
+    trackEngagement(EVENTS.MAP_EXPANDED, { from_surface: surface });
     setExpanded(true);
   }, [expanded, surface, trackEngagement]);
 

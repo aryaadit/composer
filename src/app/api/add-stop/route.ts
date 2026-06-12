@@ -8,7 +8,10 @@
 import { NextResponse } from "next/server";
 import { fetchActiveVenues } from "@/lib/venues/fetch-active";
 import { getServerSupabase } from "@/lib/supabase/server";
-import { trackServer } from "@/lib/analytics-server";
+import {
+  respondComposeFailure,
+  respondComposeErrored,
+} from "@/lib/itinerary/compose-failure-server";
 import { fetchWeather } from "@/lib/weather";
 import { pickBestForRole } from "@/lib/scoring";
 import { STOP_1_POOL, disambiguateStop1Role, itineraryFits } from "@/lib/composer";
@@ -16,13 +19,13 @@ import { walkTimeMinutes, walkDistanceKm, buildGoogleMapsUrl } from "@/lib/geo";
 import { fetchOrCacheWalkingRoute } from "@/lib/walking-routes";
 import { calculateTotalSpend, spendEstimate } from "@/config/budgets";
 import { applyPreFilters, buildPreFilterArgs } from "@/lib/itinerary/pre-filter";
-import { composeFailure } from "@/lib/itinerary/compose-failure";
 import { computeRequestSeed, createSeededRandom } from "@/lib/itinerary/seed";
 import { ALGORITHM } from "@/config/algorithm";
 import {
   ItineraryResponse,
   ItineraryStop,
   WalkSegment,
+  QuestionnaireAnswers,
 } from "@/types";
 
 interface AddStopRequest {
@@ -50,10 +53,14 @@ async function readDrinksPref(): Promise<{ userId: string | null; drinks: string
 export async function POST(request: Request) {
   const distinctId = request.headers.get("x-ph-distinct-id");
   const sessionId = request.headers.get("x-ph-session-id");
+  const addStartMs = performance.now();
+  let analyticsUserId: string | null = null;
+  let analyticsInputs: QuestionnaireAnswers | null = null;
 
   try {
     const { itinerary } = (await request.json()) as AddStopRequest;
     const { inputs, stops: currentStops } = itinerary;
+    analyticsInputs = inputs;
     const lastStop = currentStops[currentStops.length - 1];
     if (!lastStop) {
       return NextResponse.json(
@@ -78,6 +85,7 @@ export async function POST(request: Request) {
         return null;
       }),
     ]);
+    analyticsUserId = userId;
 
     if (venuesAll === null) {
       return NextResponse.json(
@@ -107,19 +115,11 @@ export async function POST(request: Request) {
       }),
     );
     if (!pre.ok) {
-      void trackServer(
-        "compose_failed",
-        { userId, distinctId, sessionId },
-        {
-          endpoint: "add-stop",
-          zeroing_stage: pre.zeroingStage,
-          group: inputs.neighborhoods?.[0] ?? null,
-          tier: inputs.budget,
-          day: inputs.day,
-          window: `${inputs.startTime}-${inputs.endTime}`,
-        },
-      );
-      return NextResponse.json(composeFailure(pre.zeroingStage), { status: 422 });
+      return respondComposeFailure(pre.zeroingStage, "add-stop", inputs, {
+        userId,
+        distinctId,
+        sessionId,
+      });
     }
 
     // Seeded PRNG keyed on inputs + the current usedIds + an
@@ -148,19 +148,11 @@ export async function POST(request: Request) {
     );
 
     if (!best) {
-      void trackServer(
-        "compose_failed",
-        { userId, distinctId, sessionId },
-        {
-          endpoint: "add-stop",
-          zeroing_stage: "proximity",
-          group: inputs.neighborhoods?.[0] ?? null,
-          tier: inputs.budget,
-          day: inputs.day,
-          window: `${inputs.startTime}-${inputs.endTime}`,
-        },
-      );
-      return NextResponse.json(composeFailure("proximity"), { status: 422 });
+      return respondComposeFailure("proximity", "add-stop", inputs, {
+        userId,
+        distinctId,
+        sessionId,
+      });
     }
 
     // Proximity invariant vs the actual walk the user takes. The
@@ -181,19 +173,11 @@ export async function POST(request: Request) {
       best.longitude,
     );
     if (walkFromLast > maxKm) {
-      void trackServer(
-        "compose_failed",
-        { userId, distinctId, sessionId },
-        {
-          endpoint: "add-stop",
-          zeroing_stage: "proximity",
-          group: inputs.neighborhoods?.[0] ?? null,
-          tier: inputs.budget,
-          day: inputs.day,
-          window: `${inputs.startTime}-${inputs.endTime}`,
-        },
-      );
-      return NextResponse.json(composeFailure("proximity"), { status: 422 });
+      return respondComposeFailure("proximity", "add-stop", inputs, {
+        userId,
+        distinctId,
+        sessionId,
+      });
     }
 
     // End-time fit invariant: the extended itinerary's projected
@@ -206,19 +190,11 @@ export async function POST(request: Request) {
       { venue: best, role: extendedRole },
     ];
     if (!itineraryFits(extendedForFit, inputs.startTime, inputs.endTime)) {
-      void trackServer(
-        "compose_failed",
-        { userId, distinctId, sessionId },
-        {
-          endpoint: "add-stop",
-          zeroing_stage: "fit",
-          group: inputs.neighborhoods?.[0] ?? null,
-          tier: inputs.budget,
-          day: inputs.day,
-          window: `${inputs.startTime}-${inputs.endTime}`,
-        },
-      );
-      return NextResponse.json(composeFailure("fit"), { status: 422 });
+      return respondComposeFailure("fit", "add-stop", inputs, {
+        userId,
+        distinctId,
+        sessionId,
+      });
     }
 
     const planB = scored.find((v) => v.id !== best.id) ?? null;
@@ -276,10 +252,17 @@ export async function POST(request: Request) {
       estimated_total,
     });
   } catch (error) {
+    // *_errored: 500-class system failure (the 422 *_failed branches
+    // above are expected user-shape rejects). Added 2026-06-11 —
+    // add-stop previously had no analytics analogue for catch-class
+    // failures.
     console.error("Add-stop error:", error);
-    return NextResponse.json(
-      { error: "Failed to add stop" },
-      { status: 500 }
+    return respondComposeErrored(
+      error,
+      "add-stop",
+      analyticsInputs,
+      { userId: analyticsUserId, distinctId, sessionId },
+      Math.round(performance.now() - addStartMs),
     );
   }
 }

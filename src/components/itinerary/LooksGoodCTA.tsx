@@ -20,7 +20,12 @@ import { useCallback, useRef, useState } from "react";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { useToast } from "@/components/ui/Toast";
 import { useEngagement } from "@/components/itinerary/EngagementProvider";
-import { incrementPersonProperty } from "@/lib/analytics";
+import {
+  EVENTS,
+  buildComposeContext,
+  incrementPersonProperty,
+  track,
+} from "@/lib/analytics";
 import { saveItineraryToSupabase } from "@/lib/itinerary/save";
 import { ConfirmModal } from "@/components/itinerary/ConfirmModal";
 import type { ItineraryResponse } from "@/types";
@@ -50,7 +55,7 @@ export function LooksGoodCTA({
 }: LooksGoodCTAProps) {
   const { user } = useAuth();
   const toast = useToast();
-  const { trackEngagement } = useEngagement();
+  const { incrementEngagement } = useEngagement();
 
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [savedItineraryId, setSavedItineraryId] = useState<string | null>(
@@ -81,6 +86,16 @@ export function LooksGoodCTA({
         const payload = (await res.json()) as { id: string; url: string };
         setShareUrl(payload.url);
         shareInflightRef.current = null;
+        // share_link_generated: the moment a share record exists on the
+        // server. Fires before the user has visibly done anything with
+        // it — share_link_copied is the downstream "they actually used
+        // it" event. surface is fresh / saved per the embedded surface
+        // prop (audit spec).
+        track(EVENTS.SHARE_LINK_GENERATED, {
+          itinerary_id: initialSavedId ?? savedItineraryId ?? null,
+          share_id: payload.id,
+          surface,
+        });
         return payload.url;
       })
       .catch(() => {
@@ -89,7 +104,7 @@ export function LooksGoodCTA({
       });
     shareInflightRef.current = promise;
     return promise;
-  }, [shareUrl, itinerary]);
+  }, [shareUrl, itinerary, initialSavedId, savedItineraryId, surface]);
 
   const handleClick = async () => {
     if (saveState === "saving") return;
@@ -114,15 +129,17 @@ export function LooksGoodCTA({
     try {
       const id = await saveItineraryToSupabase(itinerary, user.id);
       setSavedItineraryId(id);
-      trackEngagement("itinerary_saved", {
+      // Direct track() (not trackEngagement) so the freshly-minted
+      // saved-itinerary id rides as itinerary_id. The EngagementProvider
+      // is mounted with itineraryId=null on the fresh surface — its
+      // auto-injection would shadow the just-saved id. Still bumps the
+      // engagement counter manually so dwell math stays correct.
+      track(EVENTS.ITINERARY_SAVED, {
+        ...buildComposeContext(itinerary.inputs),
         itinerary_id: id,
-        occasion: itinerary.inputs.occasion,
-        neighborhoods: itinerary.inputs.neighborhoods,
-        budget: itinerary.inputs.budget,
-        vibe: itinerary.inputs.vibe,
-        start_time: itinerary.inputs.startTime,
         stop_count: itinerary.stops.length,
       });
+      incrementEngagement();
       incrementPersonProperty("total_itineraries_saved", 1);
       // Prefetch share URL in parallel with modal open — the rich
       // description footer needs it.

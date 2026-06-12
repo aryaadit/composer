@@ -18,7 +18,7 @@ import { useRef, useState } from "react";
 // without violating the react-hooks/purity rule on useRef arg evaluation)
 import { motion, AnimatePresence } from "motion/react";
 import { useRouter } from "next/navigation";
-import { track } from "@/lib/analytics";
+import { EVENTS, track } from "@/lib/analytics";
 import { Button } from "@/components/ui/Button";
 import { upsertProfile } from "@/lib/auth";
 import { useAuth } from "@/components/providers/AuthProvider";
@@ -99,7 +99,7 @@ export function OnboardingFlow() {
     try {
       const saved = await upsertProfile(user.id, prefs);
       if (saved) {
-        track("onboarding_completed", {
+        track(EVENTS.ONBOARDING_COMPLETED, {
           has_drinks_pref: !!prefs.drinks,
           has_dietary_pref: (prefs.dietary?.length ?? 0) > 0,
           time_to_complete_ms: Math.round(performance.now() - startMs),

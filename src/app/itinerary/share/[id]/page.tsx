@@ -8,7 +8,7 @@
 import { use, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { getSupabase } from "@/lib/supabase";
-import { track } from "@/lib/analytics";
+import { track, EVENTS } from "@/lib/analytics";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { CompositionHeader } from "@/components/itinerary/CompositionHeader";
 import { ItineraryView } from "@/components/itinerary/ItineraryView";
@@ -45,8 +45,8 @@ export default function SharedItineraryPage({
   useEffect(() => {
     if (state.status === "loading" || visitedFiredRef.current) return;
     visitedFiredRef.current = true;
-    track("share_link_visited", {
-      itinerary_id: id,
+    track(EVENTS.SHARE_LINK_VISITED, {
+      share_id: id,
       is_authenticated: !!user,
       is_owner: false,
       found: state.status === "found",
@@ -58,7 +58,7 @@ export default function SharedItineraryPage({
   useEffect(() => {
     if (state.status !== "found" || viewedFiredRef.current) return;
     viewedFiredRef.current = true;
-    track("itinerary_viewed", {
+    track(EVENTS.ITINERARY_VIEWED, {
       source: "share",
       itinerary_id: id,
       is_past: isPastDate(state.itinerary.inputs?.day),
@@ -110,7 +110,11 @@ export default function SharedItineraryPage({
   const { itinerary } = state;
   const isPast = isPastDate(itinerary.inputs?.day);
   return (
-    <ItineraryEngagementProvider source="share" itineraryId={id}>
+    <ItineraryEngagementProvider
+      source="share"
+      itineraryId={id}
+      composeInputs={itinerary.inputs ?? null}
+    >
       <main className="flex flex-1 flex-col items-center min-h-screen pb-8">
         <Header />
         <div className="w-full px-6 mt-6 flex flex-col items-center">
@@ -156,7 +160,7 @@ function ShareFooter({
           target="_blank"
           rel="noopener noreferrer"
           onClick={() =>
-            trackEngagement("maps_opened", {
+            trackEngagement(EVENTS.DIRECTIONS_OPENED, {
               surface: "multi_stop_cta",
               stop_count: stopCount,
             })

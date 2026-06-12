@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect } from "vitest";
 import {
   buildShownProps,
   buildSkippedProps,
@@ -89,6 +89,8 @@ describe("buildSwapReasonEventProps", () => {
         surface: "fresh_itinerary",
       }),
     );
+    // Vibe no longer travels here — it's injected by the EngagementProvider
+    // as part of ComposeContext at the trackEngagement passthrough point.
     expect(props).toEqual({
       stop_index: 1,
       stop_role: "main",
@@ -97,104 +99,98 @@ describe("buildSwapReasonEventProps", () => {
       new_venue_id: "n1",
       new_venue_name: "Newer",
       surface: "fresh_itinerary",
-      vibe: "drinks_led",
     });
   });
 });
 
 describe("buildShownProps / buildSkippedProps", () => {
-  it("attach reason: null and reason_text: null for schema uniformity", () => {
+  it("returns the base swap-reason event props (no reason / reason_text)", () => {
+    // Renamed 2026-06-11: legacy shape carried reason: null + reason_text:
+    // null on shown/skipped for "schema uniformity"; the new schema drops
+    // those fields from non-submitted events because they're meaningless
+    // there. Asserting their ABSENCE keeps the payload tight.
     const c = ctx();
     const shown = buildShownProps(c);
     const skipped = buildSkippedProps(c);
-    expect(shown.reason).toBeNull();
-    expect(shown.reason_text).toBeNull();
-    expect(skipped.reason).toBeNull();
-    expect(skipped.reason_text).toBeNull();
+    expect(shown).not.toHaveProperty("reason");
+    expect(shown).not.toHaveProperty("reason_text");
+    expect(skipped).not.toHaveProperty("reason");
+    expect(skipped).not.toHaveProperty("reason_text");
   });
 
-  it("shown and skipped carry the same base props (reason taxonomy is uniform)", () => {
+  it("shown and skipped carry the same base props", () => {
     const c = ctx();
     expect(buildShownProps(c)).toEqual(buildSkippedProps(c));
   });
 });
 
 describe("buildSubmittedProps", () => {
-  it("attaches reason, reason_text, and time_to_decision_ms", () => {
-    const props = buildSubmittedProps(ctx(), "wrong_vibe", null, 4321);
-    expect(props.reason).toBe("wrong_vibe");
-    expect(props.reason_text).toBeNull();
-    expect(props.time_to_decision_ms).toBe(4321);
+  it("splits payload into PostHog props and Supabase-mirror-only reason_text", () => {
+    const result = buildSubmittedProps(ctx(), "wrong_vibe", null, 4321);
+    expect(result.props.reason).toBe("wrong_vibe");
+    expect(result.props.time_to_decision_ms).toBe(4321);
+    // PII split: reason_text lives ONLY on mirrorOnlyProps — PostHog never
+    // sees free-text. See EngagementProvider.tsx + analytics.ts mirror
+    // contract.
+    expect(result.props).not.toHaveProperty("reason_text");
+    expect(result.mirrorOnlyProps.reason_text).toBeNull();
   });
 
-  it("preserves reason_text when free-text was provided", () => {
-    const props = buildSubmittedProps(
+  it("preserves reason_text on mirrorOnlyProps when free-text was provided", () => {
+    const result = buildSubmittedProps(
       ctx(),
       "other",
       "the photos look weird",
       2200,
     );
-    expect(props.reason).toBe("other");
-    expect(props.reason_text).toBe("the photos look weird");
+    expect(result.props.reason).toBe("other");
+    expect(result.mirrorOnlyProps.reason_text).toBe("the photos look weird");
   });
 
   it("carries the same base properties as shown/skipped", () => {
     const c = ctx();
     const submitted = buildSubmittedProps(c, "wrong_vibe", null, 1000);
     const shown = buildShownProps(c);
-    expect(submitted.stop_index).toBe(shown.stop_index);
-    expect(submitted.original_venue_id).toBe(shown.original_venue_id);
-    expect(submitted.surface).toBe(shown.surface);
+    expect(submitted.props.stop_index).toBe(shown.stop_index);
+    expect(submitted.props.original_venue_id).toBe(shown.original_venue_id);
+    expect(submitted.props.surface).toBe(shown.surface);
   });
 });
 
 describe("handleNextSwapContext", () => {
-  it("fires only shown when no previous context exists (fresh first swap)", () => {
-    const emit = vi.fn();
+  it("returns only a shown event when no previous context exists", () => {
     const c = ctx();
-    const result = handleNextSwapContext(null, c, 1_000, emit);
+    const { nextState, events } = handleNextSwapContext(null, c, 1_000);
 
-    expect(emit).toHaveBeenCalledTimes(1);
-    expect(emit).toHaveBeenCalledWith(
-      "stop_swap_reason_shown",
-      expect.objectContaining({
-        stop_index: c.stopIndex,
-        original_venue_id: c.originalVenue.id,
-        reason: null,
-        reason_text: null,
-      }),
-    );
-    expect(result.swapContext).toBe(c);
-    expect(result.shownAt).toBe(1_000);
+    expect(events).toHaveLength(1);
+    expect(events[0].event).toBe("swap_reason_shown");
+    expect(events[0].props).toMatchObject({
+      stop_index: c.stopIndex,
+      original_venue_id: c.originalVenue.id,
+    });
+    expect(nextState.swapContext).toBe(c);
+    expect(nextState.shownAt).toBe(1_000);
   });
 
-  it("rapid sequential swap: fires implicit skipped for prev THEN shown for next", () => {
-    const emit = vi.fn();
+  it("rapid sequential swap: returns implicit skipped for prev THEN shown for next, in order", () => {
     const first = ctx({ stopIndex: 0, originalVenue: v("o1", "First") });
     const second = ctx({ stopIndex: 1, originalVenue: v("o2", "Second") });
     const prev: SwapReasonContext = { swapContext: first, shownAt: 1_000 };
 
-    const result = handleNextSwapContext(prev, second, 5_000, emit);
+    const { nextState, events } = handleNextSwapContext(prev, second, 5_000);
 
-    expect(emit).toHaveBeenCalledTimes(2);
-    // Skip first — fires BEFORE shown for the second, in that order.
-    expect(emit).toHaveBeenNthCalledWith(
-      1,
-      "stop_swap_reason_skipped",
-      expect.objectContaining({ original_venue_id: "o1" }),
-    );
-    expect(emit).toHaveBeenNthCalledWith(
-      2,
-      "stop_swap_reason_shown",
-      expect.objectContaining({ original_venue_id: "o2" }),
-    );
-    // New context replaces the old one.
-    expect(result.swapContext).toBe(second);
-    expect(result.shownAt).toBe(5_000);
+    expect(events).toHaveLength(2);
+    // Skip first — comes BEFORE shown for the second, in that order, so
+    // the caller's drain loop emits them in funnel-correct sequence.
+    expect(events[0].event).toBe("swap_reason_skipped");
+    expect(events[0].props).toMatchObject({ original_venue_id: "o1" });
+    expect(events[1].event).toBe("swap_reason_shown");
+    expect(events[1].props).toMatchObject({ original_venue_id: "o2" });
+    expect(nextState.swapContext).toBe(second);
+    expect(nextState.shownAt).toBe(5_000);
   });
 
   it("implicit skipped carries the prev context's properties, not the next's", () => {
-    const emit = vi.fn();
     const first = ctx({
       stopIndex: 0,
       stopRole: "opener",
@@ -209,12 +205,10 @@ describe("handleNextSwapContext", () => {
     });
     const prev: SwapReasonContext = { swapContext: first, shownAt: 1_000 };
 
-    handleNextSwapContext(prev, second, 5_000, emit);
+    const { events } = handleNextSwapContext(prev, second, 5_000);
 
-    const skippedCall = emit.mock.calls.find(
-      ([name]) => name === "stop_swap_reason_skipped",
-    );
-    expect(skippedCall![1]).toMatchObject({
+    const skipped = events.find((e) => e.event === "swap_reason_skipped");
+    expect(skipped?.props).toMatchObject({
       stop_index: 0,
       stop_role: "opener",
       original_venue_id: "orig-prev",
@@ -222,32 +216,32 @@ describe("handleNextSwapContext", () => {
     });
   });
 
-  it("three rapid swaps: each new arrival fires implicit skip for the one before", () => {
-    const emit = vi.fn();
+  it("three rapid swaps: each new arrival queues implicit skip for the one before", () => {
     const a = ctx({ stopIndex: 0, originalVenue: v("a-orig", "A") });
     const b = ctx({ stopIndex: 1, originalVenue: v("b-orig", "B") });
     const c = ctx({ stopIndex: 0, originalVenue: v("c-orig", "C") });
 
-    const r1 = handleNextSwapContext(null, a, 1_000, emit);
-    const r2 = handleNextSwapContext(r1, b, 2_000, emit);
-    const r3 = handleNextSwapContext(r2, c, 3_000, emit);
+    const r1 = handleNextSwapContext(null, a, 1_000);
+    const r2 = handleNextSwapContext(r1.nextState, b, 2_000);
+    const r3 = handleNextSwapContext(r2.nextState, c, 3_000);
 
-    // Expected event sequence:
-    //   shown(a), skipped(a), shown(b), skipped(b), shown(c)
-    expect(emit).toHaveBeenCalledTimes(5);
-    expect(emit.mock.calls[0][0]).toBe("stop_swap_reason_shown");
-    expect(emit.mock.calls[0][1]).toMatchObject({ original_venue_id: "a-orig" });
-    expect(emit.mock.calls[1][0]).toBe("stop_swap_reason_skipped");
-    expect(emit.mock.calls[1][1]).toMatchObject({ original_venue_id: "a-orig" });
-    expect(emit.mock.calls[2][0]).toBe("stop_swap_reason_shown");
-    expect(emit.mock.calls[2][1]).toMatchObject({ original_venue_id: "b-orig" });
-    expect(emit.mock.calls[3][0]).toBe("stop_swap_reason_skipped");
-    expect(emit.mock.calls[3][1]).toMatchObject({ original_venue_id: "b-orig" });
-    expect(emit.mock.calls[4][0]).toBe("stop_swap_reason_shown");
-    expect(emit.mock.calls[4][1]).toMatchObject({ original_venue_id: "c-orig" });
+    // Expected event sequence when each transition's events are drained
+    // in order: shown(a), skipped(a) + shown(b), skipped(b) + shown(c)
+    const flat = [...r1.events, ...r2.events, ...r3.events];
+    expect(flat).toHaveLength(5);
+    expect(flat[0].event).toBe("swap_reason_shown");
+    expect(flat[0].props).toMatchObject({ original_venue_id: "a-orig" });
+    expect(flat[1].event).toBe("swap_reason_skipped");
+    expect(flat[1].props).toMatchObject({ original_venue_id: "a-orig" });
+    expect(flat[2].event).toBe("swap_reason_shown");
+    expect(flat[2].props).toMatchObject({ original_venue_id: "b-orig" });
+    expect(flat[3].event).toBe("swap_reason_skipped");
+    expect(flat[3].props).toMatchObject({ original_venue_id: "b-orig" });
+    expect(flat[4].event).toBe("swap_reason_shown");
+    expect(flat[4].props).toMatchObject({ original_venue_id: "c-orig" });
 
-    expect(r3.swapContext).toBe(c);
-    expect(r3.shownAt).toBe(3_000);
+    expect(r3.nextState.swapContext).toBe(c);
+    expect(r3.nextState.shownAt).toBe(3_000);
   });
 
   it("computed time_to_decision_ms (submitted) is positive given monotonic now", () => {
@@ -257,8 +251,8 @@ describe("handleNextSwapContext", () => {
     const shownAt = 1_000;
     const submitAt = 1_750;
     const timeToDecision = submitAt - shownAt;
-    const props = buildSubmittedProps(ctx(), "wrong_vibe", null, timeToDecision);
-    expect(props.time_to_decision_ms).toBe(750);
-    expect(props.time_to_decision_ms).toBeGreaterThan(0);
+    const result = buildSubmittedProps(ctx(), "wrong_vibe", null, timeToDecision);
+    expect(result.props.time_to_decision_ms).toBe(750);
+    expect(result.props.time_to_decision_ms).toBeGreaterThan(0);
   });
 });

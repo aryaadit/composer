@@ -21,6 +21,12 @@ interface TrackRequestBody {
 }
 
 export async function POST(req: Request) {
+  // Production-only gate (parity with the client wrapper). Non-prod
+  // deploys quietly accept the POST without writing — we don't want
+  // preview / dev pollution in the production mirror.
+  if (process.env.VERCEL_ENV !== "production") {
+    return NextResponse.json({ ok: true, skipped: "non_production_env" });
+  }
   try {
     const body = (await req.json()) as TrackRequestBody;
     const { event_name, properties, distinct_id, session_id } = body;

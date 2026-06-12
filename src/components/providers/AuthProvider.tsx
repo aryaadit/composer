@@ -15,9 +15,12 @@
 //   - posthog.identify on first session resolve. Per founder spec we
 //     do NOT push email / phone / name to the PostHog person — only
 //     signup_at and signup_source (best-effort), via $set_once.
-//   - user_signed_in / user_signed_up fire on actual SIGNED_IN auth
-//     events (not on cookie-hydrated INITIAL_SESSION). New vs returning
-//     is decided by created_at freshness (< 60s = new signup).
+//   - user_signed_in / user_signed_up are emitted at the action sites
+//     in `@/lib/auth` (verifyPhoneOtp, signInOrSignUp), NOT here. The
+//     SIGNED_IN listener over-fires on supabase-js 2.102.1 — every tab
+//     refocus / token refresh re-emits SIGNED_IN — so wiring funnel
+//     events to it inflated the auth funnel. Action-site emission
+//     fires exactly once per actual user action.
 //   - user_signed_out fires from the explicit signOut() callback BEFORE
 //     posthog.reset() so the event is still associated with the user.
 
@@ -31,10 +34,10 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import type { AuthChangeEvent, Session, User } from "@supabase/supabase-js";
+import type { Session, User } from "@supabase/supabase-js";
 import posthog from "posthog-js";
 import { getBrowserSupabase } from "@/lib/supabase/browser";
-import { track } from "@/lib/analytics";
+import { track, EVENTS } from "@/lib/analytics";
 import { checkAndEmitIfStale } from "@/lib/analytics/compose-abandoned";
 import {
   getProfile,
@@ -57,15 +60,6 @@ interface AuthContextValue {
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
-
-const SIGNUP_FRESHNESS_MS = 60_000;
-
-function isFreshUser(createdAt: string | undefined): boolean {
-  if (!createdAt) return false;
-  const created = new Date(createdAt).getTime();
-  if (Number.isNaN(created)) return false;
-  return Date.now() - created < SIGNUP_FRESHNESS_MS;
-}
 
 function deriveSignupSource(): string {
   if (typeof window === "undefined") return "direct";
@@ -96,45 +90,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // setPersonProperties payload.
   const identifiedUserRef = useRef<string | null>(null);
 
-  const applySession = useCallback(
-    async (s: Session | null, event?: AuthChangeEvent) => {
-      setSession(s);
-      setUser(s?.user ?? null);
+  const applySession = useCallback(async (s: Session | null) => {
+    setSession(s);
+    setUser(s?.user ?? null);
 
-      if (!s?.user) {
-        setProfile(null);
-        setIsLoading(false);
-        return;
-      }
-
-      // Profile may not yet exist (user just signed up, hasn't completed
-      // onboarding). That's fine — routing pushes them to /onboarding
-      // where the upsert happens. Null here is not an error state.
-      const existing = await getProfile(s.user.id);
-      setProfile(existing);
+    if (!s?.user) {
+      setProfile(null);
       setIsLoading(false);
+      return;
+    }
 
-      // Identify once per lifecycle. Third arg is $set_once — only
-      // written the first time we identify this distinct_id, so we
-      // don't overwrite signup_source on returning sessions.
-      if (identifiedUserRef.current !== s.user.id) {
-        identifiedUserRef.current = s.user.id;
-        posthog.identify(s.user.id, undefined, {
-          signup_at: s.user.created_at,
-          signup_source: deriveSignupSource(),
-        });
-      }
+    // Profile may not yet exist (user just signed up, hasn't completed
+    // onboarding). That's fine — routing pushes them to /onboarding
+    // where the upsert happens. Null here is not an error state.
+    const existing = await getProfile(s.user.id);
+    setProfile(existing);
+    setIsLoading(false);
 
-      // Lifecycle event — only on actual SIGNED_IN (not on the cookie-
-      // hydrated INITIAL_SESSION that fires for already-signed-in users
-      // returning to the app).
-      if (event === "SIGNED_IN") {
-        const isSignup = isFreshUser(s.user.created_at);
-        track(isSignup ? "user_signed_up" : "user_signed_in", {});
-      }
-    },
-    []
-  );
+    // Identify once per lifecycle. Third arg is $set_once — only
+    // written the first time we identify this distinct_id, so we
+    // don't overwrite signup_source on returning sessions.
+    if (identifiedUserRef.current !== s.user.id) {
+      identifiedUserRef.current = s.user.id;
+      posthog.identify(s.user.id, undefined, {
+        signup_at: s.user.created_at,
+        signup_source: deriveSignupSource(),
+      });
+    }
+  }, []);
 
   // App-boot stale-flag check. If a previous compose flow was abandoned
   // (flag set on compose_started, never cleared), fire compose_abandoned
@@ -161,9 +144,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (!cancelled) setIsLoading(false);
       });
 
-    // Subscribe to future auth events (SIGNED_IN, SIGNED_OUT, refresh).
-    const sub = onAuthStateChange((event, s) => {
-      void applySession(s, event);
+    // Subscribe to future auth events. Listener now only re-syncs React
+    // state (session / user / profile) and refreshes the PostHog
+    // identify. Lifecycle funnel events live at the action sites in
+    // `@/lib/auth` — see this file's top-comment.
+    const sub = onAuthStateChange((_event, s) => {
+      void applySession(s);
     });
 
     return () => {
@@ -181,7 +167,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = useCallback(async () => {
     // Fire BEFORE reset() so the event is still associated with the
     // outgoing user (reset clears the distinct_id).
-    track("user_signed_out", {});
+    track(EVENTS.USER_SIGNED_OUT, {});
     await libSignOut();
     posthog.reset();
     identifiedUserRef.current = null;

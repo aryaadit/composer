@@ -6,6 +6,25 @@
 // modal still open" race.
 
 import type { SwapContext } from "@/hooks/useSwapStop";
+import type { EventName, EventSchemas } from "@/lib/analytics";
+
+/** Compose context + itinerary_id + first-engagement timing are injected
+ *  by EngagementProvider's trackEngagement at the single passthrough
+ *  point. These builders return only the event-specific fields the
+ *  caller has to supply — Omit-aligned with EngagementProvider's
+ *  EngagementProps shape. */
+type EventSpecificProps<E extends EventName> = Omit<
+  EventSchemas[E],
+  | "occasion"
+  | "vibe"
+  | "budget"
+  | "group_ids"
+  | "day"
+  | "start_time"
+  | "end_time"
+  | "itinerary_id"
+  | "time_to_first_engagement_ms"
+>;
 
 /**
  * Per-shown swap-reason state. `shownAt` is captured at the moment
@@ -18,8 +37,10 @@ export interface SwapReasonContext {
 }
 
 /**
- * Common property bag shared by all three swap-reason events.
- * Snake-case to match the rest of the analytics taxonomy.
+ * Common property bag shared by all three swap-reason events. Vibe
+ * used to live here as an explicit field; it now travels via the
+ * EngagementProvider-injected ComposeContext, so the builders no
+ * longer surface it directly.
  */
 export interface SwapReasonEventProps {
   stop_index: number;
@@ -29,7 +50,6 @@ export interface SwapReasonEventProps {
   new_venue_id: string;
   new_venue_name: string;
   surface: string;
-  vibe: string;
 }
 
 export function buildSwapReasonEventProps(
@@ -43,73 +63,93 @@ export function buildSwapReasonEventProps(
     new_venue_id: ctx.newVenue.id,
     new_venue_name: ctx.newVenue.name,
     surface: ctx.surface,
-    vibe: ctx.vibe,
   };
 }
 
-/**
- * Compose the full property bag for `stop_swap_reason_shown` and
- * `stop_swap_reason_skipped`. Per locked decision 4: reason and
- * reason_text are present on every event for schema uniformity, null
- * on shown/skipped.
- */
-export function buildShownProps(ctx: SwapContext): Record<string, unknown> {
-  return {
-    ...buildSwapReasonEventProps(ctx),
-    reason: null,
-    reason_text: null,
-  };
+export function buildShownProps(
+  ctx: SwapContext,
+): EventSpecificProps<"swap_reason_shown"> {
+  return buildSwapReasonEventProps(ctx);
 }
 
-export function buildSkippedProps(ctx: SwapContext): Record<string, unknown> {
-  // Same shape as shown — reason taxonomy is uniform across all three.
-  return buildShownProps(ctx);
+export function buildSkippedProps(
+  ctx: SwapContext,
+): EventSpecificProps<"swap_reason_skipped"> {
+  return buildSwapReasonEventProps(ctx);
 }
 
-/**
- * Compose the full property bag for `stop_swap_reason_submitted`.
- * Adds reason, reason_text, and time_to_decision_ms (ms from modal
- * open to submit).
- */
+/** PII split. `reason` (the taxonomy slug — "wrong_vibe", "too_far",
+ * etc.) is fine for PostHog. `reason_text` (free-text "other" input)
+ * is mirror-only — see EngagementProvider's `opts.mirrorOnlyProps`. */
+export interface SubmittedBuildResult {
+  props: EventSpecificProps<"swap_reason_submitted">;
+  mirrorOnlyProps: { reason_text: string | null };
+}
+
 export function buildSubmittedProps(
   ctx: SwapContext,
   reason: string,
   reasonText: string | null,
   timeToDecisionMs: number,
-): Record<string, unknown> {
+): SubmittedBuildResult {
   return {
-    ...buildSwapReasonEventProps(ctx),
-    reason,
-    reason_text: reasonText,
-    time_to_decision_ms: timeToDecisionMs,
+    props: {
+      ...buildSwapReasonEventProps(ctx),
+      reason,
+      time_to_decision_ms: timeToDecisionMs,
+    },
+    mirrorOnlyProps: { reason_text: reasonText },
   };
 }
 
-/**
- * Type alias for the analytics emit function this module orchestrates
- * against. Matches the shape of `track()` in src/lib/analytics.ts.
- */
-type EmitFn = (eventName: string, props: Record<string, unknown>) => void;
+/** One event to emit, paired with the typed event name the caller
+ *  should pass through trackEngagement. The discriminator + props
+ *  shape lets the caller fan out without re-deriving anything. */
+export type SwapReasonEmit =
+  | {
+      event: "swap_reason_shown";
+      props: EventSpecificProps<"swap_reason_shown">;
+    }
+  | {
+      event: "swap_reason_skipped";
+      props: EventSpecificProps<"swap_reason_skipped">;
+    };
+
+export interface SwapReasonTransition {
+  nextState: SwapReasonContext;
+  /** Emit each in order. Caller wires them to EngagementProvider's
+   *  trackEngagement so ComposeContext + itinerary_id are auto-injected. */
+  events: SwapReasonEmit[];
+}
 
 /**
  * Compute the next swap-reason state when a new swap completes.
  *
  * Rapid-sequence path: if a previous swap-reason context is still
- * open when a new swap arrives, fire an implicit `stop_swap_reason_skipped`
- * for the previous one BEFORE replacing it with the new context. Then
- * fire `stop_swap_reason_shown` for the new context.
- *
- * Returns the new SwapReasonContext (caller stores it in state).
+ * open when a new swap arrives, queue an implicit `swap_reason_skipped`
+ * for the previous one BEFORE the new context's `swap_reason_shown`.
+ * Returns both the next state and the ordered events the caller
+ * should emit; this keeps the helper pure (no React, no analytics
+ * coupling) so tests can assert against the returned shape directly.
  */
 export function handleNextSwapContext(
   prev: SwapReasonContext | null,
   next: SwapContext,
   now: number,
-  emit: EmitFn,
-): SwapReasonContext {
+): SwapReasonTransition {
+  const events: SwapReasonEmit[] = [];
   if (prev) {
-    emit("stop_swap_reason_skipped", buildSkippedProps(prev.swapContext));
+    events.push({
+      event: "swap_reason_skipped",
+      props: buildSkippedProps(prev.swapContext),
+    });
   }
-  emit("stop_swap_reason_shown", buildShownProps(next));
-  return { swapContext: next, shownAt: now };
+  events.push({
+    event: "swap_reason_shown",
+    props: buildShownProps(next),
+  });
+  return {
+    nextState: { swapContext: next, shownAt: now },
+    events,
+  };
 }

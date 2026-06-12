@@ -21,6 +21,11 @@ interface StandardStepProps {
    * disabled cards. Single owner across the call site so the wording
    * doesn't drift. */
   disabledNote?: string;
+  /** Called when a disabled option is tapped. Used by the budget step
+   *  to fire `budget_tier_disabled_tapped` analytics — letting the
+   *  picker surface unmet capacity is itself a signal we want to
+   *  observe (does the dim copy land? do users persist?). */
+  onDisabledClick?: (value: string) => void;
 }
 
 export function StandardStep({
@@ -29,6 +34,7 @@ export function StandardStep({
   onSelect,
   disabledValues,
   disabledNote,
+  onDisabledClick,
 }: StandardStepProps) {
   return (
     <div className="flex flex-col gap-2">
@@ -41,7 +47,10 @@ export function StandardStep({
             description={option.description}
             selected={selectedValue === option.value}
             onClick={() => {
-              if (isDisabled) return;
+              if (isDisabled) {
+                onDisabledClick?.(option.value);
+                return;
+              }
               onSelect(option.value);
             }}
             index={i}

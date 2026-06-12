@@ -28,10 +28,17 @@ import {
 import { STORAGE_KEYS } from "@/config/storage";
 import { getRecentVenueIds } from "@/lib/exclusions";
 import { useAuth } from "@/components/providers/AuthProvider";
-import { track, getAnalyticsHeaders } from "@/lib/analytics";
+import {
+  EVENTS,
+  buildComposeContext,
+  getAnalyticsHeaders,
+  track,
+} from "@/lib/analytics";
 import {
   checkAndEmitIfStale,
   clearComposeAbandonedFlag,
+  clearComposeEntryToken,
+  markComposeEntry,
   setComposeAbandonedFlag,
   updateLastStepCompleted,
 } from "@/lib/analytics/compose-abandoned";
@@ -89,7 +96,14 @@ export function QuestionnaireShell() {
   // time_on_step_ms accurately.
   const stepStartMsRef = useRef<number>(0);
   useEffect(() => {
-    // First mount: fire compose_started + initialize timer for step 1.
+    // First mount per /compose entry: fire compose_started + initialize
+    // timer for step 1. `markComposeEntry` is the dedupe gate — it
+    // returns false on remounts within the same entry (React StrictMode
+    // double-mount in dev, or any in-place rerender), so the
+    // compose_started → setComposeAbandonedFlag → stepStartMsRef branch
+    // only runs once. A genuine re-entry after submit / abandon-drain
+    // finds no token and returns true.
+    //
     // Strict order is drain → set → fire so the abandonment flag is
     // already in place by the time compose_started lands in PostHog,
     // and so a stale flag (from a same-tab "abandon → restart" sequence)
@@ -99,18 +113,20 @@ export function QuestionnaireShell() {
     // the flag we just set on the same commit (children-first effect
     // ordering means AuthProvider's check fires microseconds later).
     checkAndEmitIfStale(track);
+    if (!markComposeEntry()) return;
     setComposeAbandonedFlag();
     stepStartMsRef.current = performance.now();
-    track("compose_started", { entry_source: deriveEntrySource() });
+    track(EVENTS.COMPOSE_STARTED, { entry_source: deriveEntrySource() });
   }, []);
 
   const trackStepCompleted = useCallback(
-    (stepId: string, stepValue: unknown) => {
+    (stepId: string, stepValue: string | string[] | null) => {
       const now = performance.now();
       const label = STEP_ANALYTICS_LABEL[stepId] ?? stepId;
       const index =
         questionSteps.findIndex((s) => s.id === stepId) + 1; // 1-indexed
-      track("compose_step_completed", {
+      track(EVENTS.COMPOSE_STEP_COMPLETED, {
+        ...buildComposeContext(state.answers),
         step: label,
         step_value: stepValue,
         step_index: index,
@@ -119,7 +135,7 @@ export function QuestionnaireShell() {
       updateLastStepCompleted(label);
       stepStartMsRef.current = now;
     },
-    []
+    [state.answers]
   );
 
   const submitAnswers = useCallback(
@@ -134,13 +150,8 @@ export function QuestionnaireShell() {
         ? await getRecentVenueIds(user.id)
         : [];
 
-      track("compose_submitted", {
-        occasion: body.occasion,
-        neighborhoods: body.neighborhoods,
-        budget: body.budget,
-        vibe: body.vibe,
-        start_time: body.startTime,
-        day: body.day,
+      track(EVENTS.COMPOSE_SUBMITTED, {
+        ...buildComposeContext(body),
         day_of_week: dayOfWeekFromISO(body.day),
       });
 
@@ -152,10 +163,13 @@ export function QuestionnaireShell() {
         });
         if (!res.ok) throw new Error("Generation failed");
         const data = await res.json();
-        // Compose flow succeeded — clear the abandonment flag before
-        // navigating so we don't fire compose_abandoned on next boot.
-        // Done on the client because itinerary_generated is server-side.
+        // Compose flow succeeded — clear the abandonment flag AND the
+        // entry token before navigating so we don't fire
+        // compose_abandoned on next boot, and so the next /compose
+        // navigation counts as a fresh entry (fires compose_started).
+        // Done on the client because itinerary_composed is server-side.
         clearComposeAbandonedFlag();
+        clearComposeEntryToken();
         sessionStorage.setItem(
           STORAGE_KEYS.session.currentItinerary,
           JSON.stringify(data)
@@ -190,7 +204,15 @@ export function QuestionnaireShell() {
     if (!currentStep) return;
     const value = state.answers[currentStep.id];
     if (!value) return;
-    trackStepCompleted(currentStep.id, value);
+    // Card steps (occasion / budget / vibe) hold a single slug; coerce
+    // to the typed step_value union the schema declares.
+    const normalized =
+      Array.isArray(value)
+        ? (value as string[])
+        : typeof value === "string"
+          ? value
+          : null;
+    trackStepCompleted(currentStep.id, normalized);
     dispatch({
       type: "SET_FIELD",
       field: currentStep.id,
@@ -338,6 +360,18 @@ export function QuestionnaireShell() {
                   }
                   disabledNote={
                     step.id === "budget" ? TIER_UNAVAILABLE_COPY : undefined
+                  }
+                  onDisabledClick={
+                    step.id === "budget"
+                      ? (value) =>
+                          track(EVENTS.BUDGET_TIER_DISABLED_TAPPED, {
+                            budget: value,
+                            group_ids: deriveGroupIds(
+                              state.answers.neighborhoods ?? [],
+                            ),
+                            step_index: state.currentStep + 1,
+                          })
+                      : undefined
                   }
                 />
               )}

@@ -18,6 +18,7 @@
 
 import { getBrowserSupabase } from "@/lib/supabase/browser";
 import { validateProfilePayload } from "@/lib/validation/profile";
+import { track, EVENTS } from "@/lib/analytics";
 import type {
   Session,
   User,
@@ -25,6 +26,45 @@ import type {
   Subscription,
 } from "@supabase/supabase-js";
 import type { ComposerUser, UserPrefs } from "@/types";
+
+/** Decide signup vs signin from Supabase's authoritative timestamps.
+ *
+ * Why this instead of `Date.now() - created_at < 60s`: the local clock
+ * is unreliable (browser back-dating, sleep/wake skew), and the 60-second
+ * heuristic mis-classified returning users who happened to load the app
+ * within 60s of their original signup. `created_at` and `last_sign_in_at`
+ * are both set by the Supabase server in the same transaction for a
+ * brand-new user, so they sit within a few ms of each other; for a
+ * returning user they're separated by however long it's been since
+ * the first signin. The 5s window is generous slack for round-trip /
+ * micro-tick differences and is far smaller than any plausible
+ * returning-user gap. */
+const SIGNUP_VS_SIGNIN_WINDOW_MS = 5_000;
+
+function isFreshSignup(user: User): boolean {
+  if (!user.last_sign_in_at || !user.created_at) return true;
+  const created = new Date(user.created_at).getTime();
+  const lastSignIn = new Date(user.last_sign_in_at).getTime();
+  if (Number.isNaN(created) || Number.isNaN(lastSignIn)) return true;
+  return Math.abs(lastSignIn - created) < SIGNUP_VS_SIGNIN_WINDOW_MS;
+}
+
+function deriveSignupSource(): string {
+  if (typeof window === "undefined") return "direct";
+  try {
+    const ref = new URL(window.location.href).searchParams.get("ref");
+    if (ref) return `ref_${ref}`;
+    const referrer = document.referrer;
+    if (!referrer) return "direct";
+    const url = new URL(referrer);
+    if (url.origin !== window.location.origin) return "external";
+    if (url.pathname.startsWith("/itinerary/share")) return "share_link";
+    if (url.pathname === "/" || url.pathname === "") return "home";
+    return "internal";
+  } catch {
+    return "direct";
+  }
+}
 
 /**
  * Minimum password length enforced by both the UI and this module.
@@ -141,6 +181,20 @@ export async function verifyPhoneOtp(
   });
   if (error) return { ok: false, error: error.message };
   if (!data.user) return { ok: false, error: "Verification returned no user." };
+
+  // Emit at the action site, not in the AuthProvider listener. The
+  // listener's SIGNED_IN fires on every tab refocus (supabase-js
+  // 2.102.1 emits SIGNED_IN on token-refresh too), which over-counted
+  // the funnel. Server-authoritative timestamps decide which side of
+  // the funnel this is.
+  if (isFreshSignup(data.user)) {
+    track(EVENTS.USER_SIGNED_UP, {
+      method: "phone",
+      signup_source: deriveSignupSource(),
+    });
+  } else {
+    track(EVENTS.USER_SIGNED_IN, { method: "phone" });
+  }
   return { ok: true, user: data.user };
 }
 
@@ -189,6 +243,8 @@ export async function signInOrSignUp(
     await supabase.auth.signInWithPassword({ email, password });
 
   if (!signInError && signInData.user) {
+    // Sign-in branch is locally known — no timestamp comparison needed.
+    track(EVENTS.USER_SIGNED_IN, { method: "password" });
     return { ok: true, user: signInData.user };
   }
 
@@ -206,6 +262,10 @@ export async function signInOrSignUp(
   if (!signUpData.user) {
     return { ok: false, error: "Sign up returned no user." };
   }
+  track(EVENTS.USER_SIGNED_UP, {
+    method: "password",
+    signup_source: deriveSignupSource(),
+  });
   return { ok: true, user: signUpData.user };
 }
 

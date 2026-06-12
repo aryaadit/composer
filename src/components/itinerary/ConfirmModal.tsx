@@ -11,7 +11,7 @@
 import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import type { ItineraryResponse } from "@/types";
-import { track } from "@/lib/analytics";
+import { EVENTS } from "@/lib/analytics";
 import { useEngagement } from "@/components/itinerary/EngagementProvider";
 import {
   buildGoogleCalendarUrl,
@@ -146,9 +146,12 @@ function ConfirmModalContent({
   const googleUrl = buildGoogleCalendarUrl(itinerary, shareUrl);
 
   const handleGoogleClick = () => {
-    track("itinerary_calendar_added", {
+    // Calendar adds are real engagements — funnel through trackEngagement
+    // so ComposeContext + itinerary_id auto-inject and the engagement
+    // counter ticks. (savedItineraryId still travels via the auto-
+    // injected itinerary_id since the provider was mounted with it.)
+    trackEngagement(EVENTS.CALENDAR_ADDED, {
       provider: "google",
-      itinerary_id: savedItineraryId,
       surface,
     });
     // Anchor handles the navigation — no preventDefault.
@@ -178,9 +181,8 @@ function ConfirmModalContent({
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(blobUrl);
-    track("itinerary_calendar_added", {
+    trackEngagement(EVENTS.CALENDAR_ADDED, {
       provider: "ics",
-      itinerary_id: savedItineraryId,
       surface,
     });
   };
@@ -192,9 +194,8 @@ function ConfirmModalContent({
       const url = ensureShareUrl ? await ensureShareUrl() : shareUrl;
       if (!url) throw new Error("no share url");
       await navigator.clipboard.writeText(url);
-      trackEngagement("share_link_copied", {
-        itinerary_id: savedItineraryId,
-        share_method: "confirm_modal",
+      trackEngagement(EVENTS.SHARE_LINK_COPIED, {
+        surface: "confirm_modal",
       });
       setCopyState("copied");
       setTimeout(() => setCopyState("idle"), 3000);

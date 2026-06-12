@@ -11,16 +11,26 @@ import { formatCategory } from "@/lib/format/category";
 import { getVenueImageUrls } from "@/lib/venues/images";
 import { detectBookingPlatform, isValidReservationUrl } from "@/lib/booking";
 import { useEngagement } from "@/components/itinerary/EngagementProvider";
+import { EVENTS } from "@/lib/analytics";
 
 interface VenueDetailModalProps {
   venue: Venue | null;
   /** Stop role passed through from ItineraryView so reservation /
    * maps events can attribute the click to its position in the night. */
   stopRole?: StopRole | null;
+  /** Optional stop index, threaded from ItineraryView so reservation
+   * events can attribute by stop position. Modal is open-able from a
+   * non-stop surface in some flows (none today, but reserved). */
+  stopIndex?: number;
   onClose: () => void;
 }
 
-export function VenueDetailModal({ venue, stopRole, onClose }: VenueDetailModalProps) {
+export function VenueDetailModal({
+  venue,
+  stopRole,
+  stopIndex,
+  onClose,
+}: VenueDetailModalProps) {
   useEffect(() => {
     if (!venue) return;
     const handler = (e: KeyboardEvent) => {
@@ -64,7 +74,12 @@ export function VenueDetailModal({ venue, stopRole, onClose }: VenueDetailModalP
             exit={{ y: "100%", opacity: 0 }}
             transition={{ type: "spring", damping: 30, stiffness: 280 }}
           >
-            <VenueDetailContent venue={venue} stopRole={stopRole ?? null} onClose={onClose} />
+            <VenueDetailContent
+              venue={venue}
+              stopRole={stopRole ?? null}
+              stopIndex={stopIndex}
+              onClose={onClose}
+            />
           </motion.div>
         </>
       )}
@@ -75,10 +90,12 @@ export function VenueDetailModal({ venue, stopRole, onClose }: VenueDetailModalP
 function VenueDetailContent({
   venue,
   stopRole,
+  stopIndex,
   onClose,
 }: {
   venue: Venue;
   stopRole: StopRole | null;
+  stopIndex: number | undefined;
   onClose: () => void;
 }) {
   const { trackEngagement } = useEngagement();
@@ -202,10 +219,11 @@ function VenueDetailContent({
               target="_blank"
               rel="noopener noreferrer"
               onClick={() =>
-                trackEngagement("maps_opened", {
+                trackEngagement(EVENTS.DIRECTIONS_OPENED, {
                   surface: "single_venue_modal",
                   venue_id: venue.id,
                   venue_name: venue.name,
+                  stop_index: stopIndex,
                 })
               }
               className="font-sans text-sm text-burgundy hover:text-burgundy-light transition-colors mt-1 inline-block"
@@ -226,12 +244,13 @@ function VenueDetailContent({
               target="_blank"
               rel="noopener noreferrer"
               onClick={() =>
-                trackEngagement("reservation_clicked", {
+                trackEngagement(EVENTS.RESERVATION_CLICKED, {
                   venue_id: venue.id,
                   venue_name: venue.name,
                   platform:
                     detectBookingPlatform(venue.reservation_url)?.id ?? "other",
-                  stop_role: stopRole,
+                  stop_index: stopIndex,
+                  stop_role: stopRole ?? "main",
                   from_surface: "venue_detail_modal",
                 })
               }

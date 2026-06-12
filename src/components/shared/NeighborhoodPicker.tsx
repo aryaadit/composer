@@ -13,7 +13,7 @@
 // `onChange` so the wrapper can gate its CTA on selection count and
 // read the final value on submit.
 
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { motion } from "motion/react";
 import { pillClass } from "@/lib/styles";
 import {
@@ -22,7 +22,9 @@ import {
   BOROUGH_ORDER,
   type Borough,
 } from "@/config/neighborhoods";
+import { BAKE_VERSION } from "@/config/generated/neighborhoods";
 import { isGroupVisible } from "@/config/group-visibility";
+import { EVENTS, track } from "@/lib/analytics";
 
 interface NeighborhoodPickerProps {
   /** Group IDs to pre-select. */
@@ -91,6 +93,28 @@ export function NeighborhoodPicker({
   // Fallback to unfiltered if the gate hides everything (defensive — a
   // bake misconfiguration shouldn't blank the picker).
   const groups = filtered.length > 0 ? filtered : NEIGHBORHOOD_GROUPS;
+
+  // Fire neighborhood_options_shown once per mount so we can attribute
+  // picker behavior (selection rate, abandons after view) to a specific
+  // visibility bake. BAKE_VERSION is a content hash of the generated
+  // taxonomy — see scripts/generate-configs.py — and changes whenever
+  // groups, slugs, counts, or per-tier composability shift. The
+  // emittedRef guards against React StrictMode dev double-mount.
+  const emittedRef = useRef(false);
+  useEffect(() => {
+    if (emittedRef.current) return;
+    emittedRef.current = true;
+    const visibleIds = groups.map((g) => g.id);
+    const hiddenCount = NEIGHBORHOOD_GROUPS.length - visibleIds.length;
+    track(EVENTS.NEIGHBORHOOD_OPTIONS_SHOWN, {
+      visible_group_ids: visibleIds,
+      hidden_count: hiddenCount,
+      bake_version: BAKE_VERSION,
+    });
+    // groups identity is stable per mount (constants + filter on
+    // constants); deps intentionally empty.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ── Flat list ────────────────────────────────────────────────────────
   if (!groupByBorough) {

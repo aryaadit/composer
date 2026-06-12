@@ -1,14 +1,16 @@
 "use client";
 
 // Engagement tracking for an itinerary view. Mounted at each surface's
-// page top level (fresh / saved / share). Provides two things to the
+// page top level (fresh / saved / share). Provides three things to the
 // component tree:
 //
-//   1. `trackEngagement(event, props)` — wraps the analytics track().
-//      Increments a local engagement counter (ref, not state — no
-//      re-renders). If this is the first engagement of the session,
-//      attaches `time_to_first_engagement_ms` as a property on the
-//      outgoing event.
+//   1. `trackEngagement(event, props, opts?)` — typed wrapper around the
+//      analytics track(). The provider injects ComposeContext +
+//      itinerary_id into every emission at this single passthrough
+//      point, so call sites never have to assemble the context
+//      themselves. Returns void; increments a local engagement counter
+//      (ref, not state — no re-renders). If this is the first
+//      engagement of the session, attaches `time_to_first_engagement_ms`.
 //
 //   2. `incrementEngagement()` — bump the counter without firing an
 //      event. Used for server-initiated engagements (stop_swapped,
@@ -17,9 +19,12 @@
 //      the server resolves — failed server calls still count as
 //      engagement because the user expressed intent.
 //
+//   3. `getTimeSinceViewed()` — ms since the surface was viewed. Used
+//      for properties like time_since_viewed_ms on extension events.
+//
 // On unmount or beforeunload, emits:
-//   - `itinerary_dwell_time { time_on_page_ms, engagement_count }`
-//   - `itinerary_zero_engagement { time_on_page_ms }` (only if count === 0)
+//   - itinerary_dwelled { time_on_page_ms, engagement_count, … context }
+//   - itinerary_abandoned { time_on_page_ms, … context }  (count === 0 only)
 //
 // Both emissions are guarded by a ref so navigation followed by hard
 // close, or HMR remount, can't double-fire.
@@ -29,17 +34,47 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useRef,
   type ReactNode,
 } from "react";
-import { track } from "@/lib/analytics";
+import {
+  track,
+  EVENTS,
+  buildComposeContext,
+  type ComposeContextInputs,
+  type ComposeContext,
+  type EventName,
+  type EventSchemas,
+} from "@/lib/analytics";
 
 export type EngagementSurface = "fresh" | "saved" | "share";
 
+/** Fields the provider auto-injects. Call sites omit these from their
+ *  `props` arg. */
+type InjectedFields =
+  | keyof ComposeContext
+  | "itinerary_id"
+  | "time_to_first_engagement_ms";
+
+/** Per-event prop shape callers actually have to supply. */
+type EngagementProps<E extends EventName> = Omit<
+  EventSchemas[E],
+  InjectedFields
+>;
+
+interface EngagementOptions {
+  /** Mirror-only payload (free-text, etc.). Never sent to PostHog;
+   *  concatenated for the Supabase mirror insert. Pass through to the
+   *  underlying track() options form. */
+  mirrorOnlyProps?: Record<string, unknown>;
+}
+
 interface EngagementContextValue {
-  trackEngagement: (
-    eventName: string,
-    properties?: Record<string, unknown>,
+  trackEngagement: <E extends EventName>(
+    event: E,
+    props: EngagementProps<E>,
+    opts?: EngagementOptions,
   ) => void;
   incrementEngagement: () => void;
   /** Milliseconds since the itinerary surface was viewed (provider mount).
@@ -54,12 +89,19 @@ const EngagementContext = createContext<EngagementContextValue | null>(null);
 interface EngagementProviderProps {
   source: EngagementSurface;
   itineraryId: string | null;
+  /** Questionnaire inputs that produced this itinerary. Used by the
+   *  provider to build ComposeContext once and inject it into every
+   *  engagement emission. Null on surfaces where the inputs aren't
+   *  available (e.g. share view of someone else's plan) — the builder
+   *  emits all-null context, which still parses cleanly. */
+  composeInputs: ComposeContextInputs | null;
   children: ReactNode;
 }
 
 export function ItineraryEngagementProvider({
   source,
   itineraryId,
+  composeInputs,
   children,
 }: EngagementProviderProps) {
   // viewedAtRef is initialized inside the mount effect — performance.now()
@@ -69,6 +111,15 @@ export function ItineraryEngagementProvider({
   const viewedAtRef = useRef<number>(0);
   const engagementCountRef = useRef<number>(0);
   const dwellEmittedRef = useRef<boolean>(false);
+
+  // Build ComposeContext once per inputs change. The questionnaire
+  // inputs are immutable for the lifetime of a single itinerary view —
+  // recomputing on every emit would be wasted work, and identity
+  // stability lets the useCallback hooks below take a stable dep.
+  const composeContext = useMemo(
+    () => buildComposeContext(composeInputs),
+    [composeInputs],
+  );
 
   const emitDwell = useCallback(() => {
     if (dwellEmittedRef.current) return;
@@ -82,20 +133,22 @@ export function ItineraryEngagementProvider({
     if (time_on_page_ms < 200) return;
     dwellEmittedRef.current = true;
     const engagement_count = engagementCountRef.current;
-    track("itinerary_dwell_time", {
-      source,
+    track(EVENTS.ITINERARY_DWELLED, {
+      ...composeContext,
       itinerary_id: itineraryId,
+      source,
       time_on_page_ms,
       engagement_count,
     });
     if (engagement_count === 0) {
-      track("itinerary_zero_engagement", {
-        source,
+      track(EVENTS.ITINERARY_ABANDONED, {
+        ...composeContext,
         itinerary_id: itineraryId,
+        source,
         time_on_page_ms,
       });
     }
-  }, [source, itineraryId]);
+  }, [source, itineraryId, composeContext]);
 
   useEffect(() => {
     viewedAtRef.current = performance.now();
@@ -120,20 +173,42 @@ export function ItineraryEngagementProvider({
   }, []);
 
   const trackEngagement = useCallback(
-    (eventName: string, properties: Record<string, unknown> = {}) => {
+    <E extends EventName>(
+      event: E,
+      props: EngagementProps<E>,
+      opts?: EngagementOptions,
+    ) => {
       const wasFirst = engagementCountRef.current === 0;
       engagementCountRef.current += 1;
-      const augmented = wasFirst
-        ? {
-            ...properties,
-            time_to_first_engagement_ms: Math.round(
-              performance.now() - viewedAtRef.current,
-            ),
-          }
-        : properties;
-      track(eventName, augmented);
+      // Build the augmented payload at the single passthrough point.
+      // Order: compose context → itinerary id → caller props →
+      // first-engagement timing. Caller props can never override the
+      // injected context/id (deliberate — those are surface-level
+      // facts, not call-site choices).
+      const merged: Record<string, unknown> = {
+        ...composeContext,
+        itinerary_id: itineraryId,
+        ...(props as Record<string, unknown>),
+      };
+      if (wasFirst) {
+        merged.time_to_first_engagement_ms = Math.round(
+          performance.now() - viewedAtRef.current,
+        );
+      }
+      // Cast: we've assembled the same shape as EventSchemas[E] minus
+      // the InjectedFields the caller could not have supplied. The
+      // wrapper guarantees they're present.
+      const propsForTrack = merged as EventSchemas[E];
+      if (opts?.mirrorOnlyProps) {
+        track(event, {
+          props: propsForTrack,
+          mirrorOnlyProps: opts.mirrorOnlyProps,
+        });
+      } else {
+        track(event, propsForTrack);
+      }
     },
-    [],
+    [composeContext, itineraryId],
   );
 
   return (

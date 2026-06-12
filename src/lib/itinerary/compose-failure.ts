@@ -5,10 +5,13 @@
 // `compose_failed` event so the funnel surfaces these as their own
 // stage.
 //
-// Copy per BRAND_VOICE.md — observational, dry, no algorithm internals,
-// no numbers. One short line of suggestion that points the user at the
-// next move they could try. Editorial pass before launch is fine; the
-// shape is the load-bearing part of this module.
+// Client-safe: this module exports ONLY the failure-shape primitives
+// (`ComposeFailure`, `composeFailure`, `isComposeFailure`). The
+// server-only response helpers — respondComposeFailure /
+// respondComposeErrored / classifyErrorName — live in
+// `./compose-failure-server.ts` so client imports of the
+// page-level failure type don't transitively pull posthog-node
+// (which uses `node:fs`) into the browser bundle.
 
 import type { ZeroingStage } from "@/lib/itinerary/pre-filter";
 

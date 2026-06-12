@@ -17,6 +17,7 @@ import {
   type ComposeFailure,
 } from "@/lib/itinerary/compose-failure";
 import {
+  EVENTS,
   getAnalyticsHeaders,
   incrementPersonProperty,
   setPersonProperties,
@@ -74,6 +75,8 @@ function ItineraryContent() {
 
   // Fire itinerary_viewed exactly once per mount.
   const viewedFiredRef = useRef(false);
+  // Fire compose_failure_viewed exactly once when the failure paints.
+  const failureViewedFiredRef = useRef(false);
 
   const updateItinerary = useCallback((next: ItineraryResponse) => {
     setItinerary(next);
@@ -145,12 +148,30 @@ function ItineraryContent() {
   useEffect(() => {
     if (!itinerary || viewedFiredRef.current) return;
     viewedFiredRef.current = true;
-    track("itinerary_viewed", {
+    track(EVENTS.ITINERARY_VIEWED, {
       source: "fresh",
       itinerary_id: null,
       is_past: isPastDate(itinerary.inputs?.day),
     });
   }, [itinerary]);
+
+  // compose_failure_viewed: fires once when the generate-failure
+  // surface paints (distinct from compose_failed which fires
+  // server-side at zero-pool). The split matters because not every
+  // server-side compose_failed lands in front of a user — if the user
+  // backed out before the response returned, the server-side event
+  // still fires but no failure was viewed. The viewed event is the
+  // funnel's user-side anchor. swap-stop and add-stop fire their own
+  // counterparts where their inline error messages paint (see
+  // useSwapStop.ts and handleAddStop above).
+  useEffect(() => {
+    if (!composeFailureState || failureViewedFiredRef.current) return;
+    failureViewedFiredRef.current = true;
+    track(EVENTS.COMPOSE_FAILURE_VIEWED, {
+      endpoint: "generate",
+      zeroing_stage: composeFailureState.zeroingStage,
+    });
+  }, [composeFailureState]);
 
   if (loading) return <StepLoading />;
 
@@ -182,7 +203,11 @@ function ItineraryContent() {
   }
 
   return (
-    <ItineraryEngagementProvider source="fresh" itineraryId={null}>
+    <ItineraryEngagementProvider
+      source="fresh"
+      itineraryId={null}
+      composeInputs={itinerary.inputs}
+    >
       <ItineraryBody itinerary={itinerary} updateItinerary={updateItinerary} />
     </ItineraryEngagementProvider>
   );
@@ -207,11 +232,28 @@ function ItineraryBody({
   // overwriting with the new context.
   const [swapReason, setSwapReason] = useState<SwapReasonContext | null>(null);
 
-  const onSwapComplete = useCallback((ctx: SwapContext) => {
-    setSwapReason((prev) =>
-      handleNextSwapContext(prev, ctx, performance.now(), track),
-    );
-  }, []);
+  const onSwapComplete = useCallback(
+    (ctx: SwapContext) => {
+      setSwapReason((prev) => {
+        const { nextState, events } = handleNextSwapContext(
+          prev,
+          ctx,
+          performance.now(),
+        );
+        // Drain queued events through trackEngagement so ComposeContext +
+        // itinerary_id are auto-injected once, not built per-event.
+        for (const e of events) {
+          if (e.event === "swap_reason_shown") {
+            trackEngagement(EVENTS.SWAP_REASON_SHOWN, e.props);
+          } else {
+            trackEngagement(EVENTS.SWAP_REASON_SKIPPED, e.props);
+          }
+        }
+        return nextState;
+      });
+    },
+    [trackEngagement],
+  );
 
   const handleReasonSubmit = useCallback(
     (reason: string, otherText: string | null) => {
@@ -220,18 +262,19 @@ function ItineraryBody({
       const timeToDecisionMs = Math.round(
         performance.now() - current.shownAt,
       );
+      const built = buildSubmittedProps(
+        current.swapContext,
+        reason,
+        otherText,
+        timeToDecisionMs,
+      );
       // Submission is a real engagement (Phase 3 EngagementProvider) —
       // bumps the counter and attaches time_to_first_engagement_ms when
       // this is the user's first interaction with the itinerary.
-      trackEngagement(
-        "stop_swap_reason_submitted",
-        buildSubmittedProps(
-          current.swapContext,
-          reason,
-          otherText,
-          timeToDecisionMs,
-        ),
-      );
+      // PII split: reason_text is mirror-only — see swap-reason.ts.
+      trackEngagement(EVENTS.SWAP_REASON_SUBMITTED, built.props, {
+        mirrorOnlyProps: built.mirrorOnlyProps,
+      });
       setSwapReason(null);
     },
     [swapReason, trackEngagement],
@@ -240,9 +283,12 @@ function ItineraryBody({
   const handleReasonSkip = useCallback(() => {
     const current = swapReason;
     if (!current) return;
-    track("stop_swap_reason_skipped", buildSkippedProps(current.swapContext));
+    trackEngagement(
+      EVENTS.SWAP_REASON_SKIPPED,
+      buildSkippedProps(current.swapContext),
+    );
     setSwapReason(null);
-  }, [swapReason]);
+  }, [swapReason, trackEngagement]);
 
   const { handleSwap, swappingIndex, swapError } = useSwapStop(
     itinerary,
@@ -265,11 +311,21 @@ function ItineraryBody({
       });
       // 422 → structured ComposeFailure. Surface the typed title as
       // the inline error message so the user sees the same brand-voice
-      // copy as the compose page.
+      // copy as the compose page. Fire compose_failure_viewed too so
+      // the add-stop leg of the funnel matches the server-side
+      // compose_failed (without this client-side counterpart, the
+      // funnel would show server failures without matching user views).
       if (res.status === 422) {
         const body = (await res.json().catch(() => ({}))) as {
+          zeroingStage?: string;
           title?: string;
         };
+        if (body.zeroingStage) {
+          track(EVENTS.COMPOSE_FAILURE_VIEWED, {
+            endpoint: "add-stop",
+            zeroing_stage: body.zeroingStage,
+          });
+        }
         throw new Error(body.title ?? "Couldn't add a stop");
       }
       if (!res.ok) {
@@ -293,25 +349,25 @@ function ItineraryBody({
         },
       };
       updateItinerary(next);
-      track("stop_added", {
+      // Both fire through trackEngagement so ComposeContext +
+      // itinerary_id are injected at the single passthrough point and
+      // both count toward the engagement counter (the user added a
+      // stop — that's the canonical engagement signal).
+      trackEngagement(EVENTS.STOP_ADDED, {
         new_stop_count: next.stops.length,
-        occasion: itinerary.inputs.occasion,
-        neighborhoods: itinerary.inputs.neighborhoods,
-        budget: itinerary.inputs.budget,
-        vibe: itinerary.inputs.vibe,
-        start_time: itinerary.inputs.startTime,
       });
-      // Phase 2 extension event. Fires alongside stop_added so the
-      // existing engagement count is preserved, and adds extension-
-      // specific properties (added venue, role, vibe, time-since-viewed).
-      // original_stop_count is the count BEFORE this add; final is after.
-      track("itinerary_extended_to_three", {
+      // Phase 2 extension event. Renamed 2026-06-11
+      // (itinerary_extended_to_three → itinerary_extended) once the
+      // 3-stop ceiling was lifted and the event needs to carry
+      // final_stop_count generically. VenueRef carries the added
+      // venue (renamed from added_venue_id / added_venue_name in the
+      // legacy payload — VenueRef is the canonical shape).
+      trackEngagement(EVENTS.ITINERARY_EXTENDED, {
+        venue_id: payload.stop.venue.id,
+        venue_name: payload.stop.venue.name,
         original_stop_count: itinerary.stops.length,
         final_stop_count: next.stops.length,
-        added_venue_id: payload.stop.venue.id,
-        added_venue_name: payload.stop.venue.name,
         added_role: payload.stop.role,
-        vibe: itinerary.inputs.vibe,
         time_since_viewed_ms: getTimeSinceViewed(),
       });
     } catch (err) {

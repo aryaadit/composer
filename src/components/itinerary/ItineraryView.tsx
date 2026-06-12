@@ -5,6 +5,7 @@ import Link from "next/link";
 import { motion } from "motion/react";
 import { ItineraryResponse } from "@/types";
 import { useEngagement } from "@/components/itinerary/EngagementProvider";
+import { EVENTS } from "@/lib/analytics";
 import { StopCard } from "@/components/ui/StopCard";
 import { WalkConnector } from "@/components/ui/WalkConnector";
 import { VenueDetailModal } from "@/components/venue/VenueDetailModal";
@@ -121,7 +122,7 @@ export function ItineraryView({
 
   const handleVenueTap = (i: number) => {
     const stop = stops[i];
-    trackEngagement("venue_detail_opened", {
+    trackEngagement(EVENTS.VENUE_DETAIL_OPENED, {
       venue_id: stop.venue.id,
       venue_name: stop.venue.name,
       stop_role: stop.role,
@@ -245,6 +246,7 @@ export function ItineraryView({
       <VenueDetailModal
         venue={detailVenue}
         stopRole={detailRole}
+        stopIndex={detailIndex ?? undefined}
         onClose={() => setDetailIndex(null)}
       />
     </>

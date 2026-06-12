@@ -9,7 +9,12 @@
 import { NextResponse } from "next/server";
 import { fetchActiveVenues } from "@/lib/venues/fetch-active";
 import { getServerSupabase } from "@/lib/supabase/server";
-import { trackServer } from "@/lib/analytics-server";
+import {
+  trackServer,
+  EVENTS,
+  buildComposeContext,
+  buildItineraryContext,
+} from "@/lib/analytics-server";
 import { fetchWeather } from "@/lib/weather";
 import { pickBestForRole } from "@/lib/scoring";
 import { itineraryFits } from "@/lib/composer";
@@ -22,7 +27,10 @@ import {
 import { fetchOrCacheWalkingRoute } from "@/lib/walking-routes";
 import { calculateTotalSpend, spendEstimate } from "@/config/budgets";
 import { applyPreFilters, buildPreFilterArgs } from "@/lib/itinerary/pre-filter";
-import { composeFailure } from "@/lib/itinerary/compose-failure";
+import {
+  respondComposeFailure,
+  respondComposeErrored,
+} from "@/lib/itinerary/compose-failure-server";
 import { computeRequestSeed, createSeededRandom } from "@/lib/itinerary/seed";
 import { ALGORITHM } from "@/config/algorithm";
 import type {
@@ -85,12 +93,18 @@ async function buildWalk(from: Venue, to: Venue): Promise<WalkSegment> {
 export async function POST(request: Request) {
   const distinctId = request.headers.get("x-ph-distinct-id");
   const sessionId = request.headers.get("x-ph-session-id");
+  // Captured before the try so the catch can attribute compose_errored
+  // to the right person and inputs even when the body parse threw.
+  const swapStartMs = performance.now();
+  let analyticsUserId: string | null = null;
+  let analyticsInputs: SwapRequest["itinerary"]["inputs"] | null = null;
 
   try {
     const { itinerary, stopIndex, excludeVenueIds } =
       (await request.json()) as SwapRequest;
 
     const { inputs, stops: currentStops } = itinerary;
+    analyticsInputs = inputs;
     if (stopIndex < 0 || stopIndex >= currentStops.length) {
       return NextResponse.json({ error: "Invalid stop index" }, { status: 400 });
     }
@@ -105,6 +119,7 @@ export async function POST(request: Request) {
         return null;
       }),
     ]);
+    analyticsUserId = userId;
 
     if (venuesAll === null) {
       return NextResponse.json(
@@ -142,19 +157,11 @@ export async function POST(request: Request) {
       }),
     );
     if (!pre.ok) {
-      void trackServer(
-        "compose_failed",
-        { userId, distinctId, sessionId },
-        {
-          endpoint: "swap-stop",
-          zeroing_stage: pre.zeroingStage,
-          group: inputs.neighborhoods?.[0] ?? null,
-          tier: inputs.budget,
-          day: inputs.day,
-          window: `${inputs.startTime}-${inputs.endTime}`,
-        },
-      );
-      return NextResponse.json(composeFailure(pre.zeroingStage), { status: 422 });
+      return respondComposeFailure(pre.zeroingStage, "swap-stop", inputs, {
+        userId,
+        distinctId,
+        sessionId,
+      });
     }
 
     // Anchor on Main for non-Main swaps. For swap-Main the anchor is
@@ -201,19 +208,11 @@ export async function POST(request: Request) {
       // exhausted too. Honest failure — almost always proximity (no
       // role-eligible venue within walking range of Main for non-Main
       // swaps; no role-eligible venue at all for swap-Main).
-      void trackServer(
-        "compose_failed",
-        { userId, distinctId, sessionId },
-        {
-          endpoint: "swap-stop",
-          zeroing_stage: "proximity",
-          group: inputs.neighborhoods?.[0] ?? null,
-          tier: inputs.budget,
-          day: inputs.day,
-          window: `${inputs.startTime}-${inputs.endTime}`,
-        },
-      );
-      return NextResponse.json(composeFailure("proximity"), { status: 422 });
+      return respondComposeFailure("proximity", "swap-stop", inputs, {
+        userId,
+        distinctId,
+        sessionId,
+      });
     }
 
     // Invariant: when the swapped stop is Main, the candidate Main must
@@ -238,19 +237,11 @@ export async function POST(request: Request) {
           ) > maxKm,
       );
       if (tooFar) {
-        void trackServer(
-          "compose_failed",
-          { userId, distinctId, sessionId },
-          {
-            endpoint: "swap-stop",
-            zeroing_stage: "proximity",
-            group: inputs.neighborhoods?.[0] ?? null,
-            tier: inputs.budget,
-            day: inputs.day,
-            window: `${inputs.startTime}-${inputs.endTime}`,
-          },
-        );
-        return NextResponse.json(composeFailure("proximity"), { status: 422 });
+        return respondComposeFailure("proximity", "swap-stop", inputs, {
+          userId,
+          distinctId,
+          sessionId,
+        });
       }
     }
 
@@ -261,19 +252,11 @@ export async function POST(request: Request) {
       i === stopIndex ? { venue: best, role: s.role } : { venue: s.venue, role: s.role },
     );
     if (!itineraryFits(patchedForFit, inputs.startTime, inputs.endTime)) {
-      void trackServer(
-        "compose_failed",
-        { userId, distinctId, sessionId },
-        {
-          endpoint: "swap-stop",
-          zeroing_stage: "fit",
-          group: inputs.neighborhoods?.[0] ?? null,
-          tier: inputs.budget,
-          day: inputs.day,
-          window: `${inputs.startTime}-${inputs.endTime}`,
-        },
-      );
-      return NextResponse.json(composeFailure("fit"), { status: 422 });
+      return respondComposeFailure("fit", "swap-stop", inputs, {
+        userId,
+        distinctId,
+        sessionId,
+      });
     }
 
     const planB = scored.find((v) => v.id !== best.id) ?? null;
@@ -320,9 +303,15 @@ export async function POST(request: Request) {
 
     const fromVenue = stopToReplace.venue;
     void trackServer(
-      "stop_swapped",
+      EVENTS.STOP_SWAPPED,
       { userId, distinctId, sessionId },
       {
+        ...buildComposeContext(inputs),
+        // /api/swap-stop receives an ItineraryResponse without an `id`
+        // (the saved/share id lives elsewhere in the client and isn't
+        // threaded through). Passing null keeps the ItineraryRef shape
+        // honest — see buildItineraryContext.
+        ...buildItineraryContext(null),
         stop_index: stopIndex,
         stop_role: stopToReplace.role,
         from_venue_id: fromVenue.id,
@@ -333,8 +322,6 @@ export async function POST(request: Request) {
         to_venue_name: best.name,
         to_neighborhood: best.neighborhood,
         to_category: best.category ?? null,
-        occasion: inputs.occasion,
-        vibe: inputs.vibe,
       }
     );
 
@@ -347,10 +334,16 @@ export async function POST(request: Request) {
       ),
     });
   } catch (error) {
+    // *_errored: 500-class system failure (the 422 *_failed branches above
+    // are expected user-shape rejects). Added 2026-06-11 — swap-stop
+    // previously had no analytics analogue for catch-class failures.
     console.error("[swap-stop] error:", error);
-    return NextResponse.json(
-      { error: "Failed to swap stop" },
-      { status: 500 }
+    return respondComposeErrored(
+      error,
+      "swap-stop",
+      analyticsInputs,
+      { userId: analyticsUserId, distinctId, sessionId },
+      Math.round(performance.now() - swapStartMs),
     );
   }
 }

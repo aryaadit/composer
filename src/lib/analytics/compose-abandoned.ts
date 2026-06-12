@@ -12,6 +12,15 @@
 // for testability. Production calls use Date.now() and sessionStorage.
 
 const FLAG_KEY = "composer_compose_abandoned_flag";
+/** Entry token — set the first time `markComposeEntry` is called within
+ * a navigation into /compose, cleared on submit / abandon-drain.
+ * Repeated QuestionnaireShell mounts within the same entry find an
+ * existing token and skip the `compose_started` emit; a genuine
+ * re-entry after submit / abandon finds no token and fires afresh.
+ * The value is opaque (timestamp); only presence matters. Fixes the
+ * audit's compose_started over-fire (every mount, plus double-mount in
+ * dev). */
+const ENTRY_KEY = "composer_compose_entry_token";
 export const ABANDONMENT_CAP_MS = 60 * 60 * 1000;
 // Minimum age a flag must reach before it's considered "stale" enough
 // to emit compose_abandoned. AuthProvider's boot-check effect fires
@@ -107,6 +116,51 @@ export function clearComposeAbandonedFlag(
 }
 
 /**
+ * Try to mark a new compose entry. Returns true if this call set the
+ * token (i.e. it's a fresh entry — caller should fire compose_started),
+ * false if a token already exists (caller should NOT fire — same entry,
+ * just a remount).
+ *
+ * The audit logged 47 floating string literals around compose_started
+ * partly because the call site was firing on every QuestionnaireShell
+ * mount, including React StrictMode's double-mount in dev. This guard
+ * collapses repeat mounts within one /compose navigation to a single
+ * event without changing the call shape.
+ *
+ * A genuine re-entry — submit, then come back; or an in-place "start
+ * over" that calls clearComposeEntryToken — finds no token and returns
+ * true.
+ */
+export function markComposeEntry(
+  now: number = Date.now(),
+  storage: FlagStorage | null = getDefaultStorage(),
+): boolean {
+  if (!storage) return true;
+  try {
+    if (storage.getItem(ENTRY_KEY)) return false;
+    storage.setItem(ENTRY_KEY, String(now));
+    return true;
+  } catch {
+    // quota / private-mode failures fall open — we'd rather double-fire
+    // than silently drop compose_started.
+    return true;
+  }
+}
+
+/** Clear the entry token. Call on submit and on abandon-drain so the
+ * next navigation into /compose counts as a fresh entry. */
+export function clearComposeEntryToken(
+  storage: FlagStorage | null = getDefaultStorage(),
+): void {
+  if (!storage) return;
+  try {
+    storage.removeItem(ENTRY_KEY);
+  } catch {
+    // best-effort
+  }
+}
+
+/**
  * If a stale abandonment flag exists in storage, emit compose_abandoned
  * (with time_in_flow_ms capped at one hour) and clear the flag. No-op
  * when no flag is set or storage is unavailable.
@@ -132,4 +186,11 @@ export function checkAndEmitIfStale(
     last_step_completed: flag.last_step_completed,
   });
   deleteFlag(storage);
+  // Drain the entry token too — a real abandonment means the next
+  // navigation into /compose should count as a fresh entry.
+  try {
+    storage.removeItem(ENTRY_KEY);
+  } catch {
+    // best-effort
+  }
 }

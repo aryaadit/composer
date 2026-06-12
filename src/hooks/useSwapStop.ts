@@ -2,7 +2,7 @@
 
 import { useCallback, useRef, useState } from "react";
 import { useToast } from "@/components/ui/Toast";
-import { getAnalyticsHeaders } from "@/lib/analytics";
+import { EVENTS, getAnalyticsHeaders, track } from "@/lib/analytics";
 import type {
   ItineraryResponse,
   ItineraryStop,
@@ -73,8 +73,19 @@ export function useSwapStop(
         if (res.status === 422) {
           const body = (await res.json().catch(() => ({}))) as {
             failed?: boolean;
+            zeroingStage?: string;
             title?: string;
           };
+          // Mirror of the generate-surface failure-view emit. Server-side
+          // compose_failed fires for all three endpoints; without this
+          // client-side counterpart, the swap-stop and add-stop legs of
+          // the funnel show server failures without matching user views.
+          if (body.zeroingStage) {
+            track(EVENTS.COMPOSE_FAILURE_VIEWED, {
+              endpoint: "swap-stop",
+              zeroing_stage: body.zeroingStage,
+            });
+          }
           setState({
             swappingIndex: null,
             swapError: {

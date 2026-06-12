@@ -20,6 +20,7 @@ Usage:
 """
 
 from __future__ import annotations
+import hashlib
 import json
 import os
 import re
@@ -570,6 +571,28 @@ def emit_neighborhoods(
 
     # ALL_NEIGHBORHOODS
     lines.append(emit_string_array("ALL_NEIGHBORHOODS", all_hoods))
+
+    # BAKE_VERSION — short SHA-256 of the load-bearing inputs (group
+    # definitions + per-slug venue counts + per-group composability
+    # tiers). Travels on the neighborhood_options_shown analytics event
+    # so we can attribute picker behavior to a specific bake when the
+    # taxonomy churns. Same inputs → same hash; any material change
+    # (new group, slug move, venue count delta, tier shift) flips it.
+    bake_inputs = json.dumps(
+        {
+            "groups": [
+                {"id": g["id"], "slugs": g["slugs"]}
+                for g in NEIGHBORHOOD_GROUPS
+            ],
+            "counts": counts,
+            "itineraries_by_group": itin,
+            "all_hoods": all_hoods,
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    bake_version = hashlib.sha256(bake_inputs.encode("utf-8")).hexdigest()[:12]
+    lines.append(f"export const BAKE_VERSION = {quote(bake_version)};\n")
 
     return "".join(lines)
 

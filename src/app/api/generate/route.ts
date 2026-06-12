@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 import { getServerSupabase } from "@/lib/supabase/server";
 import { fetchActiveVenues } from "@/lib/venues/fetch-active";
-import { trackServer } from "@/lib/analytics-server";
+import {
+  trackServer,
+  EVENTS,
+  buildComposeContext,
+} from "@/lib/analytics-server";
 import { fetchWeather } from "@/lib/weather";
 import { composeItinerary } from "@/lib/composer";
 import { generateCopy } from "@/lib/claude";
@@ -17,9 +21,9 @@ import { enrichWithAvailability } from "@/lib/itinerary/availability-enrichment"
 import { computeRequestSeed, createSeededRandom } from "@/lib/itinerary/seed";
 import { applyPreFilters, buildPreFilterArgs } from "@/lib/itinerary/pre-filter";
 import {
-  composeFailure,
-  type ComposeFailure,
-} from "@/lib/itinerary/compose-failure";
+  respondComposeFailure,
+  respondComposeErrored,
+} from "@/lib/itinerary/compose-failure-server";
 import type {
   GenerateRequestBody,
   QuestionnaireAnswers,
@@ -31,36 +35,6 @@ import type {
 
 // Tuning constants live in src/config/algorithm.ts — adjust there, not here.
 import { ALGORITHM } from "@/config/algorithm";
-
-/** Single instrumentation entry point for the new structured-failure
- * mode. Same event name across /api/generate, /api/swap-stop,
- * /api/add-stop so the funnel rolls up cleanly. Lives at module scope
- * because both swap-stop and add-stop import it through a shared
- * helper — co-located here only to keep diffs small in this commit. */
-function trackComposeFailed(
-  endpoint: "generate" | "swap-stop" | "add-stop",
-  zeroingStage: ComposeFailure["zeroingStage"],
-  inputs: Pick<
-    QuestionnaireAnswers,
-    "budget" | "day" | "startTime" | "endTime" | "neighborhoods"
-  >,
-  userId: string | null,
-  distinctId: string | null,
-  sessionId: string | null,
-): Promise<void> {
-  return trackServer(
-    "compose_failed",
-    { userId, distinctId, sessionId },
-    {
-      endpoint,
-      zeroing_stage: zeroingStage,
-      group: inputs.neighborhoods?.[0] ?? null,
-      tier: inputs.budget,
-      day: inputs.day,
-      window: `${inputs.startTime}-${inputs.endTime}`,
-    },
-  );
-}
 
 function computeWalkingMeta(
   walks: WalkSegment[],
@@ -209,10 +183,12 @@ export async function POST(request: Request) {
       }),
     );
     if (!pre.ok) {
-      void trackComposeFailed("generate", pre.zeroingStage, inputs, analyticsUserId, distinctId, sessionId);
-      return NextResponse.json(composeFailure(pre.zeroingStage), {
-        status: 422,
-      });
+      return respondComposeFailure(
+        pre.zeroingStage,
+        "generate",
+        inputs,
+        { userId: analyticsUserId, distinctId, sessionId },
+      );
     }
     const venues = pre.venues;
     const dayColumn = dateToDayColumn(inputs.day);
@@ -240,8 +216,11 @@ export async function POST(request: Request) {
       // can't reach Main within the walking cap; defaults to
       // "proximity" if composer didn't tag it.
       const stage = composed.zeroingStage ?? "proximity";
-      void trackComposeFailed("generate", stage, inputs, analyticsUserId, distinctId, sessionId);
-      return NextResponse.json(composeFailure(stage), { status: 422 });
+      return respondComposeFailure(stage, "generate", inputs, {
+        userId: analyticsUserId,
+        distinctId,
+        sessionId,
+      });
     }
 
     const allWalks: WalkSegment[] = [];
@@ -355,21 +334,20 @@ export async function POST(request: Request) {
     );
     const time_to_enrich_ms = Math.round(performance.now() - enrichStartMs);
 
-    // Track itinerary generation server-side for reliable funnel analytics.
-    // Fire-and-forget; the wrapper handles its own failures.
+    // Track itinerary composition server-side for reliable funnel
+    // analytics. Fire-and-forget; the wrapper handles its own failures.
+    // Renamed 2026-06-11 (audit): itinerary_generated → itinerary_composed.
+    // Aligns with "compose" as the canonical verb across the funnel
+    // (compose_started, compose_step_completed, compose_failed) and with
+    // the product name itself.
     const requestedStopCount = ALGORITHM.composition.stopDefaultCount;
     const actualStopCount = enriched.stops.length;
     void trackServer(
-      "itinerary_generated",
+      EVENTS.ITINERARY_COMPOSED,
       { userId: analyticsUserId, distinctId, sessionId },
       {
-        occasion: inputs.occasion,
-        vibe: inputs.vibe,
-        budget: inputs.budget,
-        start_time: inputs.startTime,
-        end_time: inputs.endTime,
-        day: inputs.day,
-        neighborhoods: inputs.neighborhoods ?? [],
+        ...buildComposeContext(inputs),
+        itinerary_id: null,
         requested_stop_count: requestedStopCount,
         stop_count: actualStopCount,
         venue_ids: enriched.stops.map((s) => s.venue.id),
@@ -391,40 +369,18 @@ export async function POST(request: Request) {
 
     return NextResponse.json(enriched);
   } catch (error) {
+    // *_errored vs *_failed convention: this catch path is the 500-class
+    // "system broke" bucket — distinct from the 422 compose_failed
+    // emissions above (which are expected-user-shape failures). The
+    // helper classifies error.name into a snake_case bucket; the raw
+    // error.message is intentionally NOT shipped (PII risk).
     console.error("Generation error:", error);
-
-    // Classify the error for the funnel. The catch swallows the
-    // underlying stack but the surface message is fine to ship — it
-    // never contains PII.
-    const message = error instanceof Error ? error.message : "Unknown error";
-    const reason: "no_venues_match" | "api_error" | "timeout" | "unknown" =
-      message.toLowerCase().includes("timeout")
-        ? "timeout"
-        : message.toLowerCase().includes("venue")
-        ? "no_venues_match"
-        : message.toLowerCase().includes("fetch") || message.toLowerCase().includes("api")
-        ? "api_error"
-        : "unknown";
-
-    void trackServer(
-      "itinerary_generation_failed",
+    return respondComposeErrored(
+      error,
+      "generate",
+      analyticsInputs,
       { userId: analyticsUserId, distinctId, sessionId },
-      {
-        occasion: analyticsInputs.occasion ?? null,
-        vibe: analyticsInputs.vibe ?? null,
-        budget: analyticsInputs.budget ?? null,
-        start_time: analyticsInputs.startTime ?? null,
-        day: analyticsInputs.day ?? null,
-        neighborhoods: analyticsInputs.neighborhoods ?? [],
-        reason,
-        error_message: message.slice(0, 200),
-        time_to_fail_ms: Math.round(performance.now() - generationStartMs),
-      }
-    );
-
-    return NextResponse.json(
-      { error: "Failed to generate itinerary" },
-      { status: 500 }
+      Math.round(performance.now() - generationStartMs),
     );
   }
 }

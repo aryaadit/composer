@@ -12,6 +12,7 @@ import {
 import { buildResySlotBookingUrl } from "@/lib/availability/booking-url";
 import { detectBookingPlatform } from "@/lib/booking";
 import { useEngagement } from "@/components/itinerary/EngagementProvider";
+import { EVENTS } from "@/lib/analytics";
 import type {
   StopAvailability as StopAvailabilityType,
   StopRole,
@@ -102,10 +103,11 @@ export function StopAvailabilitySection({
             target="_blank"
             rel="noopener noreferrer"
             onClick={() =>
-              trackEngagement("reservation_clicked", {
+              trackEngagement(EVENTS.RESERVATION_CLICKED, {
                 venue_id: venueId,
                 venue_name: venueName,
                 platform: trackedPlatform,
+                stop_index: stopIndex,
                 stop_role: role,
                 from_surface: "availability_unconfirmed",
               })
@@ -131,11 +133,13 @@ export function StopAvailabilitySection({
             target="_blank"
             rel="noopener noreferrer"
             onClick={() =>
-              trackEngagement("reservation_clicked", {
+              trackEngagement(EVENTS.RESERVATION_CLICKED, {
                 venue_id: venueId,
                 venue_name: venueName,
                 platform: platform ?? "other",
+                stop_index: stopIndex,
                 stop_role: role,
+                has_slot: false,
                 from_surface: "availability_no_slots",
               })
             }
@@ -229,11 +233,14 @@ function HasSlotsView({
       return;
     }
     onSelectSlot(slot);
-    trackEngagement("time_slot_selected", {
+    trackEngagement(EVENTS.RESERVATION_SLOT_SELECTED, {
       venue_id: venueId,
       venue_name: venueName,
-      time: slot.time,
+      stop_index: stopIndex,
+      stop_role: role,
+      slot_time: slot.time,
       slot_position: position,
+      from_surface: "availability_slot_grid",
     });
   };
 
@@ -278,11 +285,13 @@ function HasSlotsView({
             target="_blank"
             rel="noopener noreferrer"
             onClick={() =>
-              trackEngagement("reservation_clicked", {
+              trackEngagement(EVENTS.RESERVATION_CLICKED, {
                 venue_id: venueId,
                 venue_name: venueName,
                 platform: reservePlatform.id,
+                stop_index: stopIndex,
                 stop_role: role,
+                has_slot: true,
                 from_surface: "availability_has_slots_header",
               })
             }
@@ -335,13 +344,15 @@ function HasSlotsView({
             target="_blank"
             rel="noopener noreferrer"
             onClick={() =>
-              trackEngagement("reservation_clicked", {
+              trackEngagement(EVENTS.RESERVATION_CLICKED, {
                 venue_id: venueId,
                 venue_name: venueName,
                 platform: "resy",
+                stop_index: stopIndex,
                 stop_role: role,
+                has_slot: true,
                 from_surface: "availability_slot_specific",
-                slot_time: selectedSlot?.time ?? null,
+                slot_time: selectedSlot?.time,
               })
             }
             className="inline-block px-5 py-2.5 rounded-full bg-burgundy text-cream font-sans text-sm font-medium hover:bg-burgundy-light transition-colors"

@@ -583,6 +583,50 @@ If you forget step 2 or 3, the script will refuse to regenerate the configs and 
 
 ---
 
+## Analytics
+
+The analytics surface is a single typed schema (`src/lib/analytics/events.ts`) consumed by two thin transports — `src/lib/analytics.ts` (client) and `src/lib/analytics-server.ts` (server). Both narrow `track()` / `trackServer()` on event name via `EventSchemas`, so a typo, a missing field, or a wrong-type payload is a TypeScript error, not a silent drop.
+
+### Wrappers-only rule
+
+Never `import "posthog-js"` or `"posthog-node"` outside the two wrappers, `instrumentation-client.ts`, and `AuthProvider.tsx` (the latter calls `identify` / `reset` only). ESLint enforces this via `no-restricted-imports` (`eslint.config.mjs`). The audit's "47 free-floating literals" pattern recurs when this rule isn't enforced — re-adding direct imports is how that drift starts.
+
+### Naming convention: *_failed vs *_errored
+
+- `*_failed` (HTTP 422): an expected user-input-shape rejection. `compose_failed` fires when no honest itinerary can be produced from the user's picks (budget too narrow, neighborhood + hours empty, etc.). The 422 response carries a typed `ComposeFailure` so the UI surfaces the right title + suggestion. See `respondComposeFailure` in `src/lib/itinerary/compose-failure-server.ts` (the file is split from `compose-failure.ts` — the `.ts` half holds client-safe primitives, the `-server.ts` half holds the response/emission helpers so browser bundles don't drag in `posthog-node`).
+- `*_errored` (HTTP 500): an unexpected system failure — a thrown exception in the catch path. `compose_errored` carries `error_name` (a classified, snake_case bucket via `classifyErrorName`), never raw `Error.message` (PII risk). See `respondComposeErrored` in the same `compose-failure-server.ts`.
+
+The two are NOT interchangeable. Mixing them collapses two different funnel states into one.
+
+### Property naming: budget vs price_tier
+
+- `budget` → user-facing bucket: `casual` / `nice_out` / `splurge` / `all_out` / `no_preference` (the questionnaire pick).
+- `price_tier` → venue-level integer 1-4 (the database column).
+- Never bare `tier` — it's ambiguous.
+
+Neighborhood group identifiers travel as `group_ids` (the keys in `NEIGHBORHOOD_GROUPS`), not as expanded storage slugs.
+
+### Env gate: production only
+
+Both transports gate on Vercel's `VERCEL_ENV === "production"`:
+- Client: `NEXT_PUBLIC_VERCEL_ENV` (server-side env var Vercel auto-exposes when "Automatically expose System Environment Variables" is enabled — default ON for new projects, but verify in project settings).
+- Server: `VERCEL_ENV` (set by Vercel automatically on every deploy).
+
+Localhost without `vercel dev`, preview branches, and `next dev` all skip the PostHog `init()` and the Supabase mirror insert. This prevents dev / preview traffic from polluting the production project. `/api/analytics/track` carries the same gate at the top of POST.
+
+### Mirror contract
+
+Every product event we capture goes to BOTH PostHog AND the `composer_analytics_events` table (Supabase, service-role insert). PostHog is the queryable funnel; the mirror is the durable audit log + the home for free-text fields that can't reach PostHog.
+
+- PostHog payload: `props` only.
+- Mirror payload: `{ ...props, ...mirrorOnlyProps }`. Pass `mirrorOnlyProps` via the `track(event, { props, mirrorOnlyProps })` option-object overload.
+- Free-text PII (`swap_reason_submitted.reason_text`) travels mirror-only — the taxonomy slug (`reason`) is the PostHog-safe field; the freeform "other" text rides on `mirrorOnlyProps`.
+- Pageviews, identify, and person properties stay PostHog-only by design (they're not product events; the mirror table is for the funnel).
+
+The PII denylist test (`tests/unit/analytics-pii-denylist.test.ts`) asserts that no `EventSchemas` key and no person-property call references `email`, `phone`, or `name` (with `venue_name` allowlisted — it's denormalized public venue data, not user PII).
+
+---
+
 ## What NOT To Do
 
 - Don't call anon Supabase (`lib/supabase.ts`) from client components. For user-scoped data use `getBrowserSupabase()`.
@@ -601,6 +645,10 @@ If you forget step 2 or 3, the script will refuse to regenerate the configs and 
 - Don't add features that aren't in the PRD without flagging them first. Scope creep kills MVPs.
 - Don't assume desktop-first. Mobile is the primary surface.
 - Don't run git write operations. Always draft the commit message instead. See "Git Commits" section above for full rules.
+- Don't import `posthog-js` or `posthog-node` outside the analytics wrappers + the integration allowlist. Go through `track` / `trackServer` (typed). ESLint enforces this — see "Analytics → Wrappers-only rule".
+- Don't pass raw string literals to `track()` / `trackServer()`. Use the `EVENTS.*` constants so renames stay 1:1 across PostHog and the Supabase mirror.
+- Don't put free-text PII into a PostHog payload. Route it through `mirrorOnlyProps` so the Supabase mirror captures it and PostHog never sees it. See "Analytics → Mirror contract".
+- Don't conflate `*_failed` and `*_errored`. `*_failed` = 422 expected user-shape rejection; `*_errored` = 500 unexpected exception with a classified `error_name`.
 
 ---
 

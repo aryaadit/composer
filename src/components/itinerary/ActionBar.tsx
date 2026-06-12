@@ -8,6 +8,7 @@
 
 import { motion } from "motion/react";
 import { useEngagement } from "@/components/itinerary/EngagementProvider";
+import { EVENTS } from "@/lib/analytics";
 import type { ItineraryResponse } from "@/types";
 
 interface ActionBarProps {
@@ -18,7 +19,7 @@ export function ActionBar({ itinerary }: ActionBarProps) {
   const { trackEngagement } = useEngagement();
 
   const handleMapsClick = () => {
-    trackEngagement("maps_opened", {
+    trackEngagement(EVENTS.DIRECTIONS_OPENED, {
       surface: "multi_stop_cta",
       stop_count: itinerary.stops.length,
     });
