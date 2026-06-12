@@ -6,7 +6,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Button } from "@/components/ui/Button";
 import { Header } from "@/components/Header";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { useSavedPlans } from "@/hooks/useSavedPlans";
@@ -70,11 +69,6 @@ export function HomeScreen({ userName }: HomeScreenProps) {
     [savedPlans],
   );
   const hasAnyPlans = savedPlans.length > 0;
-
-  const totalStops = savedPlans.reduce(
-    (sum, p) => sum + (p.stops?.length ?? 0),
-    0
-  );
 
   return (
     <div className="min-h-screen flex flex-col bg-cream">
@@ -180,37 +174,6 @@ export function HomeScreen({ userName }: HomeScreenProps) {
             )}
           </>
         )}
-      </div>
-
-      {/* Stats bar */}
-      <div className="px-6 py-6 border-t border-border mt-10 max-w-lg w-full mx-auto">
-        <div className="flex justify-around text-center items-center">
-          <div>
-            <div className="font-sans text-lg font-medium text-charcoal">
-              {savedPlans.length}
-            </div>
-            <div className="font-sans text-xs text-muted mt-1">
-              Plans saved
-            </div>
-          </div>
-          <div>
-            <div className="font-sans text-lg font-medium text-charcoal">
-              {totalStops}
-            </div>
-            <div className="font-sans text-xs text-muted mt-1">
-              Stops planned
-            </div>
-          </div>
-          <div>
-            <Button
-              variant="secondary"
-              href="/compose"
-              className="text-xs px-4 py-2"
-            >
-              New
-            </Button>
-          </div>
-        </div>
       </div>
     </div>
   );
