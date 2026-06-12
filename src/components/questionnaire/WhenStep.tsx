@@ -176,11 +176,29 @@ export function WhenStep({
           whileTap={{ scale: 0.97 }}
         >
           {isCoarse === true ? (
+            // Box-model alignment: sibling day chips are <button>
+            // elements (intrinsically inline-block), so pillClass's
+            // py-2 contributes to their block height. <span> defaults
+            // to inline — without inline-block here, the chip would
+            // render shorter than the row and the absolutely-placed
+            // input would inherit that shorter parent. Same height,
+            // same baseline as the day chips.
+            //
+            // Input is layout-zero: absolute inset-0 plus explicit
+            // m-0 p-0 border-0 so UA defaults (Android Chrome's
+            // intrinsic icon padding + border on date inputs) can't
+            // inflate the box. text-base is the iOS focus-zoom guard
+            // — inputs below 16px font-size trigger Safari's zoom on
+            // focus; the input is invisible but a focused-but-zoomed
+            // viewport is still a regression.
             <label
               htmlFor="custom-date-input"
               className="relative inline-block cursor-pointer"
             >
-              <span className={pillClass(customSelected)} aria-hidden>
+              <span
+                className={`${pillClass(customSelected)} inline-block`}
+                aria-hidden
+              >
                 {customSelected ? formatCustomDate(day) : "+ Pick a date"}
               </span>
               <input
@@ -190,7 +208,7 @@ export function WhenStep({
                 value={customSelected ? day : ""}
                 onChange={handleDatePicked}
                 aria-label="Pick a date"
-                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer appearance-none bg-transparent"
+                className="absolute inset-0 m-0 h-full w-full cursor-pointer appearance-none border-0 bg-transparent p-0 text-base opacity-0"
               />
             </label>
           ) : (

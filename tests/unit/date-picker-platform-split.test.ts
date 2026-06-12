@@ -127,9 +127,15 @@ describe("WhenStep — date picker platform split", () => {
 
   it("native input is layout-present (opacity-0 absolute), NOT display:none / visibility:hidden", async () => {
     const src = await readSource();
-    expect(src).toMatch(
-      /<input[\s\S]*?className="absolute inset-0 w-full h-full opacity-0/,
-    );
+    // Token-by-token assertions so a future Tailwind class re-order
+    // (prettier plugin, etc.) doesn't trip the test. The contract is
+    // these classes EXIST on the input — order is incidental.
+    const inputBlock = src.match(/<input[\s\S]*?\/>/)?.[0] ?? "";
+    expect(inputBlock).toMatch(/\babsolute\b/);
+    expect(inputBlock).toMatch(/\binset-0\b/);
+    expect(inputBlock).toMatch(/\bw-full\b/);
+    expect(inputBlock).toMatch(/\bh-full\b/);
+    expect(inputBlock).toMatch(/\bopacity-0\b/);
     // display:none on a date input prevents OS picker from opening
     // on iOS — must never be reintroduced.
     expect(src).not.toMatch(/<input[\s\S]*?type="date"[\s\S]*?hidden/);
@@ -138,6 +144,56 @@ describe("WhenStep — date picker platform split", () => {
     );
     expect(src).not.toMatch(
       /<input[\s\S]*?type="date"[\s\S]*?className="[^"]*\binvisible\b/,
+    );
+  });
+
+  it("native input zeroes UA defaults (m-0 p-0 border-0) so the date input can't inflate the chip", async () => {
+    // Android Chrome's <input type="date"> ships with intrinsic
+    // padding, a border, and (sometimes) margin. Even with
+    // position:absolute, those UA defaults can paint the visible
+    // box outside the parent. Explicit resets pin the input's box
+    // to exactly the parent's dimensions.
+    const src = await readSource();
+    const inputBlock = src.match(/<input[\s\S]*?\/>/)?.[0] ?? "";
+    expect(inputBlock).toMatch(/\bm-0\b/);
+    expect(inputBlock).toMatch(/\bp-0\b/);
+    expect(inputBlock).toMatch(/\bborder-0\b/);
+  });
+
+  it("native input uses text-base (16px) — iOS Safari focus-zoom guard", async () => {
+    // Safari iOS zooms the viewport when an input with computed
+    // font-size < 16px takes focus. The input is invisible, but a
+    // focused-but-zoomed viewport is still a layout regression.
+    // text-base is Tailwind's 16px primitive.
+    const src = await readSource();
+    const inputBlock = src.match(/<input[\s\S]*?\/>/)?.[0] ?? "";
+    expect(inputBlock).toMatch(/\btext-base\b/);
+  });
+
+  it("visible chip span gets inline-block so its box matches sibling <button> day chips", async () => {
+    const src = await readSource();
+    // Sibling chips are <motion.button> with pillClass — a button is
+    // intrinsically inline-block, so its padding contributes to the
+    // block-level height. A bare <span> with pillClass is inline by
+    // default, so its py-* doesn't lift its block height — the chip
+    // renders SHORTER than the row. Adding inline-block here matches
+    // the sibling box-model exactly. Same height, same baseline.
+    expect(src).toMatch(
+      /<span\s+className=\{`\$\{pillClass\(customSelected\)\} inline-block`\}\s+aria-hidden/,
+    );
+  });
+
+  it("visible chip span uses the SAME pillClass call as sibling day chips (same box recipe)", async () => {
+    const src = await readSource();
+    // Sibling day chips render `pillClass(isSelected)`; the custom-
+    // date chip renders `pillClass(customSelected)`. Both go through
+    // the same builder so a future rename of pillClass props
+    // doesn't divide the visual language.
+    expect(src).toMatch(
+      /<motion\.button[\s\S]*?className=\{pillClass\(isSelected\)\}/,
+    );
+    expect(src).toMatch(
+      /<span\s+className=\{`\$\{pillClass\(customSelected\)\}/,
     );
   });
 
