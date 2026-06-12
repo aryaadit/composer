@@ -38,6 +38,19 @@ export interface ComposeContext {
   day: string | null;
   start_time: string | null;
   end_time: string | null;
+  /** How the user entered the compose flow.
+   *    "questionnaire" — typed the answers themselves
+   *    "lucky"         — surprise-me die rolled the inputs
+   *  Defaults to "questionnaire" at the builder so server-side events
+   *  (which don't know the entry mode) and questionnaire-side events
+   *  surface the right value without every call site having to set it.
+   *  Lucky's client-side compose_submitted is the one place that
+   *  passes "lucky" explicitly. */
+  mode: "questionnaire" | "lucky";
+  /** 1-indexed attempt number. Present only on the lucky path's
+   *  rerolls — `compose_submitted` carries it on attempts 2..N after a
+   *  silent 422 retry; the questionnaire path never sets it. */
+  attempt?: number;
 }
 
 /** Itinerary identity reference. `itinerary_id` is null for fresh
@@ -68,6 +81,13 @@ export interface ComposeContextInputs {
   day?: string | null;
   startTime?: string | null;
   endTime?: string | null;
+  /** Entry mode — see ComposeContext.mode. Defaults to "questionnaire"
+   *  inside the builder, so every server-side and questionnaire-side
+   *  call site that doesn't care gets the right value for free. */
+  mode?: "questionnaire" | "lucky";
+  /** 1-indexed attempt number — only the lucky path passes this on
+   *  rerolls. */
+  attempt?: number;
 }
 
 export function buildComposeContext(
@@ -82,6 +102,7 @@ export function buildComposeContext(
       day: null,
       start_time: null,
       end_time: null,
+      mode: "questionnaire",
     };
   }
   const slugs = inputs.neighborhoods ?? [];
@@ -93,6 +114,8 @@ export function buildComposeContext(
     day: inputs.day ?? null,
     start_time: inputs.startTime ?? null,
     end_time: inputs.endTime ?? null,
+    mode: inputs.mode ?? "questionnaire",
+    ...(inputs.attempt !== undefined ? { attempt: inputs.attempt } : {}),
   };
 }
 

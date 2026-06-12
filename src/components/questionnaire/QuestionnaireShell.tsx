@@ -151,7 +151,10 @@ export function QuestionnaireShell() {
         : [];
 
       track(EVENTS.COMPOSE_SUBMITTED, {
-        ...buildComposeContext(body),
+        // Explicit "questionnaire" mode (matches the builder's default,
+        // but call sites that care about the funnel split shouldn't have
+        // to look at builder internals to know what mode lands).
+        ...buildComposeContext({ ...body, mode: "questionnaire" }),
         day_of_week: dayOfWeekFromISO(body.day),
       });
 

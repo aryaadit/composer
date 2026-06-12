@@ -6,24 +6,22 @@
 // modal still open" race.
 
 import type { SwapContext } from "@/hooks/useSwapStop";
-import type { EventName, EventSchemas } from "@/lib/analytics";
+import type {
+  ComposeContext,
+  EventName,
+  EventSchemas,
+} from "@/lib/analytics";
 
 /** Compose context + itinerary_id + first-engagement timing are injected
  *  by EngagementProvider's trackEngagement at the single passthrough
  *  point. These builders return only the event-specific fields the
  *  caller has to supply — Omit-aligned with EngagementProvider's
- *  EngagementProps shape. */
+ *  EngagementProps shape. Using `keyof ComposeContext` keeps this in
+ *  lockstep with the schema (e.g. new fields like `mode` and `attempt`
+ *  are auto-included). */
 type EventSpecificProps<E extends EventName> = Omit<
   EventSchemas[E],
-  | "occasion"
-  | "vibe"
-  | "budget"
-  | "group_ids"
-  | "day"
-  | "start_time"
-  | "end_time"
-  | "itinerary_id"
-  | "time_to_first_engagement_ms"
+  keyof ComposeContext | "itinerary_id" | "time_to_first_engagement_ms"
 >;
 
 /**

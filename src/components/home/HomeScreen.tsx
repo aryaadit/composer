@@ -11,6 +11,7 @@ import { useAuth } from "@/components/providers/AuthProvider";
 import { useSavedPlans } from "@/hooks/useSavedPlans";
 import { SavedPlanRow } from "@/components/shared/SavedPlanRow";
 import { SavedPlanRowExpanded } from "@/components/shared/SavedPlanRowExpanded";
+import { LuckyDieButton } from "@/components/home/LuckyDieButton";
 import { splitPlansByDate } from "@/lib/dateUtils";
 
 function UserIcon() {
@@ -92,7 +93,11 @@ export function HomeScreen({ userName }: HomeScreenProps) {
         </h1>
       </div>
 
-      {/* Main CTA */}
+      {/* Main CTA + secondary "Surprise me" die.
+       * Lucky is a secondary action — small icon + word under the
+       * filled New plan button, not a second filled button. Same auth
+       * gating as New plan (no gate here; the home screen is the
+       * authed surface). */}
       <div className="px-6 mb-10 max-w-lg w-full mx-auto">
         <Link
           href="/compose"
@@ -102,6 +107,9 @@ export function HomeScreen({ userName }: HomeScreenProps) {
             New plan →
           </span>
         </Link>
+        <div className="mt-3 flex justify-center">
+          <LuckyDieButton userId={user?.id ?? null} />
+        </div>
       </div>
 
       {/* Saved plans — split into Upcoming + Past (Phase 5) */}

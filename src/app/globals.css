@@ -43,3 +43,48 @@ body {
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
+
+/* ─── Lucky overlay: 3D tumbling die ─────────────────────────────────
+ * Pure CSS + SVG, no animation libs. The die rolls indefinitely until
+ * the rolling promise resolves (success → navigate, failure → static
+ * failure block). Six faces are positioned in 3D and rotated together
+ * by the parent. Burgundy on white per BRAND_VOICE — feels editorial,
+ * not casino. Reduced-motion: parent skips the keyframes and we fall
+ * through to .lucky-die-pulse below for a subtle scale breath instead. */
+.lucky-die-scene {
+  perspective: 800px;
+}
+.lucky-die {
+  transform-style: preserve-3d;
+  animation: lucky-tumble 2.4s linear infinite;
+  will-change: transform;
+}
+.lucky-die-face {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
+}
+@keyframes lucky-tumble {
+  /* Two full rotations on three axes — irregular enough that the user
+   * doesn't perceive a repeat cycle. 2.4s is slow enough to read as
+   * tumbling, fast enough not to feel sluggish. */
+  0%   { transform: rotateX(0deg)   rotateY(0deg)   rotateZ(0deg); }
+  25%  { transform: rotateX(180deg) rotateY(90deg)  rotateZ(45deg); }
+  50%  { transform: rotateX(360deg) rotateY(180deg) rotateZ(90deg); }
+  75%  { transform: rotateX(540deg) rotateY(270deg) rotateZ(135deg); }
+  100% { transform: rotateX(720deg) rotateY(360deg) rotateZ(180deg); }
+}
+.lucky-die-pulse {
+  animation: lucky-pulse 2.4s ease-in-out infinite;
+  will-change: transform;
+}
+@keyframes lucky-pulse {
+  0%, 100% { transform: scale(1);    opacity: 1; }
+  50%      { transform: scale(1.06); opacity: 0.92; }
+}
+@media (prefers-reduced-motion: reduce) {
+  /* Belt-and-suspenders: the component prop also picks the pulse
+   * branch, but if a future caller forgets, the reduce-motion media
+   * query freezes the tumble keyframes too. */
+  .lucky-die { animation: lucky-pulse 2.4s ease-in-out infinite; }
+}
