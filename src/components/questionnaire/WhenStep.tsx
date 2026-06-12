@@ -5,7 +5,7 @@
 // startTime; this component never touches the categorical TimeBlock
 // type — it's been removed from the user-input layer (Phase 1).
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useSyncExternalStore } from "react";
 import { motion } from "motion/react";
 import { Button } from "@/components/ui/Button";
 import { DatePicker } from "@/components/ui/DatePicker";
@@ -48,6 +48,51 @@ function toLocalISODate(d: Date): string {
   return `${y}-${m}-${day}`;
 }
 
+// ─── Pointer-modality detection ─────────────────────────────────
+//
+// Branches the date affordance: coarse pointer (touch / iPad) gets the
+// native OS picker; fine pointer (desktop, including touch laptops
+// with a primary fine pointer) gets the themed custom calendar.
+//
+// useSyncExternalStore is the hydration-safe path here. The server
+// snapshot is null, and the client's first render after hydration also
+// returns null — both renders agree on the custom-calendar branch so
+// there is zero hydration mismatch. After hydration completes, the
+// store re-reads and the component re-renders with the real boolean.
+// One brief visual replacement on mobile during that handoff is the
+// price; in exchange, desktop never sees a native input.
+//
+// Hard rules enforced here:
+//   - No userAgent sniff anywhere.
+//   - When matchMedia is unavailable, snapshot returns null, which
+//     defaults to the custom calendar — never the native input.
+
+function subscribeCoarsePointer(callback: () => void): () => void {
+  if (typeof window === "undefined" || !window.matchMedia) {
+    return () => {};
+  }
+  const mql = window.matchMedia("(pointer: coarse)");
+  mql.addEventListener("change", callback);
+  return () => mql.removeEventListener("change", callback);
+}
+
+function getCoarsePointerSnapshot(): boolean | null {
+  if (typeof window === "undefined" || !window.matchMedia) return null;
+  return window.matchMedia("(pointer: coarse)").matches;
+}
+
+function getCoarsePointerServerSnapshot(): boolean | null {
+  return null;
+}
+
+function useIsCoarsePointer(): boolean | null {
+  return useSyncExternalStore(
+    subscribeCoarsePointer,
+    getCoarsePointerSnapshot,
+    getCoarsePointerServerSnapshot,
+  );
+}
+
 interface WhenStepProps {
   initialDay?: string;
   initialStartTime?: ComposeStartTime;
@@ -71,6 +116,16 @@ export function WhenStep({
   const builtInDates = useMemo(() => new Set(days.map((d) => d.date)), [days]);
   const customSelected = !builtInDates.has(day);
   const todayISO = days[0].date;
+  const isCoarse = useIsCoarsePointer();
+
+  // Native-input change handler — same channel as a day-pill tap. The
+  // empty-value guard catches the rare case where a user clears the
+  // input via assistive tech without picking anything.
+  const handleDatePicked = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    if (!value) return;
+    setDay(value);
+  };
 
   const handleStartTimePick = (next: ComposeStartTime) => {
     track(EVENTS.COMPOSE_START_TIME_SELECTED, {
@@ -103,27 +158,53 @@ export function WhenStep({
           );
         })}
 
-        {/* Custom date pill — themed popover calendar. Replaces the
-            native <input type="date"> whose OS popup couldn't be
-            skinned to design tokens. See DatePicker for the trigger
-            anchoring + Esc/outside-click contract. */}
+        {/* Custom-date affordance — branched by pointer modality.
+            Coarse pointer (touch / iPad): the chip overlays a real
+              native date input at opacity-0. Tap focuses the input,
+              the OS opens its picker. No JS intervention.
+            Fine pointer (desktop, touch laptops): the themed custom
+              calendar. No native input mounted, period.
+            isCoarse === null (SSR + first client paint + no
+              matchMedia) defaults to the custom calendar so the
+              native input never renders on desktop, even briefly. */}
         <motion.span
           key="custom-date"
           className="inline-block"
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.2, delay: days.length * 0.03 }}
+          whileTap={{ scale: 0.97 }}
         >
-          <DatePicker
-            value={customSelected ? day : null}
-            onChange={setDay}
-            min={todayISO}
-            triggerClassName={pillClass(customSelected)}
-            triggerLabel={
-              customSelected ? formatCustomDate(day) : "+ Pick a date"
-            }
-            triggerAriaLabel="Pick a date"
-          />
+          {isCoarse === true ? (
+            <label
+              htmlFor="custom-date-input"
+              className="relative inline-block cursor-pointer"
+            >
+              <span className={pillClass(customSelected)} aria-hidden>
+                {customSelected ? formatCustomDate(day) : "+ Pick a date"}
+              </span>
+              <input
+                id="custom-date-input"
+                type="date"
+                min={todayISO}
+                value={customSelected ? day : ""}
+                onChange={handleDatePicked}
+                aria-label="Pick a date"
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer appearance-none bg-transparent"
+              />
+            </label>
+          ) : (
+            <DatePicker
+              value={customSelected ? day : null}
+              onChange={setDay}
+              min={todayISO}
+              triggerClassName={pillClass(customSelected)}
+              triggerLabel={
+                customSelected ? formatCustomDate(day) : "+ Pick a date"
+              }
+              triggerAriaLabel="Pick a date"
+            />
+          )}
         </motion.span>
       </div>
 
