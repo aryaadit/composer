@@ -234,12 +234,31 @@ export interface ScoredVenue extends Venue {
   score: number;
 }
 
+/**
+ * Why an `unconfirmed` availability landed in that state. Drives the
+ * renderer copy — "we never tried" reads differently from "we tried
+ * and the load failed", and both read differently from the legacy
+ * absent-reason case (kept so saved itineraries serialized before
+ * this field still hydrate honestly).
+ *
+ *   - "no_live_data": data-gate. The venue is not wired up for a
+ *     live-availability fetch (missing platform id, missing slug, or
+ *     a platform we don't speak). We did NOT call the upstream.
+ *   - "fetch_failed": we tried, the underlying fetch rejected
+ *     (network, abort, parse, etc.). Real load failure.
+ */
+export type UnconfirmedReason = "no_live_data" | "fetch_failed";
+
 export interface StopAvailability {
   status: "has_slots" | "no_slots_in_block" | "walk_in" | "unconfirmed";
   slots: AvailabilitySlot[];
   bookingUrlBase: string | null;
   swapped: boolean;
   swappedFrom?: { venueId: string; venueName: string };
+  /** Only set when status === "unconfirmed". Absent on legacy saved
+   *  itineraries; the renderer treats absent as the conservative
+   *  "fetch_failed" copy so the apologetic register doesn't leak. */
+  reason?: UnconfirmedReason;
 }
 
 export interface ItineraryStop {

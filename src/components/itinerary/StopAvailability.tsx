@@ -82,18 +82,44 @@ export function StopAvailabilitySection({
     const detected = bookingUrlBase ? detectBookingPlatform(bookingUrlBase) : null;
     const detectedId = detected?.id;
     const trackedPlatform = detectedId ?? platform ?? "other";
+    // Two reasons land in this branch: "no_live_data" (server never
+    // fetched — venue's not wired up for live availability) and
+    // "fetch_failed" (server tried, fetch rejected). They get
+    // different copy registers. Absent reason is treated as
+    // "fetch_failed" so legacy saved itineraries serialized before
+    // this field stay conservative — the apologetic copy is the
+    // safer default than the "doesn't share" claim.
+    const reason = availability.reason ?? "fetch_failed";
 
     let copy: string;
     if (detectedId === "opentable") {
-      // Audit item 6: em dashes removed; reads as two short sentences.
+      // OpenTable's been honest about this from day one — they don't
+      // publish a live-availability API. Same line regardless of
+      // reason. Audit item 6: em dashes removed; reads as two short
+      // sentences.
       copy = "OpenTable doesn't share live availability. Book directly.";
-    } else if (detectedId === "resy") {
-      copy = "Couldn't load times. Check directly on Resy.";
-    } else if (detectedId === "tock") {
-      copy = "Couldn't load times. Check directly on Tock.";
+    } else if (reason === "no_live_data") {
+      // Server never attempted a fetch (data-gate). Tell the truth:
+      // we don't have live times for this spot, not "couldn't load".
+      // Sentence case, no em dashes — matches the OpenTable line.
+      if (detectedId === "resy") {
+        copy = "Resy doesn't share live times for this spot. Book directly.";
+      } else if (detectedId === "tock") {
+        copy = "Tock doesn't share live times for this spot. Book directly.";
+      } else {
+        copy = "We don't have live times for this spot. Book directly.";
+      }
     } else {
-      const name = PLATFORM_NAMES[platform ?? ""] ?? "the venue";
-      copy = `Couldn't load times. Check directly on ${name}.`;
+      // fetch_failed (or legacy absent reason): we tried, the fetch
+      // rejected. Apologetic register.
+      if (detectedId === "resy") {
+        copy = "Couldn't load times. Check directly on Resy.";
+      } else if (detectedId === "tock") {
+        copy = "Couldn't load times. Check directly on Tock.";
+      } else {
+        const name = PLATFORM_NAMES[platform ?? ""] ?? "the venue";
+        copy = `Couldn't load times. Check directly on ${name}.`;
+      }
     }
 
     return (

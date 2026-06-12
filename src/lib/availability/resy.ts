@@ -40,7 +40,12 @@ interface ResyFindResponse {
 export async function getResyAvailability(
   resyVenueId: number,
   date: string,
-  partySize: number
+  partySize: number,
+  /** Caller-supplied abort signal for timeout / cancellation. The
+   *  enrichment caller threads its 5s timeout controller through
+   *  here; without this argument the timeout couldn't actually
+   *  cancel the in-flight request (the bug fixed 2026-06-12). */
+  signal?: AbortSignal,
 ): Promise<AvailabilitySlot[]> {
   const res = await fetch(RESY_API_URL, {
     method: "POST",
@@ -57,6 +62,7 @@ export async function getResyAvailability(
       lat: 0,
       long: 0,
     }),
+    signal,
   });
 
   if (!res.ok) {

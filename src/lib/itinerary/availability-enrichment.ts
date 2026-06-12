@@ -58,7 +58,17 @@ async function fetchResyWithTimeout(
   const timeout = setTimeout(() => controller.abort(), RESY_TIMEOUT_MS);
 
   try {
-    const slots = await getResyAvailability(resyVenueId, date, partySize);
+    // 2026-06-12: signal is now threaded into the underlying fetch
+    // (it wasn't before — the timeout used to fire and abort nothing,
+    // so Resy hangs propagated to Vercel's function timeout and
+    // failed the WHOLE compose as a 500). Now a slow Resy degrades
+    // honestly to a per-stop fetch_failed unconfirmed.
+    const slots = await getResyAvailability(
+      resyVenueId,
+      date,
+      partySize,
+      controller.signal,
+    );
     clearTimeout(timeout);
     return slots;
   } catch (err) {
@@ -81,6 +91,10 @@ function buildAvailability(
   }
 
   if (platform !== "resy" || !venue.resy_venue_id || !venue.resy_slug) {
+    // Data-gate: not wired up for a live fetch. We never called Resy
+    // — the honest copy on the client is "doesn't share live times
+    // for this spot", not the apologetic "couldn't load times". See
+    // UnconfirmedReason in types/index.ts.
     return {
       status: "unconfirmed",
       slots: [],
@@ -91,6 +105,7 @@ function buildAvailability(
         window.startTime
       ),
       swapped: false,
+      reason: "no_live_data",
     };
   }
 
@@ -210,6 +225,9 @@ export async function enrichWithAvailability(
       if (platform === "none") {
         const detected = detectBookingPlatform(venue.reservation_url);
         if (detected?.id === "opentable") {
+          // OpenTable inherently doesn't share live availability — no
+          // fetch attempted. reason="no_live_data" so the type tracks
+          // why; the renderer's opentable branch keeps its own copy.
           return {
             ...stop,
             availability: {
@@ -222,6 +240,7 @@ export async function enrichWithAvailability(
                 startTime
               ),
               swapped: false,
+              reason: "no_live_data",
             },
           };
         }
@@ -241,6 +260,9 @@ export async function enrichWithAvailability(
         !venue.resy_venue_id ||
         !venue.resy_slug
       ) {
+        // Data-gate: same shape as buildAvailability's data-gate branch
+        // (the 68 active venues currently in this bucket — Resy slug
+        // populated, Resy venue id pending sheet backfill).
         return {
           ...stop,
           availability: {
@@ -253,6 +275,7 @@ export async function enrichWithAvailability(
               startTime
             ),
             swapped: false,
+            reason: "no_live_data",
           },
         };
       }
@@ -270,6 +293,9 @@ export async function enrichWithAvailability(
           `[availability] Resy timeout/error for ${venue.name} (${venue.id}):`,
           err
         );
+        // Real fetch failure — we tried Resy and the underlying
+        // fetch rejected (5s abort, network, parse). Renderer uses
+        // the apologetic "couldn't load times" copy here.
         return {
           ...stop,
           availability: {
@@ -281,6 +307,7 @@ export async function enrichWithAvailability(
               partySize
             ),
             swapped: false,
+            reason: "fetch_failed",
           },
         };
       }
