@@ -209,7 +209,10 @@ export function OnboardingFlow() {
                   }}
                 />
                 {nameError && (
-                  <p className="font-sans text-sm text-burgundy mt-2">
+                  <p
+                    role="alert"
+                    className="font-sans text-sm text-burgundy mt-2"
+                  >
                     {nameError}
                   </p>
                 )}

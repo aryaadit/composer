@@ -445,7 +445,7 @@ function EmailAuthForm({
           </div>
 
           {error && (
-            <p className="font-sans text-xs text-charcoal">{error}</p>
+            <p role="alert" className="font-sans text-xs text-burgundy">{error}</p>
           )}
 
           <Button
