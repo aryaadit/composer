@@ -1,29 +1,18 @@
 "use client";
 
-// Tonight's Pick — a daily seeded itinerary card on the home page.
-// Visual family: same Mapbox-thumbnail-over-stops shape as the saved
-// hero card, but unmistakably distinct so it never reads as one of
-// the user's saved plans.
+// Tonight's Pick — daily seeded itinerary, rendered on home as a
+// COMPACT TEASER (home-redesign 2026-06-12). Tinted burgundy fill,
+// eyebrow + serif title + ONE-line subtitle + chevron. No map, no
+// stop rows — the upcoming hero on the same page owns the map, and
+// duplicating the stops there made the pick read as a visual twin
+// of the user's saved plan.
 //
-// Distinguishers:
-//   - Eyebrow: "TONIGHT'S PICK · FROM US" (uppercase, burgundy dot).
-//     Two label options to propose in the PR description besides the
-//     default below: "ON THE HOUSE", "TONIGHT, OUR TAKE".
-//   - Burgundy-tinted fill (var(--color-burgundy-tint)) instead of
-//     plain cream.
-//   - Burgundy/30 border (vs the saved card's burgundy/15).
-//
-// Tap → write the cached inputs + itinerary to the same sessionStorage
-// keys the questionnaire uses, navigate to /itinerary. The page has no
-// idea this came from the daily pick — swap/save work normally. Viewing
-// never auto-saves; saving is the user's action via Looks Good.
+// Renders every day for authed users regardless of whether they
+// already have a today-plan. Tap → sessionStorage handoff to
+// /itinerary, unchanged from the pre-redesign card (handoff + the
+// daily_pick_opened event don't move).
 
-import { useState } from "react";
 import { useRouter } from "next/navigation";
-import type { LineString } from "geojson";
-import { buildItineraryStaticMapUrl } from "@/lib/mapbox";
-import { ROLE_LABELS } from "@/config/roles";
-import { formatCategory } from "@/lib/format/category";
 import { STORAGE_KEYS } from "@/config/storage";
 import { EVENTS, track } from "@/lib/analytics";
 import type { ItineraryResponse, GenerateRequestBody } from "@/types";
@@ -40,24 +29,6 @@ export function TonightsPickCard({
   pickDate,
 }: TonightsPickCardProps) {
   const router = useRouter();
-  const stops = itinerary.stops;
-  const walks = itinerary.walks ?? [];
-
-  const mapUrl = buildItineraryStaticMapUrl(
-    stops.map((s) => ({
-      latitude: s.venue.latitude,
-      longitude: s.venue.longitude,
-    })),
-    {
-      routeGeometries: walks.map(
-        (w) => (w.route_geometry as LineString | null | undefined) ?? null,
-      ),
-    },
-  );
-  // Runtime Mapbox failure (token scope, transient 4xx) — mirror the
-  // SavedPlanRowExpanded pattern so the card hides the map zone
-  // instead of leaving a broken-image artifact.
-  const [mapErrored, setMapErrored] = useState(false);
 
   const handleOpen = () => {
     track(EVENTS.DAILY_PICK_OPENED, {
@@ -77,6 +48,9 @@ export function TonightsPickCard({
     router.push("/itinerary");
   };
 
+  const title = itinerary.header?.title ?? "A plan for tonight";
+  const subtitle = itinerary.header?.subtitle ?? null;
+
   return (
     <section
       data-testid="tonights-pick-card"
@@ -85,75 +59,56 @@ export function TonightsPickCard({
       <button
         type="button"
         onClick={handleOpen}
-        className="group block w-full text-left rounded-xl border border-burgundy/30 bg-burgundy-tint overflow-hidden hover:border-burgundy/60 transition-colors"
+        className="group flex w-full items-center gap-3 rounded-xl border border-burgundy/30 bg-burgundy-tint px-5 py-4 text-left transition-colors hover:border-burgundy/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-burgundy/50"
       >
-        {/* ─── Eyebrow ─────────────────────────────────────── */}
-        <div className="px-5 pt-5 pb-3">
+        <div className="min-w-0 flex-1">
+          {/* ── Eyebrow ───────────────────────────────────── */}
           <div
             data-testid="tonights-pick-eyebrow"
-            className="flex items-center gap-2 font-sans text-[11px] tracking-widest uppercase text-burgundy mb-2"
+            className="mb-1 flex items-center gap-2 font-sans text-[11px] tracking-widest uppercase text-burgundy"
           >
             <span
-              className="inline-block w-1.5 h-1.5 rounded-full bg-burgundy"
+              className="inline-block h-1.5 w-1.5 rounded-full bg-burgundy"
               aria-hidden
             />
             <span>Tonight&apos;s pick &middot; from us</span>
           </div>
 
-          {/* ─── Title from the generated header copy ─────── */}
-          <h2 className="font-serif text-2xl text-charcoal leading-tight">
-            {itinerary.header?.title ?? "A plan for tonight"}
+          {/* ── Title ─────────────────────────────────────── */}
+          <h2 className="truncate font-serif text-xl text-charcoal leading-snug">
+            {title}
           </h2>
-          {itinerary.header?.subtitle && (
-            <p className="font-sans text-sm text-warm-gray mt-1">
-              {itinerary.header.subtitle}
+
+          {/* ── One-line subtitle (existing copy, truncated) ─ */}
+          {subtitle && (
+            <p className="mt-1 truncate font-sans text-sm text-warm-gray">
+              {subtitle}
             </p>
           )}
         </div>
 
-        {/* ─── Map thumbnail (hidden gracefully on build-time AND
-              runtime Mapbox miss; matches SavedPlanRowExpanded). ─── */}
-        {mapUrl && !mapErrored && (
-          <div className="w-full bg-cream-dark">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={mapUrl}
-              alt=""
-              className="w-full block"
-              loading="lazy"
-              onError={() => setMapErrored(true)}
-            />
-          </div>
-        )}
-
-        {/* ─── Two stops, same role-line treatment as saved cards ─ */}
-        <ul className="divide-y divide-burgundy/10">
-          {stops.slice(0, 2).map((stop, i) => (
-            <li
-              key={stop.venue.id}
-              className="flex items-baseline gap-3 px-5 py-3"
-            >
-              <span
-                className="flex-shrink-0 inline-flex items-center justify-center w-5 h-5 rounded-full bg-burgundy text-cream font-sans text-[11px] font-medium"
-                aria-hidden
-              >
-                {i + 1}
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="font-serif text-base text-charcoal leading-snug truncate">
-                  {stop.venue.name}
-                </p>
-                <p className="font-sans text-xs text-muted mt-0.5">
-                  {ROLE_LABELS[stop.role] ?? stop.role}
-                  {stop.venue.category && (
-                    <> &middot; {formatCategory(stop.venue.category)}</>
-                  )}
-                </p>
-              </div>
-            </li>
-          ))}
-        </ul>
+        {/* ── Right-aligned chevron ────────────────────────── */}
+        <ChevronRightIcon />
       </button>
     </section>
+  );
+}
+
+function ChevronRightIcon() {
+  return (
+    <svg
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+      className="shrink-0 text-burgundy transition-transform group-hover:translate-x-0.5"
+    >
+      <polyline points="9 18 15 12 9 6" />
+    </svg>
   );
 }

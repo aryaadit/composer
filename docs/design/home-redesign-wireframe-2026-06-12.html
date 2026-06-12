@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Home redesign wireframe — 2026-06-12</title>
+<!--
+  DESIGN REFERENCE for the home page redesign wave.
+  Left column = CURRENT (for contrast only). Right column = PROPOSED (the target).
+  Schematic, not pixel spec: hierarchy, presence/absence, and relative weight are
+  the contract. Real components, spacing scale, and type sizes come from the
+  existing design system (burgundy #6B1E2E, DM Sans UI, Playfair editorial).
+  Decisions encoded below, each marked with a DECISION comment:
+    1. Tonight's pick = compact teaser (no map, no stop rows), always shown.
+    2. Dice relocated to header, icon-only. "Random tonight?" row deleted.
+    3. Upcoming hero keeps the ONLY map on the page.
+    4. Stop labels are position-aware; last stop gets a closer label, never START HERE.
+-->
+<style>
+  body { font-family: "DM Sans", -apple-system, sans-serif; background:#F5F5F5; color:#111111; margin:0; padding:24px; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:24px; max-width:760px; margin:0 auto; }
+  .col-label { font-size:14px; font-weight:500; color:#6B6B6B; margin:0 0 8px; }
+  .phone { background:#FFFFFF; border:1px solid #E8E8E8; border-radius:16px; padding:16px; font-size:13px; }
+  .hdr { display:flex; justify-content:space-between; align-items:center; color:#9B9B9B; margin-bottom:12px; }
+  .hdr .right { display:flex; gap:12px; align-items:center; }
+  .eyebrow { font-size:11px; letter-spacing:.05em; color:#9B9B9B; text-transform:uppercase; margin:0 0 2px; }
+  .serif { font-family: "Playfair Display", Georgia, serif; }
+  h1.greet { font-size:19px; margin:0 0 12px; font-weight:500; }
+  .cta { background:#6B1E2E; color:#FFFFFF; border-radius:999px; text-align:center; padding:10px; margin-bottom:14px; }
+  .dice-row { text-align:center; color:#6B1E2E; font-size:13px; margin-bottom:14px; }
+  .pick { background:#6B1E2E0D; border:1px solid #6B1E2E4D; border-radius:12px; padding:12px; margin-bottom:14px; }
+  .pick-eyebrow { font-size:10px; letter-spacing:.05em; color:#6B1E2E; text-transform:uppercase; margin:0 0 3px; }
+  .pick h2 { font-size:16px; margin:0 0 4px; font-weight:500; color:#3d1019; }
+  .map { background:#ECECEC; border-radius:8px; height:96px; display:flex; align-items:center; justify-content:center; color:#9B9B9B; font-size:12px; margin:8px 0; }
+  .stop { display:flex; justify-content:space-between; border-top:1px solid #E8E8E8; padding:7px 0; }
+  .stop .role { font-size:10px; letter-spacing:.05em; color:#9B9B9B; text-transform:uppercase; }
+  .section { font-size:11px; letter-spacing:.06em; color:#9B9B9B; text-transform:uppercase; margin:14px 0 6px; }
+  .hero { border:1px solid #E8E8E8; border-radius:12px; padding:12px; }
+  .hero .tonight { font-size:11px; color:#6B1E2E; margin:0 0 2px; }
+  .hero h2 { font-size:16px; margin:0 0 6px; font-weight:500; }
+  .row { display:flex; justify-content:space-between; border-top:1px solid #E8E8E8; padding:9px 0; color:#444; }
+  .teaser { display:flex; justify-content:space-between; align-items:center; gap:10px; }
+  .chev { color:#6B1E2E; font-size:16px; }
+  .die { color:#6B1E2E; font-size:16px; }
+  .sub { font-size:12px; color:#6B6B6B; margin:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+</style>
+</head>
+<body>
+<div class="grid">
+
+  <div>
+    <p class="col-label">Current (for contrast, do not build)</p>
+    <div class="phone">
+      <div class="hdr"><span>COMPOSER</span><span>&#9786;</span></div>
+      <p class="eyebrow">Good morning, Adit</p>
+      <h1 class="greet serif">Compose your night.</h1>
+      <div class="cta">New plan &rarr;</div>
+      <!-- CURRENT PROBLEM: dice competes with the primary CTA -->
+      <div class="dice-row">&#9856; Random tonight?</div>
+      <!-- CURRENT PROBLEM: pick is a full plan card, visual twin of the hero below -->
+      <div class="pick">
+        <p class="pick-eyebrow">Tonight's pick &middot; from us</p>
+        <h2 class="serif">Adit, this is fun</h2>
+        <p class="sub">Art at Coming Soon, then pizza and natural wine at Scarr's.</p>
+        <div class="map">map (1 of 2 on the page)</div>
+        <div class="stop"><span>&#9312; Coming Soon</span></div>
+        <div class="stop"><span>&#9313; Scarr's Pizza</span></div>
+      </div>
+      <p class="section">Upcoming</p>
+      <div class="hero">
+        <p class="tonight">&#9679; Tonight at 8 PM</p>
+        <h2 class="serif">Adit, Koreatown, late</h2>
+        <div class="map">map (2 of 2 on the page)</div>
+        <div class="stop"><span>Pocha 32</span><span class="role">Start here</span></div>
+        <div class="stop"><span>Food Gallery 32</span><span class="role">The main event</span></div>
+        <!-- CURRENT BUG: last stop labeled START HERE -->
+        <div class="stop"><span>Zoo Sindang</span><span class="role">Start here (bug)</span></div>
+      </div>
+      <div class="row"><span>Adit, a Chelsea night</span></div>
+      <div class="row"><span>Adit, Koreatown, good eats</span></div>
+      <p class="section">Past</p>
+      <div class="row"><span>Adit, books and birria</span></div>
+    </div>
+  </div>
+
+  <div>
+    <p class="col-label">Proposed (the target)</p>
+    <div class="phone">
+      <!-- DECISION 2: die icon in header next to profile; icon-only,
+           aria-label "Random tonight", same lucky flow, dimmed after cutoff -->
+      <div class="hdr"><span>COMPOSER</span><span class="right"><span class="die">&#9856;</span><span>&#9786;</span></span></div>
+      <p class="eyebrow">Good morning, Adit</p>
+      <h1 class="greet serif">Compose your night.</h1>
+      <div class="cta">New plan &rarr;</div>
+      <!-- the "Random tonight?" row is GONE; vertical slot freed -->
+      <!-- DECISION 1: pick = teaser. Tint + eyebrow + serif title +
+           ONE-line subtitle + chevron. NO map. NO stop rows.
+           Always rendered for authed users, even when a plan exists today.
+           Tap opens the itinerary (unchanged handoff + events). -->
+      <div class="pick teaser">
+        <div style="min-width:0">
+          <p class="pick-eyebrow">Tonight's pick &middot; from us</p>
+          <h2 class="serif">Adit, this is fun</h2>
+          <p class="sub">Art at Coming Soon, then Scarr's</p>
+        </div>
+        <span class="chev">&rsaquo;</span>
+      </div>
+      <p class="section">Upcoming</p>
+      <!-- DECISION 3: hero keeps the map; it is now the ONLY map on the page -->
+      <div class="hero">
+        <p class="tonight">&#9679; Tonight at 8 PM</p>
+        <h2 class="serif">Adit, Koreatown, late</h2>
+        <div class="map">map &middot; the only one on the page</div>
+        <!-- DECISION 4: position-aware labels via one shared helper.
+             Closer copy below is a placeholder; propose options per BRAND_VOICE -->
+        <div class="stop"><span>Pocha 32</span><span class="role">Start here</span></div>
+        <div class="stop"><span>Food Gallery 32</span><span class="role">The main event</span></div>
+        <div class="stop"><span>Zoo Sindang</span><span class="role">Last call</span></div>
+      </div>
+      <div class="row"><span>Adit, a Chelsea night</span></div>
+      <div class="row"><span>Adit, Koreatown, good eats</span></div>
+      <p class="section">Past</p>
+      <div class="row"><span>Adit, books and birria</span></div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

@@ -77,15 +77,22 @@ export function HomeScreen({ userName }: HomeScreenProps) {
 
   return (
     <div className="min-h-screen flex flex-col bg-cream">
+      {/* Header rightSlot: die + profile. Home redesign 2026-06-12
+          moves the lucky affordance off the body (under New plan) and
+          into the header next to the profile glyph — icon-only,
+          burgundy, same tap-target hit area as the surrounding glyphs. */}
       <Header
         rightSlot={
-          <Link
-            href="/profile"
-            aria-label="Profile"
-            className="text-muted hover:text-charcoal transition-colors"
-          >
-            <UserIcon />
-          </Link>
+          <div className="flex items-center gap-3">
+            <LuckyDieButton userId={user?.id ?? null} />
+            <Link
+              href="/profile"
+              aria-label="Profile"
+              className="inline-flex h-8 w-8 items-center justify-center text-muted hover:text-charcoal transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-burgundy/50 focus-visible:rounded-full"
+            >
+              <UserIcon />
+            </Link>
+          </div>
         }
       />
       <div className="px-6 pt-4 pb-8 max-w-lg w-full mx-auto">
@@ -97,22 +104,16 @@ export function HomeScreen({ userName }: HomeScreenProps) {
         </h1>
       </div>
 
-      {/* Main CTA + secondary "Random tonight?" die.
-       * Lucky is a secondary action — small icon + word under the
-       * filled New plan button, not a second filled button. Same auth
-       * gating as New plan (no gate here; the home screen is the
-       * authed surface). */}
+      {/* Main CTA. The "Random tonight?" row under it was deleted
+          2026-06-12 — die moved into the header rightSlot above.
+          Audit item 30: routed through Button primitive at pixel
+          parity. size="lg" supplies the exact py-5 px-5 text-sm
+          tracking-wide recipe; w-full + the block layout sit on the
+          consumer side. */}
       <div className="px-6 mb-10 max-w-lg w-full mx-auto">
-        {/* Audit item 30: routed through Button primitive at pixel
-            parity. size="lg" supplies the exact py-5 px-5 text-sm
-            tracking-wide recipe; w-full + the block layout sit on the
-            consumer side. */}
         <Button variant="primary" size="lg" href="/compose" className="w-full">
           New plan →
         </Button>
-        <div className="mt-3 flex justify-center">
-          <LuckyDieButton userId={user?.id ?? null} />
-        </div>
       </div>
 
       {/* Tonight's Pick — between the action row and Upcoming.

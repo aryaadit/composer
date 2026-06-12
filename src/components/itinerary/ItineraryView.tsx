@@ -7,6 +7,7 @@ import { ItineraryResponse } from "@/types";
 import { useEngagement } from "@/components/itinerary/EngagementProvider";
 import { EVENTS } from "@/lib/analytics";
 import { StopCard } from "@/components/ui/StopCard";
+import { getStopEyebrowLabel } from "@/lib/format/stop-eyebrow";
 import { WalkConnector } from "@/components/ui/WalkConnector";
 import { VenueDetailModal } from "@/components/venue/VenueDetailModal";
 import { ItineraryMap } from "./ItineraryMap";
@@ -191,6 +192,7 @@ export function ItineraryView({
               <StopCard
                 stop={stop}
                 index={i}
+                eyebrowLabel={getStopEyebrowLabel(stop, i, stops)}
                 date={date}
                 partySize={partySize}
                 onSwap={

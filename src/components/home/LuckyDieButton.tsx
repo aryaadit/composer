@@ -1,14 +1,11 @@
 "use client";
 
-// Secondary "Random tonight?" action — small die icon under the New
-// plan CTA on the authed Home. Tapping it opens the LuckyOverlay
-// which rolls inputs through /api/generate and navigates on success.
-//
-// Design intent: NOT a second filled button (would compete with New
-// plan). A small icon + word treatment — burgundy die on cream, no
-// background fill, hover/active darken only. First-run users need a
-// word because the behavior isn't learned yet; icon-only is reserved
-// for a later iteration once "die = random" is established.
+// "Random tonight" — icon-only die button. Lives in the home Header
+// next to the profile glyph (home redesign 2026-06-12). The previous
+// labeled row under the New plan CTA was deleted; vertical slot freed.
+// Behavior is unchanged from that row: tap opens the LuckyOverlay,
+// the overlay handles the seeded roll + navigation + analytics. No
+// compose_started, no abandon flag.
 
 import { useEffect, useState } from "react";
 import { LuckyOverlay } from "./LuckyOverlay";
@@ -20,8 +17,8 @@ interface LuckyDieButtonProps {
    *  overlay for the recent-exclusions fetch. The button itself works
    *  the same in both states. */
   userId: string | null;
-  /** Optional className for layout — the parent decides whether to
-   *  center it, justify-end it, etc. */
+  /** Optional className for layout — the parent decides spacing
+   *  relative to neighboring header glyphs. */
   className?: string;
 }
 
@@ -45,8 +42,9 @@ function usePrefersReducedMotion(): boolean {
 
 /** Track whether the same-day cutoff still allows at least one pill.
  *  Polled every minute so a user sitting on the home screen past the
- *  cutoff sees the button disable in place rather than tapping into
- *  a no-op. */
+ *  cutoff sees the button dim in place rather than tapping into a
+ *  no-op. After-cutoff state is presented as a dimmed icon with
+ *  aria-disabled, per spec. */
 function useTodayHasEligibleSlot(): boolean {
   const [eligible, setEligible] = useState(() =>
     typeof window === "undefined"
@@ -89,16 +87,18 @@ export function LuckyDieButton({ userId, className = "" }: LuckyDieButtonProps) 
         type="button"
         onClick={handleClick}
         disabled={disabled}
-        aria-label="Random tonight? Roll a plan for tonight."
+        aria-disabled={disabled || undefined}
+        aria-label="Random tonight"
+        title={eligible ? "Random tonight" : "Too late tonight"}
         className={
-          "inline-flex items-center gap-2 font-sans text-sm text-burgundy " +
-          "hover:text-burgundy-light transition-colors disabled:opacity-40 " +
-          "disabled:cursor-not-allowed " +
+          "inline-flex h-8 w-8 items-center justify-center text-burgundy " +
+          "transition-colors hover:text-burgundy-light " +
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-burgundy/50 focus-visible:rounded-full " +
+          "disabled:cursor-not-allowed disabled:opacity-40 " +
           className
         }
       >
         <DieGlyph size={20} />
-        <span>{eligible ? "Random tonight?" : "Too late tonight"}</span>
       </button>
       {overlayOpen && (
         <LuckyOverlay

@@ -29,7 +29,7 @@ import { neighborhoodLabel } from "@/config/neighborhoods";
 import type { LineString } from "geojson";
 import { buildItineraryStaticMapUrl } from "@/lib/mapbox";
 import { rebuildWalks } from "@/lib/itinerary/saved-hydration";
-import { ROLE_LABELS } from "@/config/roles";
+import { getStopEyebrowLabel } from "@/lib/format/stop-eyebrow";
 import { formatCategory } from "@/lib/format/category";
 import { getVenueHeroImageUrl } from "@/lib/venues/images";
 
@@ -294,7 +294,7 @@ export function SavedPlanRowExpanded({
                         )}
                       </div>
                       <div className="shrink-0 font-sans text-[10px] tracking-widest uppercase text-muted whitespace-nowrap pt-1">
-                        {ROLE_LABELS[stop.role] ?? stop.role}
+                        {getStopEyebrowLabel(stop, i, stops)}
                       </div>
                     </div>
                   </div>

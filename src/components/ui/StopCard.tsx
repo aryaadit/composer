@@ -43,6 +43,11 @@ interface StopCardProps {
    * ItineraryMap. Renders a burgundy ring around the card to surface
    * where the user just jumped. Cleared by the parent via timeout. */
   highlighted?: boolean;
+  /** Position-aware eyebrow label (board item 2). Caller computes via
+   *  `getStopEyebrowLabel` so the leaf stays dumb. When omitted,
+   *  falls back to the role-driven label — same as the legacy
+   *  behavior, kept so the prop can land before all callers migrate. */
+  eyebrowLabel?: string;
 }
 
 function SwapSkeleton() {
@@ -83,6 +88,7 @@ export function StopCard({
   onUndoSwap,
   isPast = false,
   highlighted = false,
+  eyebrowLabel,
 }: StopCardProps) {
   const { trackEngagement } = useEngagement();
   const v = stop.venue;
@@ -160,9 +166,12 @@ export function StopCard({
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, delay: index * 0.15 }}
     >
-      {/* Role label */}
+      {/* Eyebrow label — board item 2: derived from position via
+          `getStopEyebrowLabel` and passed in by the parent (it has
+          the full stops array). Falls back to the role label when no
+          override is given so legacy callsites still render. */}
       <div className="font-sans text-[11px] tracking-widest uppercase text-muted mb-1.5">
-        {ROLE_LABELS[stop.role]}
+        {eyebrowLabel ?? ROLE_LABELS[stop.role]}
       </div>
 
       {isSwapping ? (
