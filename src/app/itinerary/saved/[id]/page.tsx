@@ -22,6 +22,8 @@ import { Button } from "@/components/ui/Button";
 import { Header } from "@/components/Header";
 import { isPastDate } from "@/lib/dateUtils";
 import { hydrateSavedItinerary } from "@/lib/itinerary/saved-hydration";
+import { isLuckyItinerary } from "@/lib/itinerary/is-lucky";
+import { LuckyCrown } from "@/components/itinerary/LuckyCrown";
 import type { ItineraryResponse, SavedItinerary } from "@/types";
 
 export default function SavedItineraryPage({
@@ -111,18 +113,34 @@ export default function SavedItineraryPage({
       composeInputs={itinerary.inputs}
     >
       <main className="flex flex-1 flex-col items-center min-h-screen pb-32">
-        <Header
-          rightSlot={
-            <Link
-              href="/"
-              className="font-sans text-sm text-muted hover:text-charcoal transition-colors"
-            >
-              &larr; Back
-            </Link>
-          }
-        />
+        {isLuckyItinerary(itinerary.inputs) ? (
+          <LuckyCrown
+            header={itinerary.header}
+            inputs={itinerary.inputs}
+            backHref="/"
+            backLabel="← Back"
+          />
+        ) : (
+          <>
+            <Header
+              rightSlot={
+                <Link
+                  href="/"
+                  className="font-sans text-sm text-muted hover:text-charcoal transition-colors"
+                >
+                  &larr; Back
+                </Link>
+              }
+            />
+            <div className="w-full px-6 mt-6 flex flex-col items-center">
+              <CompositionHeader
+                header={itinerary.header}
+                inputs={itinerary.inputs}
+              />
+            </div>
+          </>
+        )}
         <div className="w-full px-6 mt-6 flex flex-col items-center">
-          <CompositionHeader header={itinerary.header} inputs={itinerary.inputs} />
           {isPast && <PastItineraryBanner day={itinerary.inputs.day} />}
           <ItineraryView
             stops={itinerary.stops}
@@ -132,6 +150,7 @@ export default function SavedItineraryPage({
             startTime={itinerary.inputs.startTime}
             isPast={isPast}
             surface="saved"
+            isLucky={isLuckyItinerary(itinerary.inputs)}
           />
         </div>
         <ActionBar itinerary={itinerary} />

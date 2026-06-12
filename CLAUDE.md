@@ -424,6 +424,28 @@ Every async surface (page-level loaders, post-action confirmations, form-fetch s
 
 For toasts: don't. There is no Toast / Snackbar primitive in the app — the audit removed it in 2026-06-12. Surface outcomes IN CONTEXT next to the triggering control: save errors render above the sticky CTA in `LooksGoodCTA`; swap success renders as the "Swapped · Undo" line on the swapped StopCard. New ephemeral feedback follows the same rule.
 
+### Lucky itineraries — layer, not fork
+
+Itineraries from the dice roll (`inputs.mode === "lucky"`) get a distinct visual treatment as a **layer** on the standard render. Two layer touches today:
+
+**Above the seam — the inverted crown.** `LuckyCrown` wraps the page header, composition header, and dice banner in a deep-burgundy field. Three component variants:
+
+- `Header variant="crown"` — the lockup flips to cream via `brightness-0 invert`, and the focus ring uses the `crown-ring` token (the burgundy/50 ring is invisible on the dark field).
+- `CompositionHeader variant="crown"` — text colors switch to the `crown-text` / `crown-text-muted` tokens (both tuned to pass 4.5:1 on `crown-field`). The title die also tones to cream.
+- `LuckyBanner variant="crown"` — chip-on-field treatment using `crown-chip` + `crown-chip-border`.
+
+**Below the seam — wavy connectors only.** Everything in `ItineraryView` renders identically to a standard itinerary EXCEPT the `WalkConnector`, which switches to `variant="wavy"` — a hand-drawn-style burgundy SVG flank, decorative only. The map's route polyline is real data and stays untouched.
+
+The gate is the canonical predicate `isLuckyItinerary(inputs)` in `src/lib/itinerary/is-lucky.ts`. Daily picks (`mode === "daily"`) are NOT lucky — they render standard.
+
+**Color tokens** for the crown live next to the brand tokens in `src/app/globals.css` under the `--color-crown-*` group: `crown-field`, `crown-chip`, `crown-chip-border`, `crown-text`, `crown-text-muted`, `crown-ring`. The file also ships explicit `.bg-crown-field` / `.text-crown-*` class rules alongside the Tailwind `@theme` block — Turbopack's dev cache sometimes doesn't pick up new `@theme` tokens without a server restart, and the explicit rules guarantee the styles apply either way. Don't reach for raw hexes anywhere in the crown scope — always the token.
+
+**Rules for future contributors:**
+- Don't fork rendering paths on mode globally. Crown variants are **explicit props** on shared components (`Header`, `CompositionHeader`, `LuckyBanner`), never a style override that leaks into home, questionnaire, or standard itineraries.
+- Don't inline `inputs?.mode === "lucky"` checks. Always go through `isLuckyItinerary()` so the gate is grep-able when a new mode lands.
+- Below the seam: keep the lucky-layer touches minimal and decorative (wavy connectors only today). New below-seam touches require an explicit prop on the affected component gated through `isLuckyItinerary()`.
+- New lucky touches MUST be reversible: removing the `isLuckyItinerary(...)` calls in the consumer pages restores the standard render byte-for-byte.
+
 ---
 
 ## Coding Standards
