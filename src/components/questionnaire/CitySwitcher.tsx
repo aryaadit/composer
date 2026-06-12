@@ -73,7 +73,7 @@ export function CitySwitcher({
               <button
                 onClick={onClose}
                 aria-label="Close"
-                className="font-sans text-sm text-muted hover:text-charcoal transition-colors p-3 -m-2"
+                className="w-11 h-11 inline-flex items-center justify-center font-sans text-sm text-muted hover:text-charcoal transition-colors"
               >
                 ✕
               </button>

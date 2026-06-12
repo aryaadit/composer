@@ -100,8 +100,15 @@ export function ForgotPasswordScreen({ email = "", onBack }: Props) {
         ) : mode === "auto" ? (
           // Auto-fire is in flight — brief spinner so the user doesn't
           // see a dead frame while the reset email is being sent.
-          <div className="flex items-center justify-center py-6">
-            <div className="w-6 h-6 border-2 border-charcoal border-t-transparent rounded-full animate-spin" />
+          <div
+            role="status"
+            aria-label="Sending reset email"
+            className="flex items-center justify-center py-6"
+          >
+            <div
+              className="w-6 h-6 border-2 border-burgundy border-t-transparent rounded-full animate-spin"
+              aria-hidden
+            />
           </div>
         ) : (
           <>
@@ -113,23 +120,33 @@ export function ForgotPasswordScreen({ email = "", onBack }: Props) {
             </p>
             <form onSubmit={handleSubmit} className="flex flex-col gap-5">
               <div>
-                <label className="font-sans text-xs tracking-widest uppercase text-muted mb-2 block">
+                <label
+                  htmlFor="forgot-password-email"
+                  className="font-sans text-xs tracking-widest uppercase text-muted mb-2 block"
+                >
                   Email
                 </label>
                 <input
+                  id="forgot-password-email"
                   type="email"
                   inputMode="email"
                   autoComplete="email"
                   value={formEmail}
                   onChange={(e) => setFormEmail(e.target.value)}
                   placeholder="you@example.com"
-                  className="w-full px-0 py-3 text-base font-sans bg-transparent border-b border-border focus:border-charcoal focus:outline-none transition-colors text-charcoal placeholder:text-muted"
+                  className="w-full px-0 py-3 text-base font-sans bg-transparent border-b border-border focus:border-charcoal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-burgundy/40 transition-colors text-charcoal placeholder:text-muted"
                   autoFocus
                 />
               </div>
 
               {error && (
-                <p className="font-sans text-xs text-charcoal">{error}</p>
+                // Audit: error in text-burgundy + role=alert.
+                <p
+                  role="alert"
+                  className="font-sans text-xs text-burgundy"
+                >
+                  {error}
+                </p>
               )}
 
               <Button

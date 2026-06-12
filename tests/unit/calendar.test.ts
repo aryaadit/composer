@@ -584,7 +584,9 @@ describe("buildDescription", () => {
       it,
       "https://composer.onpalate.com/itinerary/share/abc-123",
     );
-    expect(body).toContain("—");
+    // Audit item 6 (2026-06-12): em-dash separator replaced with "---"
+    // for plain-text rendering in users' calendar apps.
+    expect(body).toContain("---");
     expect(body).toContain("Budget: $70–$110");
     expect(body).toContain(
       "Composed by Composer · https://composer.onpalate.com/itinerary/share/abc-123",

@@ -55,17 +55,21 @@ export function AddEmailSection({ currentEmail }: AddEmailSectionProps) {
 
   return (
     <section className="mt-8 pt-6 pb-8 border-t border-border">
-      <h3 className="font-sans text-xs tracking-widest uppercase text-muted mb-3">
+      <h3
+        id="add-email-label"
+        className="font-sans text-xs tracking-widest uppercase text-muted mb-3"
+      >
         Add email (optional)
       </h3>
       <form onSubmit={handleSubmit} className="flex gap-3 items-end">
         <input
           type="email"
           inputMode="email"
+          aria-labelledby="add-email-label"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           placeholder="you@example.com"
-          className="flex-1 px-0 py-2 text-sm font-sans bg-transparent border-b border-border focus:border-charcoal focus:outline-none transition-colors text-charcoal placeholder:text-muted"
+          className="flex-1 px-0 py-2 text-sm font-sans bg-transparent border-b border-border focus:border-charcoal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-burgundy/40 transition-colors text-charcoal placeholder:text-muted"
         />
         <button
           type="submit"
@@ -76,7 +80,7 @@ export function AddEmailSection({ currentEmail }: AddEmailSectionProps) {
         </button>
       </form>
       {error && (
-        <p className="font-sans text-xs text-charcoal mt-2">{error}</p>
+        <p role="alert" className="font-sans text-xs text-burgundy mt-2">{error}</p>
       )}
     </section>
   );

@@ -28,7 +28,7 @@ export function ProfileHeader({
     <div className="flex items-start justify-between mb-8">
       <div>
         <h1 className="font-serif text-2xl font-normal text-charcoal leading-tight">
-          Your Profile
+          Your profile
         </h1>
         <p className="font-sans text-base font-medium text-charcoal mt-2">
           {name}

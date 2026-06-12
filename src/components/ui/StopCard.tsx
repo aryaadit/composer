@@ -29,6 +29,11 @@ interface StopCardProps {
    *  copy source — the block draws verbatim from the compose-failure
    *  registry. */
   swapFailure?: ComposeFailure | null;
+  /** True while the ~8s post-swap window is open, replacing the deleted
+   *  Toast pattern (audit item 19). Triggers the inline "Swapped · Undo"
+   *  affordance below the meta line. */
+  justSwapped?: boolean;
+  onUndoSwap?: () => void;
   /** When true, hide the reserve link (and Swap, by virtue of `onSwap`
    * not being passed). Used on past-date itineraries where the data is
    * stale and a reservation flow would be misleading. */
@@ -73,6 +78,8 @@ export function StopCard({
   onVenueTap,
   isSwapping = false,
   swapFailure,
+  justSwapped = false,
+  onUndoSwap,
   isPast = false,
   highlighted = false,
 }: StopCardProps) {
@@ -210,7 +217,10 @@ export function StopCard({
           )}
 
           {/* Description */}
-          <p className="font-sans text-[15px] text-[#444444] leading-relaxed mb-4">
+          {/* Audit item 28: arbitrary text-[15px] + hardcoded #444444
+              replaced with the token-aligned text-base + text-warm-gray.
+              Matches VenueDetailModal's curation blockquote. */}
+          <p className="font-sans text-base text-warm-gray leading-relaxed mb-4">
             {activeNote}
           </p>
 
@@ -245,13 +255,43 @@ export function StopCard({
                 )}
               </div>
               {showInlineSwap && (
+                // Audit item 9: bordered burgundy pill so Swap reads as
+                // tappable. min-h-[36px] meets the >=36px touch-target
+                // bar for secondary actions. Same treatment lives in
+                // StopAvailability's slot-grid Swap so the two surfaces
+                // stay consistent.
                 <button
+                  type="button"
                   onClick={onSwap}
-                  className="text-xs text-muted hover:text-charcoal transition-colors"
+                  className="inline-flex items-center justify-center min-h-[36px] px-3 rounded-full border border-burgundy/30 font-sans text-xs font-medium text-burgundy hover:border-burgundy hover:bg-burgundy/5 transition-colors"
                 >
                   Swap
                 </button>
               )}
+            </div>
+          )}
+
+          {/* Audit item 19 — inline "Swapped · Undo" replaces the
+              deleted Toast. role=status so screen readers get the same
+              confirmation a sighted user does. Hidden once the failure
+              block renders (defensive — useSwapStop clears one when
+              the other lands, but the early return guards a stale
+              concurrent render). */}
+          {justSwapped && !swapFailure && (
+            <div
+              role="status"
+              aria-live="polite"
+              className="mt-3 flex items-center gap-3 font-sans text-xs text-warm-gray"
+            >
+              <span>Swapped</span>
+              <span aria-hidden className="text-border">·</span>
+              <button
+                type="button"
+                onClick={onUndoSwap}
+                className="inline-flex items-center justify-center min-h-[36px] px-3 rounded-full border border-burgundy/30 font-medium text-burgundy hover:border-burgundy hover:bg-burgundy/5 transition-colors"
+              >
+                Undo
+              </button>
             </div>
           )}
 

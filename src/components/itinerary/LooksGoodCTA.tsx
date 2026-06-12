@@ -16,10 +16,10 @@
 // lifecycle, dedupe via inflight ref) and passed down to ConfirmModal
 // so the calendar event description can embed the share link.
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "@/components/providers/AuthProvider";
-import { useToast } from "@/components/ui/Toast";
 import { useEngagement } from "@/components/itinerary/EngagementProvider";
+import { Button } from "@/components/ui/Button";
 import {
   EVENTS,
   buildComposeContext,
@@ -54,7 +54,6 @@ export function LooksGoodCTA({
   surface = "fresh_itinerary",
 }: LooksGoodCTAProps) {
   const { user } = useAuth();
-  const toast = useToast();
   const { incrementEngagement } = useEngagement();
 
   const [saveState, setSaveState] = useState<SaveState>("idle");
@@ -62,6 +61,38 @@ export function LooksGoodCTA({
     initialSavedId,
   );
   const [modalOpen, setModalOpen] = useState(false);
+  // Inline notice replacing the deleted Toast pattern (audit item 19).
+  // Persists until the next user action OR ~2.5s auto-clear. Rendered
+  // above the sticky CTA so it never strands behind the keyboard or
+  // off-screen, and so the announcement lands in-context.
+  const [notice, setNotice] = useState<string | null>(null);
+
+  // Notice auto-dismiss timer. Tracked on a ref so we can (a) cancel
+  // a stale pending clear before scheduling a new one — stops rapid
+  // re-taps from cutting the freshly-set notice short — and (b)
+  // clear on unmount so the queued setState can't land on an
+  // unmounted component during a route change.
+  const noticeTimerRef = useRef<number | null>(null);
+
+  const showNotice = useCallback((message: string, onClear?: () => void) => {
+    if (noticeTimerRef.current !== null) {
+      window.clearTimeout(noticeTimerRef.current);
+    }
+    setNotice(message);
+    noticeTimerRef.current = window.setTimeout(() => {
+      setNotice(null);
+      noticeTimerRef.current = null;
+      onClear?.();
+    }, 2500);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (noticeTimerRef.current !== null) {
+        window.clearTimeout(noticeTimerRef.current);
+      }
+    };
+  }, []);
 
   // Share-URL state — prefetched after save (or on first modal open
   // for the initial-saved surface). One fetch per CTA lifecycle; the
@@ -113,7 +144,7 @@ export function LooksGoodCTA({
     }
 
     if (!user) {
-      toast.show({ message: "Sign in to save", durationMs: 2500 });
+      showNotice("Sign in to save");
       return;
     }
 
@@ -143,11 +174,8 @@ export function LooksGoodCTA({
     } catch (err) {
       console.error("[looks-good] save failed:", err);
       setSaveState("error");
-      toast.show({
-        message: "Couldn't save — try again.",
-        durationMs: 2500,
-      });
-      setTimeout(() => setSaveState("idle"), 2500);
+      // Item 6: em dash removed; reads as two short sentences.
+      showNotice("Couldn't save. Try again.", () => setSaveState("idle"));
     }
   };
 
@@ -176,18 +204,33 @@ export function LooksGoodCTA({
         data-testid="looks-good-sticky"
       >
         <div className="w-full max-w-lg mx-auto px-6 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
-          <button
-            type="button"
+          {/* Inline notice replaces the deleted Toast — see audit
+              item 19. role=alert so screen readers announce the
+              outcome in the same surface as the visual feedback. */}
+          {notice && (
+            <p
+              role="alert"
+              className="font-sans text-sm text-burgundy text-center mb-2"
+            >
+              {notice}
+            </p>
+          )}
+          {/* Audit item 30: routed through Button primitive. size="xl"
+              owns the `px-6 py-4 text-base` recipe natively — the
+              previous className-only override leaned on Tailwind v4
+              source order between same-property utilities, which isn't
+              contractually guaranteed (adversarial review of the
+              audit batch, 2026-06-12). Button's `disabled:opacity-40`
+              is the canonical disabled treatment (audit item 18). */}
+          <Button
+            variant={isPostSave ? "secondary" : "primary"}
+            size="xl"
             onClick={() => void handleClick()}
             disabled={saveState === "saving"}
-            className={`w-full px-6 py-4 rounded-full font-sans text-base font-medium transition-colors ${
-              isPostSave
-                ? "bg-transparent border border-burgundy text-burgundy hover:bg-burgundy/5"
-                : "bg-burgundy text-cream hover:bg-burgundy-light"
-            } disabled:opacity-70`}
+            className="w-full"
           >
             {label}
-          </button>
+          </Button>
         </div>
       </div>
 

@@ -11,6 +11,7 @@ import {
 } from "@/lib/itinerary/time-blocks";
 import { buildResySlotBookingUrl } from "@/lib/availability/booking-url";
 import { detectBookingPlatform } from "@/lib/booking";
+import { Button } from "@/components/ui/Button";
 import { useEngagement } from "@/components/itinerary/EngagementProvider";
 import { EVENTS } from "@/lib/analytics";
 import type {
@@ -84,14 +85,15 @@ export function StopAvailabilitySection({
 
     let copy: string;
     if (detectedId === "opentable") {
-      copy = "OpenTable doesn't share live availability — book directly";
+      // Audit item 6: em dashes removed; reads as two short sentences.
+      copy = "OpenTable doesn't share live availability. Book directly.";
     } else if (detectedId === "resy") {
-      copy = "Couldn't load times — check directly on Resy";
+      copy = "Couldn't load times. Check directly on Resy.";
     } else if (detectedId === "tock") {
-      copy = "Couldn't load times — check directly on Tock";
+      copy = "Couldn't load times. Check directly on Tock.";
     } else {
       const name = PLATFORM_NAMES[platform ?? ""] ?? "the venue";
-      copy = `Couldn't load times — check directly on ${name}`;
+      copy = `Couldn't load times. Check directly on ${name}.`;
     }
 
     return (
@@ -327,10 +329,13 @@ function HasSlotsView({
             )}
           </div>
           {onSwap && (
+            // Audit item 9: same bordered burgundy pill as StopCard's
+            // Swap so the two surfaces stay consistent. min-h-[36px]
+            // meets the >=36px touch-target bar.
             <button
               type="button"
               onClick={onSwap}
-              className="font-sans text-xs text-muted hover:text-charcoal transition-colors"
+              className="inline-flex items-center justify-center min-h-[36px] px-3 rounded-full border border-burgundy/30 font-sans text-xs font-medium text-burgundy hover:border-burgundy hover:bg-burgundy/5 transition-colors"
             >
               Swap
             </button>
@@ -338,11 +343,16 @@ function HasSlotsView({
         </div>
       )}
       {bookingHref && (
+        // Audit item 30: routed through Button primitive at pixel
+        // parity. size="sm" supplies the exact "px-5 py-2.5 text-sm"
+        // recipe; target="_blank" auto-attaches rel="noopener noreferrer"
+        // via the primitive.
         <div className="pt-1">
-          <a
+          <Button
+            variant="primary"
+            size="sm"
             href={bookingHref}
             target="_blank"
-            rel="noopener noreferrer"
             onClick={() =>
               trackEngagement(EVENTS.RESERVATION_CLICKED, {
                 venue_id: venueId,
@@ -355,10 +365,9 @@ function HasSlotsView({
                 slot_time: selectedSlot?.time,
               })
             }
-            className="inline-block px-5 py-2.5 rounded-full bg-burgundy text-cream font-sans text-sm font-medium hover:bg-burgundy-light transition-colors"
           >
             {buttonText}
-          </a>
+          </Button>
         </div>
       )}
     </div>

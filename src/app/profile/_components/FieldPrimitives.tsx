@@ -95,6 +95,8 @@ export function SavedIndicator({ show }: { show: boolean }) {
       {show && (
         <motion.div
           key="saved"
+          role="status"
+          aria-live="polite"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}

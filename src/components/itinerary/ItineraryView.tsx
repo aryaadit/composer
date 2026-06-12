@@ -44,6 +44,11 @@ interface ItineraryViewProps {
    *  by stop index. StopCard renders the failure block + suppresses its
    *  Swap affordance when its index matches. */
   swapFailure?: { index: number; failure: ComposeFailure } | null;
+  /** Index of the stop that JUST swapped — drives the inline
+   *  "Swapped · Undo" affordance on its StopCard (replaces the
+   *  deleted Toast pattern; audit item 19). */
+  swappedIndex?: number | null;
+  onUndoSwap?: () => void;
   /** When true: hide per-stop availability sections, hide swap, hide
    * reservation CTAs in StopCard, and replace add-stop with a
    * "Plan another →" CTA pointing at /compose. */
@@ -66,6 +71,8 @@ export function ItineraryView({
   onSwapStop,
   swappingIndex,
   swapFailure,
+  swappedIndex,
+  onUndoSwap,
   isPast = false,
   surface = "fresh_itinerary",
 }: ItineraryViewProps) {
@@ -173,7 +180,11 @@ export function ItineraryView({
           onDismiss={() => setConflictDismissed(true)}
         />
       )}
-      <div className="w-full max-w-lg mx-auto border-y border-[#D8D8D8] divide-y divide-[#D8D8D8]">
+      {/* Audit item 28: hardcoded #D8D8D8 replaced with the border
+          token (#E8E8E8). Slight visible delta — the rule reads a
+          touch lighter — but it stays inside the design-system
+          tolerance and the rule renders on every itinerary surface. */}
+      <div className="w-full max-w-lg mx-auto border-y border-border divide-y divide-border">
         {stops.map((stop, i) => (
           <Fragment key={stop.venue.id}>
             <div>
@@ -194,6 +205,8 @@ export function ItineraryView({
                 swapFailure={
                   swapFailure?.index === i ? swapFailure.failure : null
                 }
+                justSwapped={swappedIndex === i}
+                onUndoSwap={onUndoSwap}
                 isPast={isPast}
                 highlighted={highlightedStopIndex === i}
               />

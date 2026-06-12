@@ -55,8 +55,13 @@ const COPY_BY_STAGE: Record<ZeroingStage, FailureCopy> = {
     suggestion: "Clear recently-seen and try again.",
   },
   proximity: {
+    // Audit item 3: "anchor" was internal jargon and "wider
+    // neighborhood" referred to a widening behavior that no longer
+    // exists. Offer the actions the product actually supports —
+    // swapping the other stop, or picking a different neighborhood
+    // entirely.
     title: "Nothing nearby pairs up",
-    suggestion: "Try a different anchor or a wider neighborhood.",
+    suggestion: "Swap the other stop, or try a different neighborhood.",
   },
   drinks: {
     title: "Most spots here pour drinks",

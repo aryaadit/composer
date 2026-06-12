@@ -125,8 +125,14 @@ export function OnboardingFlow() {
   if (saving) {
     return (
       <main className="flex flex-1 items-center justify-center min-h-screen bg-cream">
-        <div className="text-center">
-          <div className="w-6 h-6 border-2 border-charcoal border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+        {/* Audit item 23: role=status so screen readers announce
+            that work is happening while the profile upsert is in
+            flight. */}
+        <div role="status" aria-live="polite" className="text-center">
+          <div
+            className="w-6 h-6 border-2 border-burgundy border-t-transparent rounded-full animate-spin mx-auto mb-4"
+            aria-hidden
+          />
           <p className="font-sans text-sm text-muted">
             Setting up your account...
           </p>
@@ -186,7 +192,8 @@ export function OnboardingFlow() {
                   }}
                   onBlur={() => setNameError(validateName(name))}
                   placeholder="Your first name"
-                  className={`w-full px-0 py-3 text-xl font-sans bg-transparent border-b focus:outline-none transition-colors text-charcoal placeholder:text-muted ${
+                  aria-label="Your first name"
+                  className={`w-full px-0 py-3 text-xl font-sans bg-transparent border-b focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-burgundy/40 transition-colors text-charcoal placeholder:text-muted ${
                     nameError ? "border-burgundy" : "border-border focus:border-charcoal"
                   }`}
                   autoFocus
@@ -254,7 +261,7 @@ export function OnboardingFlow() {
                     ))}
                   </div>
                   <p className="font-sans text-xs text-muted mt-3 italic">
-                    We&apos;re building dietary filters — for now, check
+                    We&apos;re building dietary filters. For now, check
                     venue menus directly.
                   </p>
                 </div>

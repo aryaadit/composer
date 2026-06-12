@@ -222,7 +222,7 @@ function ConfirmModalContent({
           type="button"
           onClick={onClose}
           aria-label="Close"
-          className="absolute right-4 top-3 font-sans text-sm text-muted hover:text-charcoal transition-colors p-3 -m-2"
+          className="absolute right-2 top-2 w-11 h-11 inline-flex items-center justify-center font-sans text-sm text-muted hover:text-charcoal transition-colors"
         >
           ✕
         </button>
@@ -233,7 +233,7 @@ function ConfirmModalContent({
           You&apos;re set.
         </h2>
         <p className="font-sans text-sm text-muted mb-6">
-          Lock it in — or send it.
+          Lock it in, or send it.
         </p>
 
         <div className="space-y-2">

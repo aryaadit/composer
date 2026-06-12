@@ -4,7 +4,6 @@ import "./globals.css";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { AuthProvider } from "@/components/providers/AuthProvider";
-import { ToastProvider } from "@/components/ui/Toast";
 import { FeedbackButton } from "@/components/ui/FeedbackButton";
 
 const playfair = Playfair_Display({
@@ -19,15 +18,18 @@ const dmSans = DM_Sans({
   display: "swap",
 });
 
+// Audit item 7: dropped "Curated" (banned per BRAND_VOICE) from
+// title/OG title and rewrote both descriptions. Em dashes were never
+// in the meta — kept simple sentences.
 export const metadata: Metadata = {
   metadataBase: new URL("https://composer.onpalate.com"),
-  title: "Composer — Curated NYC Nights Out",
+  title: "Composer - nights out in NYC",
   description:
-    "A curated night out in New York City, built for you in under a minute.",
+    "A night out in New York City, planned for you in under a minute.",
   openGraph: {
-    title: "Composer — Curated NYC Nights Out",
+    title: "Composer - nights out in NYC",
     description:
-      "A curated night out in New York City, built for you in under a minute.",
+      "A night out in New York City, planned for you in under a minute.",
     images: ["/og-image.png"],
   },
 };
@@ -44,7 +46,7 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col">
         <AuthProvider>
-          <ToastProvider>{children}</ToastProvider>
+          {children}
           <FeedbackButton />
         </AuthProvider>
         <Analytics />

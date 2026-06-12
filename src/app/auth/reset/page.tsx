@@ -100,7 +100,11 @@ function ResetPasswordContent() {
   if (!ready) {
     return (
       <main className="flex flex-1 items-center justify-center min-h-screen bg-cream">
-        <div className="w-6 h-6 border-2 border-charcoal border-t-transparent rounded-full animate-spin" />
+        <div
+          role="status"
+          aria-label="Verifying reset link"
+          className="w-6 h-6 border-2 border-burgundy border-t-transparent rounded-full animate-spin"
+        />
       </main>
     );
   }
@@ -138,21 +142,27 @@ function ResetPasswordContent() {
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-5">
           <div>
-            <label className="font-sans text-xs tracking-widest uppercase text-muted mb-2 block">
+            <label
+              htmlFor="reset-password"
+              className="font-sans text-xs tracking-widest uppercase text-muted mb-2 block"
+            >
               New password
             </label>
             <div className="relative">
               <input
+                id="reset-password"
                 type={showPassword ? "text" : "password"}
                 autoComplete="new-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="At least 8 characters"
-                className="w-full px-0 py-3 pr-16 text-base font-sans bg-transparent border-b border-border focus:border-charcoal focus:outline-none transition-colors text-charcoal placeholder:text-muted"
+                className="w-full px-0 py-3 pr-16 text-base font-sans bg-transparent border-b border-border focus:border-charcoal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-burgundy/40 transition-colors text-charcoal placeholder:text-muted"
                 autoFocus
               />
               <button
                 type="button"
+                aria-label={showPassword ? "Hide password" : "Show password"}
+                aria-pressed={showPassword}
                 onClick={() => setShowPassword((v) => !v)}
                 className="absolute right-0 top-1/2 -translate-y-1/2 font-sans text-xs text-muted hover:text-charcoal transition-colors"
               >
@@ -162,21 +172,25 @@ function ResetPasswordContent() {
           </div>
 
           <div>
-            <label className="font-sans text-xs tracking-widest uppercase text-muted mb-2 block">
+            <label
+              htmlFor="reset-confirm-password"
+              className="font-sans text-xs tracking-widest uppercase text-muted mb-2 block"
+            >
               Confirm password
             </label>
             <input
+              id="reset-confirm-password"
               type={showPassword ? "text" : "password"}
               autoComplete="new-password"
               value={confirm}
               onChange={(e) => setConfirm(e.target.value)}
               placeholder="Type it again"
-              className="w-full px-0 py-3 text-base font-sans bg-transparent border-b border-border focus:border-charcoal focus:outline-none transition-colors text-charcoal placeholder:text-muted"
+              className="w-full px-0 py-3 text-base font-sans bg-transparent border-b border-border focus:border-charcoal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-burgundy/40 transition-colors text-charcoal placeholder:text-muted"
             />
           </div>
 
           {error && (
-            <p className="font-sans text-xs text-charcoal">{error}</p>
+            <p role="alert" className="font-sans text-xs text-burgundy">{error}</p>
           )}
 
           <Button
@@ -200,7 +214,11 @@ export default function ResetPasswordPage() {
     <Suspense
       fallback={
         <main className="flex flex-1 items-center justify-center min-h-screen bg-cream">
-          <div className="w-6 h-6 border-2 border-charcoal border-t-transparent rounded-full animate-spin" />
+          <div
+            role="status"
+            aria-label="Loading"
+            className="w-6 h-6 border-2 border-burgundy border-t-transparent rounded-full animate-spin"
+          />
         </main>
       }
     >

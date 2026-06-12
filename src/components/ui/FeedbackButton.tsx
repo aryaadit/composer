@@ -14,9 +14,15 @@ export function FeedbackButton() {
       rel="noopener noreferrer"
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
-      className="fixed bottom-6 right-6 z-50 flex items-center gap-2 rounded-full bg-zinc-800 px-4 py-2.5 text-sm text-white shadow-lg transition-all hover:bg-zinc-700 hover:shadow-xl"
+      // Audit item 14: tokenized (charcoal token, no zinc palette).
+      // Offset bumped from `bottom-6` to `bottom-24` so the floating
+      // button never overlaps the sticky LooksGoodCTA on the itinerary
+      // surface. Safe-area override keeps it clear on notch devices.
+      className="fixed right-6 z-50 flex items-center gap-2 rounded-full bg-charcoal px-4 py-2.5 font-sans text-sm text-cream shadow-lg transition-all hover:bg-charcoal/90 hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-burgundy/50"
+      aria-label="Send feedback"
       style={{
-        bottom: "max(1.5rem, env(safe-area-inset-bottom, 0px) + 1.5rem)",
+        bottom:
+          "max(6rem, env(safe-area-inset-bottom, 0px) + 6rem)",
       }}
     >
       <svg

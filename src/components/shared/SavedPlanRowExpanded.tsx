@@ -221,7 +221,8 @@ export function SavedPlanRowExpanded({
               onBlur={() => void saveRename()}
               onClick={(e) => e.preventDefault()}
               disabled={saving}
-              className="w-full font-serif text-2xl text-charcoal leading-tight bg-transparent border-b border-burgundy focus:outline-none disabled:opacity-50"
+              aria-label="Rename plan"
+              className="w-full font-serif text-2xl text-charcoal leading-tight bg-transparent border-b border-burgundy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-burgundy/40 disabled:opacity-50"
             />
           ) : (
             <h2 className="font-serif text-2xl text-charcoal leading-tight pr-20">
@@ -328,7 +329,7 @@ export function SavedPlanRowExpanded({
             startEditing();
           }}
           aria-label="Rename"
-          className="w-8 h-8 rounded-full bg-cream/90 hover:bg-cream text-burgundy/70 hover:text-burgundy flex items-center justify-center shadow-sm border border-burgundy/10 transition-colors"
+          className="w-11 h-11 rounded-full bg-cream/90 hover:bg-cream text-burgundy/70 hover:text-burgundy flex items-center justify-center shadow-sm border border-burgundy/10 transition-colors"
         >
           <PencilIcon />
         </button>
@@ -369,7 +370,7 @@ export function SavedPlanRowExpanded({
               setConfirming(true);
             }}
             aria-label="Remove saved plan"
-            className="w-8 h-8 rounded-full bg-cream/90 hover:bg-cream text-burgundy/70 hover:text-burgundy flex items-center justify-center shadow-sm border border-burgundy/10 transition-colors"
+            className="w-11 h-11 rounded-full bg-cream/90 hover:bg-cream text-burgundy/70 hover:text-burgundy flex items-center justify-center shadow-sm border border-burgundy/10 transition-colors"
           >
             <TrashIcon />
           </button>

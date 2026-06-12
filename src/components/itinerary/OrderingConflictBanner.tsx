@@ -73,7 +73,7 @@ export function OrderingConflictBanner({
   return (
     <div className="w-full max-w-lg mx-auto mb-4 px-4 py-3 rounded-xl border border-border bg-cream-dark font-sans text-sm text-charcoal">
       <p>
-        Heads up — your {conflict.laterVenueName} (
+        Heads up: your {conflict.laterVenueName} (
         {conflict.laterTime}) is before your{" "}
         {conflict.earlierVenueName} ({conflict.earlierTime}).
       </p>

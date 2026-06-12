@@ -8,6 +8,7 @@
 import { useMemo, useState } from "react";
 import { motion } from "motion/react";
 import { Button } from "@/components/ui/Button";
+import { DatePicker } from "@/components/ui/DatePicker";
 import { pillClass } from "@/lib/styles";
 import {
   COMPOSE_START_TIMES,
@@ -71,12 +72,6 @@ export function WhenStep({
   const customSelected = !builtInDates.has(day);
   const todayISO = days[0].date;
 
-  const handleDatePicked = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    if (!value) return;
-    setDay(value);
-  };
-
   const handleStartTimePick = (next: ComposeStartTime) => {
     track(EVENTS.COMPOSE_START_TIME_SELECTED, {
       selected_time: next,
@@ -87,10 +82,9 @@ export function WhenStep({
 
   return (
     <div>
-      {/* ── When ────────────────────────────────────────────── */}
-      <h3 className="font-sans text-xs tracking-widest uppercase text-muted mb-3 text-center">
-        When
-      </h3>
+      {/* Audit item 20: the WHEN eyebrow was a duplicate of the
+          step's own "When?" heading rendered by QuestionnaireShell.
+          One label per question. The day-pill row stands on its own. */}
       <div className="flex flex-wrap justify-center gap-2 mb-10">
         {days.map((d, i) => {
           const isSelected = day === d.date;
@@ -109,46 +103,28 @@ export function WhenStep({
           );
         })}
 
-        {/* Custom date pill — the <input type="date"> is layered on top
-            of the visual pill at opacity 0 so a direct tap lands on the
-            input itself. iOS Safari opens the native picker only on a
-            trusted gesture on a real date input; proxying via a button
-            and showPicker()/click() does not work there. */}
-        <motion.label
+        {/* Custom date pill — themed popover calendar. Replaces the
+            native <input type="date"> whose OS popup couldn't be
+            skinned to design tokens. See DatePicker for the trigger
+            anchoring + Esc/outside-click contract. */}
+        <motion.span
           key="custom-date"
-          htmlFor="custom-date-input"
-          className="relative inline-block cursor-pointer"
+          className="inline-block"
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.2, delay: days.length * 0.03 }}
-          whileTap={{ scale: 0.97 }}
         >
-          <span className={pillClass(customSelected)} aria-hidden>
-            {customSelected ? formatCustomDate(day) : "+ Pick a date"}
-          </span>
-          <input
-            id="custom-date-input"
-            type="date"
+          <DatePicker
+            value={customSelected ? day : null}
+            onChange={setDay}
             min={todayISO}
-            value={customSelected ? day : ""}
-            onChange={handleDatePicked}
-            onClick={(e) => {
-              // Desktop browsers don't auto-open the picker on a click that lands
-              // on the input's bounding box (only on the calendar icon, which
-              // appearance:none strips). showPicker() bridges that — requires user
-              // activation, which onClick provides. iOS Safari opens the picker
-              // natively before this fires; the call may then throw or no-op,
-              // either way harmless.
-              try {
-                e.currentTarget.showPicker?.();
-              } catch {
-                // iOS may throw NotAllowedError when picker is already open. Ignore.
-              }
-            }}
-            aria-label="Pick a date"
-            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer appearance-none bg-transparent"
+            triggerClassName={pillClass(customSelected)}
+            triggerLabel={
+              customSelected ? formatCustomDate(day) : "+ Pick a date"
+            }
+            triggerAriaLabel="Pick a date"
           />
-        </motion.label>
+        </motion.span>
       </div>
 
       {/* ── Start time ─────────────────────────────────────── */}

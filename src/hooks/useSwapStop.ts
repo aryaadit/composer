@@ -1,7 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
-import { useToast } from "@/components/ui/Toast";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { EVENTS, getAnalyticsHeaders, track } from "@/lib/analytics";
 import {
   composeFailure,
@@ -23,6 +22,11 @@ interface SwapState {
    *  user's inputs, so inviting retries against it would be dishonest.
    *  Cleared on a successful swap at a different stop or on page nav. */
   swapFailure: { index: number; failure: ComposeFailure } | null;
+  /** Index of the stop that JUST swapped successfully. Drives the
+   *  in-context "Swapped · Undo" line the StopCard renders inline,
+   *  replacing the deleted Toast pattern (audit item 19). Persists
+   *  for ~8s or until the next user action. */
+  swappedIndex: number | null;
 }
 
 /**
@@ -40,30 +44,62 @@ export interface SwapContext {
   surface: "fresh_itinerary" | "saved" | "share";
 }
 
+interface UndoEntry {
+  timer: number;
+  index: number;
+  restore: () => void;
+}
+
 export function useSwapStop(
   itinerary: ItineraryResponse | null,
   onUpdate: (next: ItineraryResponse) => void,
   onSwapComplete?: (ctx: SwapContext) => void,
 ) {
-  const toast = useToast();
   const [state, setState] = useState<SwapState>({
     swappingIndex: null,
     swapFailure: null,
+    swappedIndex: null,
   });
 
   const excludedRef = useRef<Map<number, string[]>>(new Map());
-  const undoRef = useRef<{ timer: number; prev: ItineraryResponse } | null>(
-    null
-  );
+  // Auto-clear timer for the "Swapped · Undo" inline notice. The
+  // restore closure stored on undoRef is what the StopCard's Undo
+  // affordance calls — see consumer in src/app/itinerary/page.tsx.
+  const undoRef = useRef<UndoEntry | null>(null);
+
+  // Cancel any pending "Swapped · Undo" auto-clear if the consumer
+  // unmounts inside the 8s window (e.g. user taps the Header's Back
+  // link right after a swap). Without this the queued setState would
+  // land on an unmounted component — a no-op in React 18 but a real
+  // bug under StrictMode double-invoke and a regression from the
+  // dismiss-contract the deleted Toast component owned. Added after
+  // the visual-audit adversarial review, 2026-06-12.
+  useEffect(() => {
+    return () => {
+      if (undoRef.current) {
+        window.clearTimeout(undoRef.current.timer);
+        undoRef.current = null;
+      }
+    };
+  }, []);
 
   const handleSwap = useCallback(
     async (index: number) => {
       if (!itinerary || state.swappingIndex !== null) return;
-      // Clear any prior failure when the user retries a DIFFERENT stop
-      // (or this stop after a manual reset). The exhaustion block on
-      // the prior failed stop disabled its own Swap, so we won't land
-      // here for that stop while its failure is showing.
-      setState({ swappingIndex: index, swapFailure: null });
+      // Clear any prior failure AND any prior swapped-notice when the
+      // user retries a DIFFERENT stop (or this stop after a manual
+      // reset). The exhaustion block on the prior failed stop disabled
+      // its own Swap, so we won't land here for that stop while its
+      // failure is showing.
+      if (undoRef.current) {
+        window.clearTimeout(undoRef.current.timer);
+        undoRef.current = null;
+      }
+      setState({
+        swappingIndex: index,
+        swapFailure: null,
+        swappedIndex: null,
+      });
 
       const excluded = excludedRef.current.get(index) ?? [];
 
@@ -86,6 +122,13 @@ export function useSwapStop(
         // the consuming UI disables the Swap affordance on this stop,
         // because the pool is exhausted given these inputs.
         if (res.status === 422) {
+          // 422 path also needs to clear any lingering swappedIndex
+          // from a prior successful swap — otherwise the failure block
+          // and the Undo line would both render at the same stop.
+          if (undoRef.current) {
+            window.clearTimeout((undoRef.current as UndoEntry).timer);
+            undoRef.current = null;
+          }
           const body = (await res.json().catch(() => ({}))) as unknown;
           const failure = isComposeFailure(body)
             ? body
@@ -97,6 +140,7 @@ export function useSwapStop(
           setState({
             swappingIndex: null,
             swapFailure: { index, failure },
+            swappedIndex: null,
           });
           return;
         }
@@ -158,33 +202,34 @@ export function useSwapStop(
         });
 
         if (undoRef.current) {
-          window.clearTimeout(undoRef.current.timer);
+          window.clearTimeout((undoRef.current as UndoEntry).timer);
           undoRef.current = null;
         }
 
+        // Capture the restore closure so the StopCard's Undo
+        // affordance can call it. The auto-clear timer wipes the
+        // swappedIndex state at 8s, matching the deleted Toast's
+        // visible duration so user mental model is unchanged.
+        const restore = () => {
+          excludedRef.current.set(
+            index,
+            nextExcluded.filter((id) => id !== prevVenueId),
+          );
+          onUpdate(prevItinerary);
+        };
         const timer = window.setTimeout(() => {
           undoRef.current = null;
+          setState((s) =>
+            s.swappedIndex === index ? { ...s, swappedIndex: null } : s,
+          );
         }, 8000);
-        undoRef.current = { timer, prev: prevItinerary };
-
-        toast.show({
-          message: "Swapped",
-          durationMs: 8000,
-          action: {
-            label: "Undo",
-            onClick: () => {
-              if (!undoRef.current) return;
-              window.clearTimeout(undoRef.current.timer);
-              const restored = undoRef.current.prev;
-              undoRef.current = null;
-              excludedRef.current.set(
-                index,
-                nextExcluded.filter((id) => id !== prevVenueId)
-              );
-              onUpdate(restored);
-            },
-          },
+        undoRef.current = { timer, index, restore };
+        setState({
+          swappingIndex: null,
+          swapFailure: null,
+          swappedIndex: index,
         });
+        return;
       } catch {
         // Unexpected exception — surface as the same prominent block,
         // but with NEUTRAL system copy. proximity's "widen your
@@ -193,17 +238,43 @@ export function useSwapStop(
         setState({
           swappingIndex: null,
           swapFailure: { index, failure: composeFailure("system") },
+          swappedIndex: null,
         });
         return;
       }
-      setState({ swappingIndex: null, swapFailure: null });
+      // Unreachable — every branch (422, 500, success, catch) returns.
     },
-    [itinerary, state.swappingIndex, toast, onUpdate, onSwapComplete]
+    [itinerary, state.swappingIndex, onUpdate, onSwapComplete],
   );
+
+  /** Externally clear any failure block — symmetric to onSwapComplete
+   *  clearing addStopFailure. The page calls this from handleAddStop's
+   *  success path so a successful add-stop also wipes a stale swap
+   *  failure (the candidate pool genuinely changed). Audit item 1. */
+  const clearSwapFailure = useCallback(() => {
+    setState((s) => (s.swapFailure ? { ...s, swapFailure: null } : s));
+  }, []);
+
+  /** Restore the pre-swap itinerary and clear the swapped notice.
+   *  Called by the StopCard's inline "Undo" affordance (replaces the
+   *  deleted Toast pattern). No-op if there's nothing to undo. */
+  const undoSwap = useCallback(() => {
+    if (!undoRef.current) return;
+    window.clearTimeout(undoRef.current.timer);
+    const { restore, index } = undoRef.current;
+    undoRef.current = null;
+    restore();
+    setState((s) =>
+      s.swappedIndex === index ? { ...s, swappedIndex: null } : s,
+    );
+  }, []);
 
   return {
     handleSwap,
     swappingIndex: state.swappingIndex,
     swapFailure: state.swapFailure,
+    swappedIndex: state.swappedIndex,
+    undoSwap,
+    clearSwapFailure,
   };
 }

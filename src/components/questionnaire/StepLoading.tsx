@@ -67,17 +67,24 @@ export function StepLoading(props: StepLoadingProps) {
   }, [messages.length]);
 
   return (
-    <div className="flex flex-1 flex-col items-center justify-center px-6 min-h-[60vh]">
+    // Audit items 17 + 23: burgundy spinner (was charcoal) + larger
+    // copy + same role=status / aria-live treatment as LuckyOverlay so
+    // both compose loaders feel like the same screen family. The
+    // visible message is the accessible name — no aria-label needed.
+    <div className="flex flex-1 flex-col items-center justify-center px-6 min-h-[60vh] bg-cream">
       <motion.div
-        className="w-10 h-10 rounded-full border-2 border-charcoal border-t-transparent mb-8"
+        className="w-12 h-12 rounded-full border-2 border-burgundy border-t-transparent mb-8"
         animate={{ rotate: 360 }}
         transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+        aria-hidden
       />
 
       <AnimatePresence mode="wait">
         <motion.p
           key={msgIndex}
-          className="font-sans text-base text-warm-gray text-center"
+          role="status"
+          aria-live="polite"
+          className="font-serif text-xl text-charcoal text-center"
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -10 }}

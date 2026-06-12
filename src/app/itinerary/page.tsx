@@ -298,11 +298,14 @@ function ItineraryBody({
     setSwapReason(null);
   }, [swapReason, trackEngagement]);
 
-  const { handleSwap, swappingIndex, swapFailure } = useSwapStop(
-    itinerary,
-    updateItinerary,
-    onSwapComplete,
-  );
+  const {
+    handleSwap,
+    swappingIndex,
+    swapFailure,
+    swappedIndex,
+    undoSwap,
+    clearSwapFailure,
+  } = useSwapStop(itinerary, updateItinerary, onSwapComplete);
 
   const [addingStop, setAddingStop] = useState(false);
   // Structured failure for the add-stop pool. Persists (no auto-dismiss)
@@ -364,6 +367,12 @@ function ItineraryBody({
         },
       };
       updateItinerary(next);
+      // Audit item 1: symmetric failure clear. onSwapComplete already
+      // clears addStopFailure when a swap succeeds; mirror it here so
+      // a successful add-stop wipes a stale swap failure block too.
+      // The candidate pool genuinely changed, so any prior swap-block
+      // exhaustion is no longer accurate.
+      clearSwapFailure();
       // Both fire through trackEngagement so ComposeContext +
       // itinerary_id are injected at the single passthrough point and
       // both count toward the engagement counter (the user added a
@@ -424,6 +433,8 @@ function ItineraryBody({
           onSwapStop={handleSwap}
           swappingIndex={swappingIndex}
           swapFailure={swapFailure}
+          swappedIndex={swappedIndex}
+          onUndoSwap={undoSwap}
         />
       </div>
       <ActionBar itinerary={itinerary} />

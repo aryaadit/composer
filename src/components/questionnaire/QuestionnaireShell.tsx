@@ -317,8 +317,12 @@ export function QuestionnaireShell() {
         />
       </div>
 
-      {/* Content — fills remaining viewport space and centers vertically. */}
-      <div className="flex-1 flex flex-col justify-center items-center px-6 py-8">
+      {/* Audit item 10: top-align the question block consistently
+          across all five steps so the question heading sits a fixed
+          distance below the progress bar and the eye doesn't have to
+          chase a vertically-centered target as content grows/shrinks
+          from step to step. Was: justify-center items-center. */}
+      <div className="flex-1 flex flex-col items-center px-6 pt-8 pb-8">
         <div className="w-full max-w-lg">
           <AnimatePresence mode="wait" custom={state.direction}>
             <motion.div

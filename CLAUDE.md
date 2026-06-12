@@ -406,6 +406,24 @@ Never use generic purple gradients, white backgrounds, or Inter/Roboto. The aest
 - Loading states feel intentional — never a bare spinner
 - Touch targets minimum 44x44px
 
+### Disabled state — one canonical treatment
+
+Every button-shaped affordance in the app uses the SAME disabled treatment so users learn it once:
+
+- **Visual:** `opacity-40` on the filled element (`disabled:opacity-40` on the Button primitive).
+- **Pointer:** `cursor-not-allowed` + `pointer-events-none` (also on the primitive).
+- **Color does NOT change.** No swap to grey/muted/burgundy-tint backgrounds — that's how `disabled:bg-muted` and similar one-offs creep in and split the visual language.
+
+The `<Button>` primitive in `src/components/ui/Button.tsx` ships this for every variant + size. Build new affordances through it. If a callsite needs a custom shape (rare), copy the three classes exactly: `disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-40`. Don't invent a fourth disabled treatment.
+
+The audit's call-out: SwapReasonModal Submit used to hand-roll `disabled:bg-muted disabled:cursor-not-allowed`. That's gone — it routes through `<Button>` now, and so should every future modal-footer Submit / inline form button.
+
+### Loading + status semantics
+
+Every async surface (page-level loaders, post-action confirmations, form-fetch spinners, dynamic count changes) ships `role="status"` + `aria-live="polite"`. The visible text content is the accessible name — no separate `aria-label` needed if the rendered copy already describes what's happening. The pattern lives in `src/components/home/LuckyOverlay.tsx` and `src/components/itinerary/StopAvailability.tsx`; mirror it.
+
+For toasts: don't. There is no Toast / Snackbar primitive in the app — the audit removed it in 2026-06-12. Surface outcomes IN CONTEXT next to the triggering control: save errors render above the sticky CTA in `LooksGoodCTA`; swap success renders as the "Swapped · Undo" line on the swapped StopCard. New ephemeral feedback follows the same rule.
+
 ---
 
 ## Coding Standards

@@ -28,7 +28,13 @@ export function SavedPlansList({ userId }: Props) {
         <h2 className="font-sans text-xs tracking-widest uppercase text-muted mb-5">
           Saved itineraries
         </h2>
-        <p className="font-sans text-sm text-muted py-8">Loading...</p>
+        <p
+          role="status"
+          aria-live="polite"
+          className="font-sans text-sm text-muted py-8"
+        >
+          Loading...
+        </p>
       </section>
     );
   }

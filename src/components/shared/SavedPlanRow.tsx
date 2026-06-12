@@ -110,11 +110,12 @@ export function SavedPlanRow({
             ref={inputRef}
             type="text"
             value={draft}
+            aria-label="Rename plan"
             onChange={(e) => setDraft(e.target.value)}
             onKeyDown={handleKeyDown}
             onBlur={() => void saveRename()}
             disabled={saving}
-            className="w-full font-serif text-lg text-charcoal leading-snug bg-transparent border-b border-burgundy focus:outline-none disabled:opacity-50"
+            className="w-full font-serif text-lg text-charcoal leading-snug bg-transparent border-b border-burgundy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-burgundy/40 disabled:opacity-50"
           />
         ) : (
           <Link
@@ -150,25 +151,27 @@ export function SavedPlanRow({
       </div>
 
       {confirming ? (
+        // Audit item 25: Yes/No confirmations are destructive — bumped
+        // to min-w/h 44px touch zones so a delete can't be a mis-tap.
         <div className="flex items-center gap-2 font-sans text-xs shrink-0 pt-1">
           <span className="text-muted">Remove?</span>
           <button
             type="button"
+            aria-label="Confirm remove"
             onClick={() => {
               setConfirming(false);
               onDelete(plan.id);
             }}
-            className="font-medium text-burgundy hover:text-burgundy-light transition-colors"
+            className="inline-flex items-center justify-center min-w-[44px] min-h-[44px] px-3 font-medium text-burgundy hover:text-burgundy-light transition-colors"
           >
             Yes
           </button>
-          <span aria-hidden className="text-muted">
-            ·
-          </span>
+          <span aria-hidden className="text-muted">·</span>
           <button
             type="button"
+            aria-label="Cancel remove"
             onClick={() => setConfirming(false)}
-            className="text-muted hover:text-charcoal transition-colors"
+            className="inline-flex items-center justify-center min-w-[44px] min-h-[44px] px-3 text-muted hover:text-charcoal transition-colors"
           >
             No
           </button>

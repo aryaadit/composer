@@ -91,7 +91,11 @@ export default function SharedItineraryPage({
   if (state.status === "loading") {
     return (
       <main className="flex flex-1 items-center justify-center min-h-screen bg-cream">
-        <div className="w-6 h-6 border-2 border-charcoal border-t-transparent rounded-full animate-spin" />
+        <div
+          role="status"
+          aria-label="Loading shared plan"
+          className="w-6 h-6 border-2 border-burgundy border-t-transparent rounded-full animate-spin"
+        />
       </main>
     );
   }

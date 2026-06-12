@@ -1,8 +1,9 @@
 "use client";
 
 // Post-swap reason capture. Appears AFTER a swap completes (the new
-// venue is already rendered, the undo toast may still be visible).
-// Skippable — Esc, backdrop click, X button, and explicit "Skip" link
+// venue is already rendered, the inline Swapped/Undo affordance may
+// still be visible on the swapped StopCard — see audit item 19).
+// Skippable: Esc, backdrop click, X button, and explicit "Skip" link
 // all dismiss as skip. Submit captures a categorical reason + optional
 // free-text "Other" detail.
 //
@@ -12,6 +13,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
+import { Button } from "@/components/ui/Button";
 
 export interface SwapReasonOption {
   readonly key: string;
@@ -141,7 +143,7 @@ function SwapReasonContent({
           type="button"
           onClick={onSkip}
           aria-label="Skip"
-          className="absolute right-4 top-3 font-sans text-sm text-muted hover:text-charcoal transition-colors p-3 -m-2"
+          className="absolute right-2 top-2 w-11 h-11 inline-flex items-center justify-center font-sans text-sm text-muted hover:text-charcoal transition-colors"
         >
           ✕
         </button>
@@ -174,14 +176,32 @@ function SwapReasonContent({
         </div>
 
         {selectedReason === "other" && (
-          <input
-            type="text"
-            value={otherText}
-            onChange={(e) => setOtherText(e.target.value)}
-            placeholder="Tell us more (optional)"
-            maxLength={200}
-            className="w-full px-4 py-3 rounded-lg border border-border bg-transparent font-sans text-sm text-charcoal placeholder:text-muted focus:outline-none focus:border-charcoal mb-5"
-          />
+          // Audit item 27: visible char counter + aria-describedby so
+          // the 200-char cap is announced, not silent-truncated. The
+          // counter turns burgundy at >= 180 to warn before the cap.
+          // Audit item 25: aria-label since placeholder isn't an
+          // accessible name. Audit item 24: focus-visible ring per
+          // Button.tsx pattern.
+          <>
+            <input
+              type="text"
+              aria-label="Tell us more about why you swapped"
+              aria-describedby="swap-reason-other-count"
+              value={otherText}
+              onChange={(e) => setOtherText(e.target.value)}
+              placeholder="Tell us more (optional)"
+              maxLength={200}
+              className="w-full px-4 py-3 rounded-lg border border-border bg-transparent font-sans text-sm text-charcoal placeholder:text-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-burgundy/40 focus-visible:border-burgundy mb-1"
+            />
+            <p
+              id="swap-reason-other-count"
+              className={`text-right font-sans text-[11px] mb-5 ${
+                otherText.length >= 180 ? "text-burgundy" : "text-muted"
+              }`}
+            >
+              {otherText.length}/200
+            </p>
+          </>
         )}
 
         <div className="flex items-center justify-between gap-3">
@@ -192,14 +212,20 @@ function SwapReasonContent({
           >
             Skip
           </button>
-          <button
-            type="button"
+          {/* Audit items 18 + 30: routed through Button primitive,
+              which carries the CANONICAL disabled treatment
+              (opacity-40 + cursor-not-allowed). Drops the bespoke
+              `disabled:bg-muted` color swap so every disabled button
+              in the app reads the same way. */}
+          <Button
+            variant="primary"
+            size="sm"
             onClick={handleSubmit}
             disabled={!selectedReason}
-            className="px-5 py-2.5 rounded-full bg-burgundy text-cream font-sans text-sm font-medium hover:bg-burgundy-light transition-colors disabled:bg-muted disabled:cursor-not-allowed"
+            type="button"
           >
             Submit
-          </button>
+          </Button>
         </div>
       </div>
     </>

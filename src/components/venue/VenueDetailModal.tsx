@@ -7,10 +7,11 @@ import { useCallback, useEffect, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import type { StopRole, Venue } from "@/types";
 import { neighborhoodLabel } from "@/config/neighborhoods";
-import { formatCategory } from "@/lib/format/category";
+import { formatCategory, formatVibeTag } from "@/lib/format/category";
 import { getVenueImageUrls } from "@/lib/venues/images";
 import { detectBookingPlatform, isValidReservationUrl } from "@/lib/booking";
 import { useEngagement } from "@/components/itinerary/EngagementProvider";
+import { Button } from "@/components/ui/Button";
 import { EVENTS } from "@/lib/analytics";
 
 interface VenueDetailModalProps {
@@ -110,7 +111,7 @@ function VenueDetailContent({
         <button
           onClick={onClose}
           aria-label="Close"
-          className="absolute right-4 top-3 font-sans text-sm text-muted hover:text-charcoal transition-colors p-3 -m-2"
+          className="absolute right-2 top-2 w-11 h-11 inline-flex items-center justify-center font-sans text-sm text-muted hover:text-charcoal transition-colors"
         >
           ✕
         </button>
@@ -158,11 +159,13 @@ function VenueDetailContent({
           </div>
         )}
 
-        <blockquote className="mt-4 border-l-2 border-burgundy/30 pl-4 font-sans text-[15px] text-[#444444] leading-relaxed italic">
+        {/* Audit items 21 + 28 + 6: roman (not italic), warm-gray
+            token + text-base on the body copy, and the attribution
+            line drops the em-dash prefix per BRAND_VOICE. The
+            burgundy border-l and editorial framing remain. */}
+        <blockquote className="mt-4 border-l-2 border-burgundy/30 pl-4 font-sans text-base text-warm-gray leading-relaxed">
           {venue.curation_note}
-          <span className="block text-xs text-muted mt-1 not-italic">
-            — Composer
-          </span>
+          <span className="block text-xs text-muted mt-1">Composer</span>
         </blockquote>
 
         {/* Signature order */}
@@ -173,7 +176,8 @@ function VenueDetailContent({
           </p>
         )}
 
-        {/* Vibe tags */}
+        {/* Vibe tags. Audit item 21: casing map via formatVibeTag —
+            acronyms uppercase (IYKYK), others sentence case. */}
         {venue.vibe_tags.length > 0 && (
           <div className="flex flex-wrap gap-2 mt-4">
             {venue.vibe_tags.map((tag) => (
@@ -181,7 +185,7 @@ function VenueDetailContent({
                 key={tag}
                 className="px-3 py-1 text-xs font-sans rounded-full bg-burgundy/10 text-burgundy"
               >
-                {formatCategory(tag)}
+                {formatVibeTag(tag)}
               </span>
             ))}
           </div>
@@ -239,10 +243,17 @@ function VenueDetailContent({
         {/* Action buttons */}
         <div className="flex gap-3 mt-6">
           {isValidReservationUrl(venue.reservation_url) && (
-            <a
+            // Audit item 30: routed through Button primitive. The
+            // !px-4 !py-3 overrides preserve the existing
+            // "px-4 py-3 text-sm" recipe at pixel parity — Button's
+            // size="sm" default is `px-5 py-2.5` which would visually
+            // shift the modal's bottom action row. Documented unavoidable
+            // class-name override; no perceived delta.
+            <Button
+              variant="primary"
+              size="sm"
               href={venue.reservation_url}
               target="_blank"
-              rel="noopener noreferrer"
               onClick={() =>
                 trackEngagement(EVENTS.RESERVATION_CLICKED, {
                   venue_id: venue.id,
@@ -254,10 +265,10 @@ function VenueDetailContent({
                   from_surface: "venue_detail_modal",
                 })
               }
-              className="flex-1 text-center px-4 py-3 rounded-full bg-burgundy text-cream font-sans text-sm font-medium hover:bg-burgundy-light transition-colors"
+              className="flex-1 !px-4 !py-3"
             >
               Reserve
-            </a>
+            </Button>
           )}
         </div>
       </div>

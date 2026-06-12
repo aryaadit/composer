@@ -193,12 +193,12 @@ export function AuthScreen() {
                 disabled={verifying}
                 aria-label={`${CODE_LENGTH}-digit verification code`}
                 placeholder="••••••"
-                className="w-full py-3 text-center text-3xl font-sans font-medium tracking-[0.5em] indent-[0.5em] text-charcoal bg-transparent border-b-2 border-border focus:border-charcoal focus:outline-none transition-colors disabled:opacity-50 placeholder:text-border"
+                className="w-full py-3 text-center text-3xl font-sans font-medium tracking-[0.5em] indent-[0.5em] text-charcoal bg-transparent border-b-2 border-border focus:border-charcoal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-burgundy/40 transition-colors disabled:opacity-50 placeholder:text-border"
               />
             </div>
 
             {verifyError && (
-              <p className="font-sans text-xs text-charcoal mb-4">
+              <p role="alert" className="font-sans text-xs text-burgundy mb-4">
                 {verifyError}
               </p>
             )}
@@ -256,7 +256,10 @@ export function AuthScreen() {
 
           <form onSubmit={handleSendCode} className="flex flex-col gap-5">
             <div>
-              <label className="font-sans text-xs tracking-widest uppercase text-muted mb-2 block">
+              <label
+                htmlFor="auth-phone"
+                className="font-sans text-xs tracking-widest uppercase text-muted mb-2 block"
+              >
                 Phone number
               </label>
               <div className="flex items-center gap-3">
@@ -264,24 +267,25 @@ export function AuthScreen() {
                   +1
                 </span>
                 <input
+                  id="auth-phone"
                   type="tel"
                   inputMode="tel"
                   autoComplete="tel-national"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   placeholder="(212) 555-1234"
-                  className="w-full px-0 py-3 text-base font-sans bg-transparent border-b border-border focus:border-charcoal focus:outline-none transition-colors text-charcoal placeholder:text-muted"
+                  className="w-full px-0 py-3 text-base font-sans bg-transparent border-b border-border focus:border-charcoal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-burgundy/40 transition-colors text-charcoal placeholder:text-muted"
                   autoFocus
                 />
               </div>
             </div>
 
             {error && (
-              <p className="font-sans text-xs text-charcoal">{error}</p>
+              <p role="alert" className="font-sans text-xs text-burgundy">{error}</p>
             )}
 
             <p className="font-sans text-xs text-muted leading-relaxed mt-2 mb-2">
-              By tapping Send Code, you agree to receive SMS messages from
+              By tapping Send code, you agree to receive SMS messages from
               Composer for account verification. Message frequency varies.
               Message and data rates may apply. Reply STOP to opt out, HELP
               for help. See our{" "}
@@ -302,7 +306,7 @@ export function AuthScreen() {
               disabled={!phoneValid || submitting}
               className="w-full"
             >
-              {submitting ? "Sending..." : "Send Code"}
+              {submitting ? "Sending..." : "Send code"}
             </Button>
           </form>
 
@@ -392,36 +396,46 @@ function EmailAuthForm({
 
           <form onSubmit={handleSubmit} className="flex flex-col gap-5">
           <div>
-            <label className="font-sans text-xs tracking-widest uppercase text-muted mb-2 block">
+            <label
+              htmlFor="auth-email"
+              className="font-sans text-xs tracking-widest uppercase text-muted mb-2 block"
+            >
               Email
             </label>
             <input
+              id="auth-email"
               type="email"
               inputMode="email"
               autoComplete="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="you@example.com"
-              className="w-full px-0 py-3 text-base font-sans bg-transparent border-b border-border focus:border-charcoal focus:outline-none transition-colors text-charcoal placeholder:text-muted"
+              className="w-full px-0 py-3 text-base font-sans bg-transparent border-b border-border focus:border-charcoal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-burgundy/40 transition-colors text-charcoal placeholder:text-muted"
               autoFocus
             />
           </div>
 
           <div>
-            <label className="font-sans text-xs tracking-widest uppercase text-muted mb-2 block">
+            <label
+              htmlFor="auth-password"
+              className="font-sans text-xs tracking-widest uppercase text-muted mb-2 block"
+            >
               Password
             </label>
             <div className="relative">
               <input
+                id="auth-password"
                 type={showPassword ? "text" : "password"}
                 autoComplete="current-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="At least 8 characters"
-                className="w-full px-0 py-3 pr-16 text-base font-sans bg-transparent border-b border-border focus:border-charcoal focus:outline-none transition-colors text-charcoal placeholder:text-muted"
+                className="w-full px-0 py-3 pr-16 text-base font-sans bg-transparent border-b border-border focus:border-charcoal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-burgundy/40 transition-colors text-charcoal placeholder:text-muted"
               />
               <button
                 type="button"
+                aria-label={showPassword ? "Hide password" : "Show password"}
+                aria-pressed={showPassword}
                 onClick={() => setShowPassword((v) => !v)}
                 className="absolute right-0 top-1/2 -translate-y-1/2 font-sans text-xs text-muted hover:text-charcoal transition-colors"
               >

@@ -2,9 +2,10 @@
 
 import { Tooltip } from "./Tooltip";
 
+// Audit item 6: em dashes removed from tooltip copy.
 const CONFIG = {
-  fixed: { label: "Res required", tooltip: "Timed reservation — lock it in." },
-  flexible: { label: "Walk-in", tooltip: "Walk-in friendly — timing is loose." },
+  fixed: { label: "Res required", tooltip: "Timed reservation. Lock it in." },
+  flexible: { label: "Walk-in", tooltip: "Walk-in friendly. Timing is loose." },
 } as const;
 
 type Status = keyof typeof CONFIG;

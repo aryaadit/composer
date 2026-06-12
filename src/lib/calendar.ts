@@ -213,8 +213,9 @@ export function buildDescription(
     }
   }
 
-  // Footer
-  lines.push("—");
+  // Footer. Audit item 6: em dash separator replaced with a three-
+  // hyphen rule for plain-text rendering in users' calendar apps.
+  lines.push("---");
   if (itinerary.header.estimated_total) {
     lines.push(`Budget: ${itinerary.header.estimated_total}`);
   }

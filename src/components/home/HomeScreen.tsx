@@ -12,6 +12,7 @@ import { useSavedPlans } from "@/hooks/useSavedPlans";
 import { SavedPlanRow } from "@/components/shared/SavedPlanRow";
 import { SavedPlanRowExpanded } from "@/components/shared/SavedPlanRowExpanded";
 import { LuckyDieButton } from "@/components/home/LuckyDieButton";
+import { Button } from "@/components/ui/Button";
 import { TonightsPickCard } from "@/components/home/TonightsPickCard";
 import { useTonightsPick } from "@/hooks/useTonightsPick";
 import { splitPlansByDate } from "@/lib/dateUtils";
@@ -102,14 +103,13 @@ export function HomeScreen({ userName }: HomeScreenProps) {
        * gating as New plan (no gate here; the home screen is the
        * authed surface). */}
       <div className="px-6 mb-10 max-w-lg w-full mx-auto">
-        <Link
-          href="/compose"
-          className="group block w-full py-5 px-5 rounded-full bg-burgundy text-cream hover:bg-burgundy-light transition-colors text-center"
-        >
-          <span className="font-sans text-sm font-medium tracking-wide">
-            New plan →
-          </span>
-        </Link>
+        {/* Audit item 30: routed through Button primitive at pixel
+            parity. size="lg" supplies the exact py-5 px-5 text-sm
+            tracking-wide recipe; w-full + the block layout sit on the
+            consumer side. */}
+        <Button variant="primary" size="lg" href="/compose" className="w-full">
+          New plan →
+        </Button>
         <div className="mt-3 flex justify-center">
           <LuckyDieButton userId={user?.id ?? null} />
         </div>
@@ -134,7 +134,11 @@ export function HomeScreen({ userName }: HomeScreenProps) {
             <h2 className="font-sans text-xs tracking-widest uppercase text-muted mb-4">
               Your plans
             </h2>
-            <div className="py-10 text-muted border-t border-border">
+            <div
+              role="status"
+              aria-live="polite"
+              className="py-10 text-muted border-t border-border"
+            >
               <p className="font-sans text-sm">Loading...</p>
             </div>
           </>

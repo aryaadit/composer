@@ -55,11 +55,21 @@ export function CompositionHeader({
     return Array.from(new Set(labels)).join(", ");
   })();
 
+  // Audit item 16: render the canonical condition bucket as
+  // sentence-case human copy, NOT the raw API description (which
+  // arrives lowercase or, on some endpoints, all-caps). The
+  // description still rides on the WeatherInfo shape for future use.
+  const CONDITION_LABELS: Record<NonNullable<typeof header.weather>["condition"], string> = {
+    clear: "Clear",
+    rain: "Light rain",
+    snow: "Snow",
+    cloudy: "Overcast",
+  };
   // Atmosphere row: occasion · vibe · budget · weather
   const weatherText = header.weather
     ? header.weather.is_bad_weather
-      ? header.weather.description
-      : `${header.weather.temp_f}°F, ${header.weather.description}`
+      ? CONDITION_LABELS[header.weather.condition]
+      : `${header.weather.temp_f}°F, ${CONDITION_LABELS[header.weather.condition]}`
     : null;
 
   const atmosphereParts = [

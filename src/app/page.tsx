@@ -99,7 +99,11 @@ export default function Home() {
   if (isLoading) {
     return (
       <main className="flex flex-1 items-center justify-center min-h-screen bg-cream">
-        <div className="w-6 h-6 border-2 border-charcoal border-t-transparent rounded-full animate-spin" />
+        <div
+          role="status"
+          aria-label="Loading"
+          className="w-6 h-6 border-2 border-burgundy border-t-transparent rounded-full animate-spin"
+        />
       </main>
     );
   }
@@ -129,7 +133,11 @@ export default function Home() {
   if (session && !profile) {
     return (
       <main className="flex flex-1 items-center justify-center min-h-screen bg-cream">
-        <div className="w-6 h-6 border-2 border-charcoal border-t-transparent rounded-full animate-spin" />
+        <div
+          role="status"
+          aria-label="Loading"
+          className="w-6 h-6 border-2 border-burgundy border-t-transparent rounded-full animate-spin"
+        />
       </main>
     );
   }
