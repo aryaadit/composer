@@ -7,31 +7,117 @@
 //   - no session + auth    → AuthScreen (phone OTP or email)
 //   - session, no profile  → redirect to /onboarding
 //   - session + profile    → HomeScreen
+//
+// This component is also the drain point for the deferred user_signed_up
+// / user_signed_in funnel emission. Auth action sites (verifyPhoneOtp,
+// signInOrSignUp) stash {method, source} in sessionStorage on
+// verification success because phone OTP can't locally tell signup
+// from signin. The same routing branch that decides /onboarding vs /
+// (profile existence) decides which funnel event to emit, then clears
+// the token. Cookie-hydrated reloads find no token and don't fire.
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "motion/react";
 import { Button } from "@/components/ui/Button";
 import { AuthScreen } from "@/components/auth/AuthScreen";
 import { HomeScreen } from "@/components/home/HomeScreen";
 import { useAuth } from "@/components/providers/AuthProvider";
+import { EVENTS, track } from "@/lib/analytics";
+import { STORAGE_KEYS } from "@/config/storage";
+import type { AuthPendingEmit } from "@/lib/auth";
+
+function drainAuthPendingEmit(): AuthPendingEmit | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.sessionStorage.getItem(
+      STORAGE_KEYS.session.authPendingEmit,
+    );
+    if (!raw) return null;
+    window.sessionStorage.removeItem(STORAGE_KEYS.session.authPendingEmit);
+    const parsed = JSON.parse(raw) as Partial<AuthPendingEmit>;
+    if (parsed.method !== "phone" && parsed.method !== "password") return null;
+    return {
+      method: parsed.method,
+      signup_source:
+        typeof parsed.signup_source === "string"
+          ? parsed.signup_source
+          : "direct",
+    };
+  } catch {
+    return null;
+  }
+}
 
 export default function Home() {
   const router = useRouter();
-  const { session, profile, isLoading } = useAuth();
+  const {
+    session,
+    profile,
+    isLoading,
+    profileFetchErrored,
+    refreshProfile,
+  } = useAuth();
   const [showAuth, setShowAuth] = useState(false);
+  // Once per lifecycle. Same shape as the itinerary_viewed / failure-
+  // viewed guards: prevents StrictMode dev double-fires and re-renders
+  // from re-emitting.
+  const authEmitFiredRef = useRef(false);
 
   useEffect(() => {
     if (isLoading) return;
-    if (session && !profile) {
+    if (!session) return;
+    // Profile fetch failed — don't emit (can't tell signup vs signin
+    // honestly) and don't route to /onboarding (would overwrite a
+    // returning user's row). The retry surface below lets the user
+    // re-trigger refreshProfile. The pending-emit token stays in
+    // sessionStorage so a successful retry still gets credit.
+    if (profileFetchErrored) return;
+    if (!authEmitFiredRef.current) {
+      const pending = drainAuthPendingEmit();
+      if (pending) {
+        authEmitFiredRef.current = true;
+        // Profile existence is the source of truth — same as the route
+        // decision below. New users haven't completed onboarding so
+        // profile is null; returning users always have a row (the
+        // upsert happens at onboarding completion).
+        if (profile) {
+          track(EVENTS.USER_SIGNED_IN, { method: pending.method });
+        } else {
+          track(EVENTS.USER_SIGNED_UP, {
+            method: pending.method,
+            signup_source: pending.signup_source,
+          });
+        }
+      }
+    }
+    if (!profile) {
       router.replace("/onboarding");
     }
-  }, [isLoading, session, profile, router]);
+  }, [isLoading, session, profile, router, profileFetchErrored]);
 
   if (isLoading) {
     return (
       <main className="flex flex-1 items-center justify-center min-h-screen bg-cream">
         <div className="w-6 h-6 border-2 border-charcoal border-t-transparent rounded-full animate-spin" />
+      </main>
+    );
+  }
+
+  // Authed but the profile fetch hit a transient error after retries.
+  // Show an honest retry surface — without this branch the user is
+  // either stuck on a spinner (looks frozen) or worse, routed to
+  // /onboarding and onboarded over their existing row.
+  if (session && profileFetchErrored) {
+    return (
+      <main className="flex flex-1 flex-col items-center justify-center min-h-screen bg-cream px-6 text-center">
+        <h1 className="font-serif text-2xl text-charcoal mb-3">
+          Something went wrong
+        </h1>
+        <p className="font-sans text-base text-warm-gray mb-6 max-w-sm">
+          We couldn&apos;t load your profile. Give it a moment, then try again.
+        </p>
+        <Button onClick={() => refreshProfile()}>Try again</Button>
       </main>
     );
   }

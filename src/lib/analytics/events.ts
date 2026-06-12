@@ -110,6 +110,10 @@ export function buildItineraryContext(
  * - *_errored → unexpected 500-class failure (system broke) */
 export const EVENTS = {
   // ── User identity ─────────────────────────────────────
+  /** SMS OTP send request fired (first send OR resend). Sits one step
+   *  before USER_SIGNED_UP / USER_SIGNED_IN in the auth funnel:
+   *  otp_requested → user_signed_up | user_signed_in. */
+  OTP_REQUESTED: "otp_requested",
   USER_SIGNED_UP: "user_signed_up",
   USER_SIGNED_IN: "user_signed_in",
   USER_SIGNED_OUT: "user_signed_out",
@@ -168,7 +172,6 @@ export const EVENTS = {
   RESERVATION_SLOT_SELECTED: "reservation_slot_selected",
 
   // ── Save / share / calendar / directions ─────────────
-  SHARE_LINK_GENERATED: "share_link_generated",
   SHARE_LINK_COPIED: "share_link_copied",
   SHARE_LINK_VISITED: "share_link_visited",
   /** Renamed from itinerary_calendar_added — `provider` prop discriminates. */
@@ -181,9 +184,6 @@ export const EVENTS = {
   ONBOARDING_COMPLETED: "onboarding_completed",
 
   // ── Questionnaire instrumentation ─────────────────────
-  /** New: user tapped a budget card that was disabled by the native-
-   * composability gate. Measures suppressed demand. */
-  BUDGET_TIER_DISABLED_TAPPED: "budget_tier_disabled_tapped",
   /** New: emitted once when the neighborhood picker mounts inside the
    * questionnaire. Records which groups the visibility gate hid. */
   NEIGHBORHOOD_OPTIONS_SHOWN: "neighborhood_options_shown",
@@ -201,6 +201,10 @@ type Endpoint = "generate" | "swap-stop" | "add-stop";
  * compile error, not a silent emission. */
 export interface EventSchemas {
   // User identity
+  otp_requested: {
+    /** True iff the user tapped "Resend code"; false on the first send. */
+    is_resend: boolean;
+  };
   user_signed_up: {
     method: "phone" | "password";
     signup_source: string;
@@ -406,10 +410,6 @@ export interface EventSchemas {
     };
 
   // Save / share / calendar / directions
-  share_link_generated: ItineraryRef & {
-    share_id: string;
-    surface: string;
-  };
   share_link_copied: ItineraryRef & {
     surface: string;
   };
@@ -447,11 +447,6 @@ export interface EventSchemas {
   };
 
   // Questionnaire instrumentation
-  budget_tier_disabled_tapped: {
-    budget: string;
-    group_ids: string[];
-    step_index: number;
-  };
   neighborhood_options_shown: {
     visible_group_ids: string[];
     hidden_count: number;

@@ -72,6 +72,14 @@ const COPY_BY_STAGE: Record<ZeroingStage, FailureCopy> = {
     title: "Too much for one night",
     suggestion: "Try a different focus or neighborhood.",
   },
+  system: {
+    // Client-synthesized only — see ZeroingStage comment in
+    // pre-filter.ts. Used by the swap-stop and add-stop catch paths so
+    // a network drop or 500 response doesn't render as a "widen your
+    // neighborhood" message. Neutral framing, no user-input blame.
+    title: "Something went wrong",
+    suggestion: "Give it a moment, then try again.",
+  },
 };
 
 export function composeFailure(zeroingStage: ZeroingStage): ComposeFailure {

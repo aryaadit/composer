@@ -147,7 +147,7 @@ export function AuthScreen() {
   const handleResend = async () => {
     if (resendCooldown > 0) return;
     setVerifyError(null);
-    const result = await sendPhoneOtp(toE164(phone));
+    const result = await sendPhoneOtp(toE164(phone), { isResend: true });
     if (!result.ok) {
       setVerifyError(result.error ?? "Couldn't resend. Try again.");
       return;

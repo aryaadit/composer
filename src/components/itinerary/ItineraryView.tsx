@@ -15,6 +15,8 @@ import {
   OrderingConflictBanner,
   detectOrderingConflict,
 } from "./OrderingConflictBanner";
+import { ComposeFailureBlock } from "./ComposeFailureBlock";
+import type { ComposeFailure } from "@/lib/itinerary/compose-failure";
 import type { AvailabilitySlot } from "@/lib/availability/resy";
 
 const HIGHLIGHT_DURATION_MS = 1500;
@@ -32,9 +34,16 @@ interface ItineraryViewProps {
   startTime?: string;
   onAddStop?: () => void;
   isAddingStop?: boolean;
+  /** Structured 422 failure from the last add-stop attempt. When present:
+   *  the add-stop button hides (the pool is exhausted) and a
+   *  ComposeFailureBlock renders inline where the button was. */
+  addStopFailure?: ComposeFailure | null;
   onSwapStop?: (index: number) => void;
   swappingIndex?: number | null;
-  swapError?: { index: number; message: string } | null;
+  /** Structured 422 failure from the last swap attempt — discriminated
+   *  by stop index. StopCard renders the failure block + suppresses its
+   *  Swap affordance when its index matches. */
+  swapFailure?: { index: number; failure: ComposeFailure } | null;
   /** When true: hide per-stop availability sections, hide swap, hide
    * reservation CTAs in StopCard, and replace add-stop with a
    * "Plan another →" CTA pointing at /compose. */
@@ -53,9 +62,10 @@ export function ItineraryView({
   startTime = "19:00",
   onAddStop,
   isAddingStop = false,
+  addStopFailure,
   onSwapStop,
   swappingIndex,
-  swapError,
+  swapFailure,
   isPast = false,
   surface = "fresh_itinerary",
 }: ItineraryViewProps) {
@@ -172,10 +182,18 @@ export function ItineraryView({
                 index={i}
                 date={date}
                 partySize={partySize}
-                onSwap={!isPast && wrappedOnSwapStop ? () => wrappedOnSwapStop(i) : undefined}
+                onSwap={
+                  !isPast &&
+                  wrappedOnSwapStop &&
+                  swapFailure?.index !== i
+                    ? () => wrappedOnSwapStop(i)
+                    : undefined
+                }
                 onVenueTap={() => handleVenueTap(i)}
                 isSwapping={swappingIndex === i}
-                swapError={swapError?.index === i ? swapError.message : null}
+                swapFailure={
+                  swapFailure?.index === i ? swapFailure.failure : null
+                }
                 isPast={isPast}
                 highlighted={highlightedStopIndex === i}
               />
@@ -197,7 +215,11 @@ export function ItineraryView({
                     onSelectSlot={(slot) =>
                       handleSelectSlot(stop.venue.id, slot)
                     }
-                    onSwap={wrappedOnSwapStop ? () => wrappedOnSwapStop(i) : undefined}
+                    onSwap={
+                      wrappedOnSwapStop && swapFailure?.index !== i
+                        ? () => wrappedOnSwapStop(i)
+                        : undefined
+                    }
                   />
                 </div>
               )}
@@ -223,6 +245,18 @@ export function ItineraryView({
             >
               Plan another →
             </Link>
+          </motion.div>
+        ) : addStopFailure ? (
+          // Add-stop exhausted: replace the affordance entirely with the
+          // failure block. Inviting retries against a dead pool is
+          // dishonest, so the button is gone — not just disabled.
+          <motion.div
+            className="py-6 px-4"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.3 }}
+          >
+            <ComposeFailureBlock failure={addStopFailure} />
           </motion.div>
         ) : (
           wrappedOnAddStop && (

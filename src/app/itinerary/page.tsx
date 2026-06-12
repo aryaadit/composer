@@ -13,6 +13,7 @@ import { decodeParamsToInputs } from "@/lib/sharing";
 import { STORAGE_KEYS } from "@/config/storage";
 import { useSwapStop } from "@/hooks/useSwapStop";
 import {
+  composeFailure,
   isComposeFailure,
   type ComposeFailure,
 } from "@/lib/itinerary/compose-failure";
@@ -234,6 +235,13 @@ function ItineraryBody({
 
   const onSwapComplete = useCallback(
     (ctx: SwapContext) => {
+      // A successful swap changed the candidate pool (the swapped venue
+      // is now in the exclusion set; an adjacent walk segment changed).
+      // The add-stop pool that was previously exhausted may now have
+      // honest answers, so clear the failure and let the user retry.
+      // Mirrors useSwapStop's symmetric clear of swapFailure on a
+      // different-stop swap.
+      setAddStopFailure(null);
       setSwapReason((prev) => {
         const { nextState, events } = handleNextSwapContext(
           prev,
@@ -290,47 +298,54 @@ function ItineraryBody({
     setSwapReason(null);
   }, [swapReason, trackEngagement]);
 
-  const { handleSwap, swappingIndex, swapError } = useSwapStop(
+  const { handleSwap, swappingIndex, swapFailure } = useSwapStop(
     itinerary,
     updateItinerary,
     onSwapComplete,
   );
 
   const [addingStop, setAddingStop] = useState(false);
-  const [addStopError, setAddStopError] = useState<string | null>(null);
+  // Structured failure for the add-stop pool. Persists (no auto-dismiss)
+  // and disables the add-stop affordance — the pool is exhausted given
+  // these inputs, so inviting retries against it would be dishonest.
+  // Cleared on (a) a successful swap (onSwapComplete: the candidate
+  // pool genuinely changed), (b) page navigation. NOT cleared on a
+  // successful add-stop because the guard prevents add-stop from
+  // running once a failure is set — the only way to re-enable the
+  // add-stop button is to first swap something.
+  const [addStopFailure, setAddStopFailure] = useState<ComposeFailure | null>(
+    null,
+  );
 
   const handleAddStop = async () => {
-    if (addingStop) return;
+    if (addingStop || addStopFailure) return;
     setAddingStop(true);
-    setAddStopError(null);
     try {
       const res = await fetch("/api/add-stop", {
         method: "POST",
         headers: { "Content-Type": "application/json", ...getAnalyticsHeaders() },
         body: JSON.stringify({ itinerary }),
       });
-      // 422 → structured ComposeFailure. Surface the typed title as
-      // the inline error message so the user sees the same brand-voice
-      // copy as the compose page. Fire compose_failure_viewed too so
+      // 422 → structured ComposeFailure. Render the body verbatim via
+      // ComposeFailureBlock (all copy routes through the compose-failure
+      // registry — no parallel strings). Fire compose_failure_viewed so
       // the add-stop leg of the funnel matches the server-side
-      // compose_failed (without this client-side counterpart, the
-      // funnel would show server failures without matching user views).
+      // compose_failed.
       if (res.status === 422) {
-        const body = (await res.json().catch(() => ({}))) as {
-          zeroingStage?: string;
-          title?: string;
-        };
-        if (body.zeroingStage) {
-          track(EVENTS.COMPOSE_FAILURE_VIEWED, {
-            endpoint: "add-stop",
-            zeroing_stage: body.zeroingStage,
-          });
-        }
-        throw new Error(body.title ?? "Couldn't add a stop");
+        const body = (await res.json().catch(() => ({}))) as unknown;
+        const failure = isComposeFailure(body)
+          ? body
+          : composeFailure("proximity");
+        track(EVENTS.COMPOSE_FAILURE_VIEWED, {
+          endpoint: "add-stop",
+          zeroing_stage: failure.zeroingStage,
+        });
+        setAddStopFailure(failure);
+        setAddingStop(false);
+        return;
       }
       if (!res.ok) {
-        const msg = await res.json().catch(() => ({}));
-        throw new Error(msg.error ?? "Couldn't add a stop");
+        throw new Error("add-stop failed");
       }
       const payload = (await res.json()) as {
         stop: ItineraryStop;
@@ -370,11 +385,12 @@ function ItineraryBody({
         added_role: payload.stop.role,
         time_since_viewed_ms: getTimeSinceViewed(),
       });
-    } catch (err) {
-      setAddStopError(
-        err instanceof Error ? err.message : "Couldn't add a stop"
-      );
-      setTimeout(() => setAddStopError(null), 3000);
+    } catch {
+      // Unexpected exception — surface as the same prominent block,
+      // routed through the registry with NEUTRAL system copy. proximity's
+      // "widen your neighborhood" framing actively misled the user when
+      // the cause was actually a 500 or a network drop.
+      setAddStopFailure(composeFailure("system"));
     }
     setAddingStop(false);
   };
@@ -404,13 +420,11 @@ function ItineraryBody({
           startTime={itinerary.inputs.startTime}
           onAddStop={handleAddStop}
           isAddingStop={addingStop}
+          addStopFailure={addStopFailure}
           onSwapStop={handleSwap}
           swappingIndex={swappingIndex}
-          swapError={swapError}
+          swapFailure={swapFailure}
         />
-        {addStopError && (
-          <p className="font-sans text-sm text-charcoal mt-4">{addStopError}</p>
-        )}
       </div>
       <ActionBar itinerary={itinerary} />
       {/* Sticky-fixed CTA — position:fixed so its inline location

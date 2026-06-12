@@ -3,6 +3,11 @@
 import { useCallback, useRef, useState } from "react";
 import { useToast } from "@/components/ui/Toast";
 import { EVENTS, getAnalyticsHeaders, track } from "@/lib/analytics";
+import {
+  composeFailure,
+  isComposeFailure,
+  type ComposeFailure,
+} from "@/lib/itinerary/compose-failure";
 import type {
   ItineraryResponse,
   ItineraryStop,
@@ -13,7 +18,11 @@ import type {
 
 interface SwapState {
   swappingIndex: number | null;
-  swapError: { index: number; message: string } | null;
+  /** Structured failure for the stop the user just tried to swap. Persists
+   *  (no auto-dismiss) — the pool for this stop is exhausted given the
+   *  user's inputs, so inviting retries against it would be dishonest.
+   *  Cleared on a successful swap at a different stop or on page nav. */
+  swapFailure: { index: number; failure: ComposeFailure } | null;
 }
 
 /**
@@ -39,7 +48,7 @@ export function useSwapStop(
   const toast = useToast();
   const [state, setState] = useState<SwapState>({
     swappingIndex: null,
-    swapError: null,
+    swapFailure: null,
   });
 
   const excludedRef = useRef<Map<number, string[]>>(new Map());
@@ -50,7 +59,11 @@ export function useSwapStop(
   const handleSwap = useCallback(
     async (index: number) => {
       if (!itinerary || state.swappingIndex !== null) return;
-      setState({ swappingIndex: index, swapError: null });
+      // Clear any prior failure when the user retries a DIFFERENT stop
+      // (or this stop after a manual reset). The exhaustion block on
+      // the prior failed stop disabled its own Swap, so we won't land
+      // here for that stop while its failure is showing.
+      setState({ swappingIndex: index, swapFailure: null });
 
       const excluded = excludedRef.current.get(index) ?? [];
 
@@ -65,55 +78,26 @@ export function useSwapStop(
           }),
         });
 
-        // 422 is the new structured-failure path (typed ComposeFailure).
-        // The UI shows the title as the toast message — the body
-        // suggestion would require restructuring the toast widget, so
-        // we surface the headline here and let the user retry with
-        // different inputs from the questionnaire if needed.
+        // 422 is the structured-failure path. The response body IS the
+        // typed ComposeFailure (failed, zeroingStage, title, suggestion)
+        // — we render it verbatim via ComposeFailureBlock, so all copy
+        // routes through the compose-failure registry (no parallel
+        // strings in this hook). Failure persists (no setTimeout) and
+        // the consuming UI disables the Swap affordance on this stop,
+        // because the pool is exhausted given these inputs.
         if (res.status === 422) {
-          const body = (await res.json().catch(() => ({}))) as {
-            failed?: boolean;
-            zeroingStage?: string;
-            title?: string;
-          };
-          // Mirror of the generate-surface failure-view emit. Server-side
-          // compose_failed fires for all three endpoints; without this
-          // client-side counterpart, the swap-stop and add-stop legs of
-          // the funnel show server failures without matching user views.
-          if (body.zeroingStage) {
-            track(EVENTS.COMPOSE_FAILURE_VIEWED, {
-              endpoint: "swap-stop",
-              zeroing_stage: body.zeroingStage,
-            });
-          }
+          const body = (await res.json().catch(() => ({}))) as unknown;
+          const failure = isComposeFailure(body)
+            ? body
+            : composeFailure("proximity");
+          track(EVENTS.COMPOSE_FAILURE_VIEWED, {
+            endpoint: "swap-stop",
+            zeroing_stage: failure.zeroingStage,
+          });
           setState({
             swappingIndex: null,
-            swapError: {
-              index,
-              message: body.title ?? "No other good matches right now",
-            },
+            swapFailure: { index, failure },
           });
-          setTimeout(
-            () => setState((s) => ({ ...s, swapError: null })),
-            5000
-          );
-          return;
-        }
-        // Legacy 404 fallback — pre-refactor swap-stop returned this
-        // for any zero-pool condition. Left in place defensively.
-        if (res.status === 404) {
-          const msg = await res.json().catch(() => ({}));
-          setState({
-            swappingIndex: null,
-            swapError: {
-              index,
-              message: msg.error ?? "No other good matches right now",
-            },
-          });
-          setTimeout(
-            () => setState((s) => ({ ...s, swapError: null })),
-            5000
-          );
           return;
         }
 
@@ -202,17 +186,17 @@ export function useSwapStop(
           },
         });
       } catch {
+        // Unexpected exception — surface as the same prominent block,
+        // but with NEUTRAL system copy. proximity's "widen your
+        // neighborhood" framing was actively misleading when the
+        // underlying cause was a network drop or a 500.
         setState({
           swappingIndex: null,
-          swapError: { index, message: "Something went wrong." },
+          swapFailure: { index, failure: composeFailure("system") },
         });
-        setTimeout(
-          () => setState((s) => ({ ...s, swapError: null })),
-          3000
-        );
         return;
       }
-      setState({ swappingIndex: null, swapError: null });
+      setState({ swappingIndex: null, swapFailure: null });
     },
     [itinerary, state.swappingIndex, toast, onUpdate, onSwapComplete]
   );
@@ -220,6 +204,6 @@ export function useSwapStop(
   return {
     handleSwap,
     swappingIndex: state.swappingIndex,
-    swapError: state.swapError,
+    swapFailure: state.swapFailure,
   };
 }

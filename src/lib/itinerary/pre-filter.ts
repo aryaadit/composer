@@ -51,7 +51,17 @@ export type ZeroingStage =
   // failure, not a silent overshoot. Composer pre-filters Main and
   // stop-1 candidates by projected timeline; swap-stop and add-stop
   // post-validate the patched itinerary. See ALGORITHM.md "End-time fit."
-  | "fit";
+  | "fit"
+  // Added 2026-06-12: NEVER returned by the server's pre-filter — it's
+  // a CLIENT-only stage the catch paths in useSwapStop / handleAddStop
+  // synthesize when an unexpected exception fires (network drop, JSON
+  // parse failure, 500 response). Catch paths used to surface as
+  // composeFailure("proximity") whose copy reads "Nothing nearby pairs
+  // up" — telling users to widen their neighborhood when the server
+  // crashed. The "system" copy uses neutral framing instead. Distinct
+  // from the analytics *_failed/*_errored convention: this is purely
+  // about user-facing copy registry semantics.
+  | "system";
 
 export type PreFilterResult =
   | { ok: true; venues: Venue[] }

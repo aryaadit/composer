@@ -38,6 +38,7 @@ import type { Session, User } from "@supabase/supabase-js";
 import posthog from "posthog-js";
 import { getBrowserSupabase } from "@/lib/supabase/browser";
 import { track, EVENTS } from "@/lib/analytics";
+import { deriveSignupSource } from "@/lib/analytics/signup-source";
 import { checkAndEmitIfStale } from "@/lib/analytics/compose-abandoned";
 import {
   getProfile,
@@ -55,33 +56,25 @@ interface AuthContextValue {
   // callers don't have to null-check the profile themselves. Defaults
   // to false until the profile row loads.
   isAdmin: boolean;
+  /** True when the most recent getProfile call hit a fetch error
+   *  (Supabase 5xx, network blip, RLS propagation lag) AFTER its
+   *  built-in retries. Distinct from `profile === null`, which means
+   *  the row genuinely doesn't exist (new user pre-onboarding). The
+   *  root routing branch keys off this so we don't mis-fire
+   *  user_signed_up or re-onboard a returning user when their fetch
+   *  flaked. */
+  profileFetchErrored: boolean;
   refreshProfile: () => Promise<void>;
   signOut: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-function deriveSignupSource(): string {
-  if (typeof window === "undefined") return "direct";
-  try {
-    const ref = new URL(window.location.href).searchParams.get("ref");
-    if (ref) return `ref_${ref}`;
-    const referrer = document.referrer;
-    if (!referrer) return "direct";
-    const url = new URL(referrer);
-    if (url.origin !== window.location.origin) return "external";
-    if (url.pathname.startsWith("/itinerary/share")) return "share_link";
-    if (url.pathname === "/" || url.pathname === "") return "home";
-    return "internal";
-  } catch {
-    return "direct";
-  }
-}
-
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<ComposerUser | null>(null);
+  const [profileFetchErrored, setProfileFetchErrored] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
   // Tracks the user id we've already identified in PostHog this
@@ -96,15 +89,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     if (!s?.user) {
       setProfile(null);
+      setProfileFetchErrored(false);
       setIsLoading(false);
       return;
     }
 
-    // Profile may not yet exist (user just signed up, hasn't completed
-    // onboarding). That's fine — routing pushes them to /onboarding
-    // where the upsert happens. Null here is not an error state.
-    const existing = await getProfile(s.user.id);
-    setProfile(existing);
+    // Discriminated result so the routing branch can tell "row genuinely
+    // absent" (new user pre-onboarding → emit user_signed_up + route to
+    // /onboarding) from "fetch failed" (transient → DON'T emit, DON'T
+    // route, surface a retry UI in page.tsx). Pre-2026-06-12 the two
+    // were collapsed into `null` and a returning user whose SELECT
+    // flaked would have been re-onboarded over their existing row.
+    const result = await getProfile(s.user.id);
+    if (result.kind === "found") {
+      setProfile(result.profile);
+      setProfileFetchErrored(false);
+    } else if (result.kind === "absent") {
+      setProfile(null);
+      setProfileFetchErrored(false);
+    } else {
+      setProfile(null);
+      setProfileFetchErrored(true);
+    }
     setIsLoading(false);
 
     // Identify once per lifecycle. Third arg is $set_once — only
@@ -160,8 +166,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const refreshProfile = useCallback(async () => {
     if (!user) return;
-    const fresh = await getProfile(user.id);
-    setProfile(fresh);
+    const result = await getProfile(user.id);
+    if (result.kind === "found") {
+      setProfile(result.profile);
+      setProfileFetchErrored(false);
+    } else if (result.kind === "absent") {
+      setProfile(null);
+      setProfileFetchErrored(false);
+    } else {
+      // Retain the previous profile state on transient errors during a
+      // refresh — refreshProfile is typically called after a profile
+      // edit, so showing a stale-but-real profile is better than
+      // blanking the UI. The errored flag flips so retry surfaces
+      // can react.
+      setProfileFetchErrored(true);
+    }
   }, [user]);
 
   const signOut = useCallback(async () => {
@@ -172,6 +191,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     posthog.reset();
     identifiedUserRef.current = null;
     setProfile(null);
+    setProfileFetchErrored(false);
     setUser(null);
     setSession(null);
   }, []);
@@ -185,10 +205,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       session,
       isLoading,
       isAdmin,
+      profileFetchErrored,
       refreshProfile,
       signOut,
     }),
-    [user, profile, session, isLoading, isAdmin, refreshProfile, signOut]
+    [
+      user,
+      profile,
+      session,
+      isLoading,
+      isAdmin,
+      profileFetchErrored,
+      refreshProfile,
+      signOut,
+    ]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

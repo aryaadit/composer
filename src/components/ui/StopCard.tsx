@@ -9,7 +9,9 @@ import { detectBookingPlatform, isValidReservationUrl } from "@/lib/booking";
 import { getVenueHeroImageUrl } from "@/lib/venues/images";
 import { buildResyBookingUrl } from "@/lib/availability/booking-url";
 import { useEngagement } from "@/components/itinerary/EngagementProvider";
+import { ComposeFailureBlock } from "@/components/itinerary/ComposeFailureBlock";
 import { EVENTS } from "@/lib/analytics";
+import type { ComposeFailure } from "@/lib/itinerary/compose-failure";
 
 const BOOK_AHEAD_THRESHOLD = 3;
 
@@ -21,7 +23,12 @@ interface StopCardProps {
   onSwap?: () => void;
   onVenueTap?: () => void;
   isSwapping?: boolean;
-  swapError?: string | null;
+  /** Structured failure from the last swap attempt at THIS stop. When
+   *  present, render the prominent ComposeFailureBlock and let the
+   *  parent suppress the Swap affordance by omitting `onSwap`. Single
+   *  copy source — the block draws verbatim from the compose-failure
+   *  registry. */
+  swapFailure?: ComposeFailure | null;
   /** When true, hide the reserve link (and Swap, by virtue of `onSwap`
    * not being passed). Used on past-date itineraries where the data is
    * stale and a reservation flow would be misleading. */
@@ -65,7 +72,7 @@ export function StopCard({
   onSwap,
   onVenueTap,
   isSwapping = false,
-  swapError,
+  swapFailure,
   isPast = false,
   highlighted = false,
 }: StopCardProps) {
@@ -248,8 +255,11 @@ export function StopCard({
             </div>
           )}
 
-          {swapError && (
-            <p className="font-sans text-xs text-muted mt-2">{swapError}</p>
+          {swapFailure && (
+            // Prominent inline failure — burgundy-accented block routed
+            // through the compose-failure registry. Parent has already
+            // suppressed the Swap button by omitting onSwap.
+            <ComposeFailureBlock failure={swapFailure} className="mt-3" />
           )}
         </>
       )}

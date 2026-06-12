@@ -361,18 +361,6 @@ export function QuestionnaireShell() {
                   disabledNote={
                     step.id === "budget" ? TIER_UNAVAILABLE_COPY : undefined
                   }
-                  onDisabledClick={
-                    step.id === "budget"
-                      ? (value) =>
-                          track(EVENTS.BUDGET_TIER_DISABLED_TAPPED, {
-                            budget: value,
-                            group_ids: deriveGroupIds(
-                              state.answers.neighborhoods ?? [],
-                            ),
-                            step_index: state.currentStep + 1,
-                          })
-                      : undefined
-                  }
                 />
               )}
 

@@ -19,6 +19,11 @@ const STAGES: ZeroingStage[] = [
   "proximity",
   "drinks",
   "fit",
+  // Client-synthesized stage for catch paths (network drop, 500, etc.)
+  // — the server never returns it via pre-filter, but the registry
+  // lookup MUST work because useSwapStop and handleAddStop call
+  // composeFailure("system") on their catch branches.
+  "system",
 ];
 
 describe("composeFailure — typed shape per ZeroingStage", () => {

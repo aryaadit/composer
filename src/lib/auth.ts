@@ -18,7 +18,9 @@
 
 import { getBrowserSupabase } from "@/lib/supabase/browser";
 import { validateProfilePayload } from "@/lib/validation/profile";
-import { track, EVENTS } from "@/lib/analytics";
+import { EVENTS, track } from "@/lib/analytics";
+import { deriveSignupSource } from "@/lib/analytics/signup-source";
+import { STORAGE_KEYS } from "@/config/storage";
 import type {
   Session,
   User,
@@ -27,42 +29,33 @@ import type {
 } from "@supabase/supabase-js";
 import type { ComposerUser, UserPrefs } from "@/types";
 
-/** Decide signup vs signin from Supabase's authoritative timestamps.
- *
- * Why this instead of `Date.now() - created_at < 60s`: the local clock
- * is unreliable (browser back-dating, sleep/wake skew), and the 60-second
- * heuristic mis-classified returning users who happened to load the app
- * within 60s of their original signup. `created_at` and `last_sign_in_at`
- * are both set by the Supabase server in the same transaction for a
- * brand-new user, so they sit within a few ms of each other; for a
- * returning user they're separated by however long it's been since
- * the first signin. The 5s window is generous slack for round-trip /
- * micro-tick differences and is far smaller than any plausible
- * returning-user gap. */
-const SIGNUP_VS_SIGNIN_WINDOW_MS = 5_000;
-
-function isFreshSignup(user: User): boolean {
-  if (!user.last_sign_in_at || !user.created_at) return true;
-  const created = new Date(user.created_at).getTime();
-  const lastSignIn = new Date(user.last_sign_in_at).getTime();
-  if (Number.isNaN(created) || Number.isNaN(lastSignIn)) return true;
-  return Math.abs(lastSignIn - created) < SIGNUP_VS_SIGNIN_WINDOW_MS;
+/** Auth action sites can't locally know signup vs signin — phone OTP
+ *  reuses the same `verifyOtp` call for both, and the password
+ *  fallback's `looksNew` heuristic is a substring match on supabase's
+ *  error message. The honest source of truth is the same one the root
+ *  router consults: does a Composer profile row exist? Action sites
+ *  stash the verified method + source here and the routing branch
+ *  drains it after AuthProvider resolves the profile. */
+export type AuthPendingMethod = "phone" | "password";
+export interface AuthPendingEmit {
+  method: AuthPendingMethod;
+  signup_source: string;
 }
 
-function deriveSignupSource(): string {
-  if (typeof window === "undefined") return "direct";
+function setAuthPendingEmit(method: AuthPendingMethod): void {
+  if (typeof window === "undefined") return;
   try {
-    const ref = new URL(window.location.href).searchParams.get("ref");
-    if (ref) return `ref_${ref}`;
-    const referrer = document.referrer;
-    if (!referrer) return "direct";
-    const url = new URL(referrer);
-    if (url.origin !== window.location.origin) return "external";
-    if (url.pathname.startsWith("/itinerary/share")) return "share_link";
-    if (url.pathname === "/" || url.pathname === "") return "home";
-    return "internal";
+    const payload: AuthPendingEmit = {
+      method,
+      signup_source: deriveSignupSource(),
+    };
+    window.sessionStorage.setItem(
+      STORAGE_KEYS.session.authPendingEmit,
+      JSON.stringify(payload),
+    );
   } catch {
-    return "direct";
+    // Quota / private-mode failures are swallowed — the emit is
+    // best-effort; the routing itself doesn't depend on it.
   }
 }
 
@@ -83,18 +76,48 @@ export async function getAuthUser(): Promise<User | null> {
   return data.user;
 }
 
-/** Read the joined Composer profile row for the current session. */
-export async function getProfile(userId: string): Promise<ComposerUser | null> {
-  const { data, error } = await getBrowserSupabase()
-    .from("composer_users")
-    .select("*")
-    .eq("id", userId)
-    .maybeSingle();
-  if (error) {
-    console.error("[auth] getProfile failed:", error.message);
-    return null;
+/** Tagged result so callers can distinguish "row genuinely absent" from
+ *  "fetch failed" — collapsing them previously caused returning users
+ *  whose composer_users SELECT failed transiently to be re-onboarded
+ *  over their existing row AND mis-fire user_signed_up. The routing
+ *  branch keys off this discriminant. */
+export type ProfileFetchResult =
+  | { kind: "found"; profile: ComposerUser }
+  | { kind: "absent" }
+  | { kind: "errored"; reason: string };
+
+/** Read the joined Composer profile row for the current session.
+ *
+ *  Retries twice (with 200ms then 400ms backoff) before surrendering to
+ *  `errored`. The retry absorbs JWT-vs-RLS propagation lag in the
+ *  seconds after verifyOtp returns + the usual flake on mobile
+ *  networks, while still keeping the "absent" path snappy for new
+ *  signups (success on the first attempt → ~0ms extra). */
+export async function getProfile(userId: string): Promise<ProfileFetchResult> {
+  const ATTEMPTS = 2;
+  const BACKOFF_MS = [200, 400];
+  let lastErr: string | null = null;
+  for (let i = 0; i < ATTEMPTS; i++) {
+    if (i > 0) {
+      await new Promise((r) => setTimeout(r, BACKOFF_MS[i - 1] ?? 400));
+    }
+    const { data, error } = await getBrowserSupabase()
+      .from("composer_users")
+      .select("*")
+      .eq("id", userId)
+      .maybeSingle();
+    if (!error) {
+      return data
+        ? { kind: "found", profile: data as ComposerUser }
+        : { kind: "absent" };
+    }
+    lastErr = error.message;
+    console.error(
+      `[auth] getProfile attempt ${i + 1}/${ATTEMPTS} failed:`,
+      error.message,
+    );
   }
-  return (data as ComposerUser | null) ?? null;
+  return { kind: "errored", reason: lastErr ?? "unknown" };
 }
 
 /**
@@ -156,10 +179,18 @@ interface AuthActionResult {
 /**
  * Send an SMS OTP to the given phone number. Phone must be E.164
  * format (e.g. "+12125551234"). Supabase + Twilio handle delivery.
+ *
+ * Fires `otp_requested` with `is_resend` so the auth funnel head is:
+ *   otp_requested (is_resend=false) → user_signed_up | user_signed_in
+ *   otp_requested (is_resend=true)  → (retry attempt)
+ * The emit happens BEFORE the network call so failed sends (Twilio
+ * outage, rate-limit) still count as user intent.
  */
 export async function sendPhoneOtp(
-  phone: string
+  phone: string,
+  opts: { isResend?: boolean } = {},
 ): Promise<{ ok: boolean; error?: string }> {
+  track(EVENTS.OTP_REQUESTED, { is_resend: opts.isResend ?? false });
   const { error } = await getBrowserSupabase().auth.signInWithOtp({ phone });
   if (error) return { ok: false, error: error.message };
   return { ok: true };
@@ -182,19 +213,12 @@ export async function verifyPhoneOtp(
   if (error) return { ok: false, error: error.message };
   if (!data.user) return { ok: false, error: "Verification returned no user." };
 
-  // Emit at the action site, not in the AuthProvider listener. The
-  // listener's SIGNED_IN fires on every tab refocus (supabase-js
-  // 2.102.1 emits SIGNED_IN on token-refresh too), which over-counted
-  // the funnel. Server-authoritative timestamps decide which side of
-  // the funnel this is.
-  if (isFreshSignup(data.user)) {
-    track(EVENTS.USER_SIGNED_UP, {
-      method: "phone",
-      signup_source: deriveSignupSource(),
-    });
-  } else {
-    track(EVENTS.USER_SIGNED_IN, { method: "phone" });
-  }
+  // Defer the user_signed_up / user_signed_in emit to the root routing
+  // branch — phone OTP can't locally distinguish the two (verifyOtp is
+  // the same call for new and returning). Drained in src/app/page.tsx
+  // once AuthProvider resolves profile existence (the same source of
+  // truth that decides /onboarding vs /).
+  setAuthPendingEmit("phone");
   return { ok: true, user: data.user };
 }
 
@@ -243,8 +267,12 @@ export async function signInOrSignUp(
     await supabase.auth.signInWithPassword({ email, password });
 
   if (!signInError && signInData.user) {
-    // Sign-in branch is locally known — no timestamp comparison needed.
-    track(EVENTS.USER_SIGNED_IN, { method: "password" });
+    // Defer to the routing branch — see verifyPhoneOtp note. Even though
+    // the sign-in branch is locally "known" here, the password fallback's
+    // looksNew heuristic below is a substring match on supabase's error
+    // text, which can mis-classify. Routing on profile existence is the
+    // honest single source of truth.
+    setAuthPendingEmit("password");
     return { ok: true, user: signInData.user };
   }
 
@@ -262,10 +290,18 @@ export async function signInOrSignUp(
   if (!signUpData.user) {
     return { ok: false, error: "Sign up returned no user." };
   }
-  track(EVENTS.USER_SIGNED_UP, {
-    method: "password",
-    signup_source: deriveSignupSource(),
-  });
+  // KNOWN LATENT GAP: when the Supabase project has "Confirm email"
+  // enabled, signUp returns data.user but data.session = null. The
+  // pending-emit token is set in THIS tab's sessionStorage; if the
+  // user clicks the confirmation email link in a different tab or
+  // browser (the normal flow), that tab finds no token and
+  // user_signed_up never fires. Today the project has email
+  // confirmation OFF so this doesn't fire in practice — but the
+  // header note at the top of this file calls out the email provider
+  // staying enabled, which makes a future toggle change foreseeable.
+  // When that happens, move the source-of-truth off sessionStorage
+  // (user_metadata.signup_method is the idiomatic Supabase move).
+  setAuthPendingEmit("password");
   return { ok: true, user: signUpData.user };
 }
 

@@ -86,16 +86,11 @@ export function LooksGoodCTA({
         const payload = (await res.json()) as { id: string; url: string };
         setShareUrl(payload.url);
         shareInflightRef.current = null;
-        // share_link_generated: the moment a share record exists on the
-        // server. Fires before the user has visibly done anything with
-        // it — share_link_copied is the downstream "they actually used
-        // it" event. surface is fresh / saved per the embedded surface
-        // prop (audit spec).
-        track(EVENTS.SHARE_LINK_GENERATED, {
-          itinerary_id: initialSavedId ?? savedItineraryId ?? null,
-          share_id: payload.id,
-          surface,
-        });
+        // No analytics fire here. Share-link provisioning is eager —
+        // every Looks Good save kicks the same fetch — so the event
+        // would have collinearly tracked itinerary_saved without
+        // measuring any user intent. Real share intent is
+        // share_link_copied (downstream, in ConfirmModal).
         return payload.url;
       })
       .catch(() => {
@@ -104,7 +99,7 @@ export function LooksGoodCTA({
       });
     shareInflightRef.current = promise;
     return promise;
-  }, [shareUrl, itinerary, initialSavedId, savedItineraryId, surface]);
+  }, [shareUrl, itinerary]);
 
   const handleClick = async () => {
     if (saveState === "saving") return;
