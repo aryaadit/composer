@@ -27,6 +27,14 @@ export async function saveItineraryToSupabase(
       // `start_time` (Phase 1 fidelity fix); `time_block` will be
       // dropped once nothing reads it (Phase 1 backlog).
       time_block: "evening",
+      // Entry mode — drives the lucky-itinerary crown treatment on
+      // re-open via isLuckyItinerary(itinerary.inputs). Persisted as
+      // of the 20260612_add_mode_to_saved_itineraries migration; null
+      // when the questionnaire path didn't tag the request (old
+      // analytics convention). Without writing it here the field gets
+      // dropped on save because composer_saved_itineraries stores
+      // inputs as typed columns, not as a JSONB blob.
+      mode: inputs.mode ?? null,
       stops,
       // Phase 10: persist the per-segment WalkSegment[] (with
       // route_geometry from composer_walking_routes) so the home hero's

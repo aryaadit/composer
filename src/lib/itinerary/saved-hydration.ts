@@ -86,6 +86,14 @@ export function hydrateSavedItinerary(saved: SavedItinerary): ItineraryResponse 
       day: saved.day ?? "",
       startTime,
       endTime,
+      // Entry mode — restored on re-open so isLuckyItinerary() can
+      // gate the crown / wavy connectors on saved-page revisits.
+      // NULL on legacy rows (pre-20260612 migration) → undefined here,
+      // which the predicate correctly treats as not-lucky. The field
+      // is dropped from the object entirely when null/undefined to
+      // match the QuestionnaireAnswers.mode contract (optional field
+      // absent rather than present-but-undefined).
+      ...(saved.mode ? { mode: saved.mode } : {}),
     },
   };
 }

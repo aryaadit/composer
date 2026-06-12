@@ -344,6 +344,11 @@ export interface SavedItinerary {
   day: string | null;
   start_time?: string | null;
   time_block: string;
+  /** Entry mode persisted on the row (lucky-revisit theming gate).
+   *  Nullable: legacy rows pre-20260612_add_mode_to_saved_itineraries
+   *  carry NULL; the hydrator maps that to undefined on inputs. New
+   *  saves always populated. */
+  mode?: "questionnaire" | "lucky" | "daily" | null;
   stops: ItineraryStop[];
   /** Phase 10 persistence: per-segment WalkSegment[] carrying
    * route_geometry. Optional + nullable so legacy rows (saved before

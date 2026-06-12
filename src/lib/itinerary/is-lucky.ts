@@ -1,10 +1,20 @@
-// Canonical predicate for the lucky-itinerary visual layer (banner +
-// wavy connectors + title die). The mode lives on inputs and survives
-// JSON.stringify into composer_saved_itineraries, so this predicate
-// works on both fresh results and saved revisits.
+// Canonical predicate for the lucky-itinerary visual layer (crown +
+// wavy connectors + title die). The mode lives on inputs and the
+// predicate works across all three surfaces:
+//
+//   - Fresh /itinerary: read from sessionStorage, mode preserved.
+//   - Shared /itinerary/share/[id]: composer_shared_itineraries
+//     persists the FULL ItineraryResponse as JSONB, so mode round-
+//     trips losslessly.
+//   - Saved /itinerary/saved/[id]: composer_saved_itineraries
+//     persists inputs as DECOMPOSED COLUMNS, so mode needs its own
+//     `mode` column — added 2026-06-12 — and the save+hydrate path
+//     must read/write it explicitly. The hydrator (saved-hydration.ts)
+//     restores `inputs.mode` from the row. Saves prior to the
+//     migration carry NULL → undefined on inputs → not-lucky, which
+//     is honest behavior for legacy rows.
 //
 // Daily picks are NOT lucky — they render as standard itineraries.
-// Legacy saved itineraries without the mode field default to standard.
 //
 // One predicate, one place. Future components MUST consume this helper
 // rather than spelling `inputs?.mode === "lucky"` inline — it keeps the
