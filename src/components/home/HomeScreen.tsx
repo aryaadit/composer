@@ -12,6 +12,8 @@ import { useSavedPlans } from "@/hooks/useSavedPlans";
 import { SavedPlanRow } from "@/components/shared/SavedPlanRow";
 import { SavedPlanRowExpanded } from "@/components/shared/SavedPlanRowExpanded";
 import { LuckyDieButton } from "@/components/home/LuckyDieButton";
+import { TonightsPickCard } from "@/components/home/TonightsPickCard";
+import { useTonightsPick } from "@/hooks/useTonightsPick";
 import { splitPlansByDate } from "@/lib/dateUtils";
 
 function UserIcon() {
@@ -70,6 +72,7 @@ export function HomeScreen({ userName }: HomeScreenProps) {
     [savedPlans],
   );
   const hasAnyPlans = savedPlans.length > 0;
+  const tonightsPick = useTonightsPick(user?.id ?? null);
 
   return (
     <div className="min-h-screen flex flex-col bg-cream">
@@ -111,6 +114,18 @@ export function HomeScreen({ userName }: HomeScreenProps) {
           <LuckyDieButton userId={user?.id ?? null} />
         </div>
       </div>
+
+      {/* Tonight's Pick — between the action row and Upcoming.
+       * Renders only when the seeded daily roll succeeded (status:
+       * "ready"). Failures + the loading shimmer render nothing —
+       * spec: "no error state for unrequested content". */}
+      {tonightsPick.data?.status === "ready" && (
+        <TonightsPickCard
+          inputs={tonightsPick.data.inputs}
+          itinerary={tonightsPick.data.itinerary}
+          pickDate={tonightsPick.data.pick_date}
+        />
+      )}
 
       {/* Saved plans — split into Upcoming + Past (Phase 5) */}
       <div className="px-6 flex-1 max-w-lg w-full mx-auto">

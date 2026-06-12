@@ -115,6 +115,15 @@ export interface QuestionnaireAnswers {
   day: string; // ISO date "2026-04-09"
   startTime: string; // "17:00" | "18:00" | "19:00" | "20:00" | "21:00"
   endTime: string; // server-derived: startTime + 5h (wraps past midnight)
+  /** Entry mode, threaded for analytics attribution on follow-on
+   *  actions. Survives a `{ ...body }` spread at runtime; declaring it
+   *  on the type makes the survival contract explicit so a future
+   *  field-by-field refactor or `satisfies` check doesn't silently
+   *  drop it — which would break mode tagging on swap-stop / add-stop
+   *  events (those routes read it back off `itinerary.inputs`).
+   *  Optional because old saved itineraries pre-2026-06-12 don't carry
+   *  it; the builder defaults to "questionnaire". */
+  mode?: "questionnaire" | "lucky" | "daily";
 }
 
 // Body shape POSTed to /api/generate. Auth-derived preferences (name,
@@ -123,6 +132,13 @@ export interface QuestionnaireAnswers {
 // server derives `endTime` so the client never has to do the math.
 export type GenerateRequestBody = Omit<QuestionnaireAnswers, "endTime"> & {
   excludeVenueIds?: string[];
+  /** Entry mode — optional analytics annotation read by the server's
+   *  buildComposeContext threading. The questionnaire client omits it
+   *  (server defaults to "questionnaire"); the lucky-runner sends
+   *  "lucky"; the daily-pick route sends "daily" when it calls
+   *  /api/generate internally. Has NO effect on filtering, scoring, or
+   *  the response shape — purely funnel-attribution metadata. */
+  mode?: "questionnaire" | "lucky" | "daily";
 };
 
 // Venue shape — mirrors `composer_venues_v2` table.

@@ -41,12 +41,13 @@ export interface ComposeContext {
   /** How the user entered the compose flow.
    *    "questionnaire" — typed the answers themselves
    *    "lucky"         — surprise-me die rolled the inputs
+   *    "daily"         — Tonight's Pick (seeded, server-side, cached
+   *                      once per (user, date))
    *  Defaults to "questionnaire" at the builder so server-side events
    *  (which don't know the entry mode) and questionnaire-side events
    *  surface the right value without every call site having to set it.
-   *  Lucky's client-side compose_submitted is the one place that
-   *  passes "lucky" explicitly. */
-  mode: "questionnaire" | "lucky";
+   *  Lucky and daily pass their mode explicitly. */
+  mode: "questionnaire" | "lucky" | "daily";
   /** 1-indexed attempt number. Present only on the lucky path's
    *  rerolls — `compose_submitted` carries it on attempts 2..N after a
    *  silent 422 retry; the questionnaire path never sets it. */
@@ -84,7 +85,7 @@ export interface ComposeContextInputs {
   /** Entry mode — see ComposeContext.mode. Defaults to "questionnaire"
    *  inside the builder, so every server-side and questionnaire-side
    *  call site that doesn't care gets the right value for free. */
-  mode?: "questionnaire" | "lucky";
+  mode?: "questionnaire" | "lucky" | "daily";
   /** 1-indexed attempt number — only the lucky path passes this on
    *  rerolls. */
   attempt?: number;
@@ -159,6 +160,14 @@ export const EVENTS = {
   /** Client-side confirmation that the failure UI actually painted.
    * Closes the loop on `compose_failed` → did the user see it? */
   COMPOSE_FAILURE_VIEWED: "compose_failure_viewed",
+
+  // ── Tonight's Pick (daily seeded itinerary) ─────────────
+  /** Impression — once per (user, date) client-side. The server tracks
+   *  first-view via composer_daily_picks.first_viewed_at so the client
+   *  doesn't need localStorage (CLAUDE.md prohibits localStorage). */
+  DAILY_PICK_VIEWED: "daily_pick_viewed",
+  /** Tap-through into the standard itinerary view. */
+  DAILY_PICK_OPENED: "daily_pick_opened",
 
   // ── Itinerary lifecycle ───────────────────────────────
   /** Renamed from itinerary_generated. "Composed" is the product verb. */
@@ -258,6 +267,14 @@ export interface EventSchemas {
     time_in_flow_ms: number;
     last_step_completed: string | null;
   };
+  /** Per-attempt 422 from /api/generate. When the caller retries
+   *   (lucky and daily both do, up to LUCKY.maxAttempts), this fires
+   *   ONCE PER ATTEMPT — funnel queries filtering by mode='lucky' or
+   *   mode='daily' should treat the count as attempts, not as users.
+   *   The `compose_submitted` (client-side) event from the lucky path
+   *   gives the per-attempt submission denominator; daily has no
+   *   client compose_submitted by design, so its compose_failed[mode=
+   *   daily] count is purely a server-side attempt counter. */
   compose_failed: ComposeContext & {
     endpoint: Endpoint;
     zeroing_stage: string;
@@ -288,6 +305,19 @@ export interface EventSchemas {
       time_to_compose_ms: number;
       time_to_enrich_ms: number;
     };
+  // Tonight's Pick
+  /** Funnel head for Tonight's Pick. `has_pick` discriminates between
+   *  a day where the seeded roll succeeded (card rendered) vs failed
+   *  (the impression still fires so the funnel sees the surface
+   *  attempt rate, not just the success rate). */
+  daily_pick_viewed: {
+    has_pick: boolean;
+    pick_date: string;
+  };
+  daily_pick_opened: ItineraryRef & {
+    pick_date: string;
+  };
+
   itinerary_viewed: ItineraryRef & {
     source: "fresh" | "saved" | "share";
     is_past: boolean;

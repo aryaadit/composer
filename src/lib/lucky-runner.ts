@@ -71,7 +71,12 @@ export async function runLuckyRolls(opts: LuckyRunOpts): Promise<LuckyResult> {
           "Content-Type": "application/json",
           ...getAnalyticsHeaders(),
         },
-        body: JSON.stringify({ ...roll.body, excludeVenueIds }),
+        // mode: "lucky" so server-emitted compose_failed / compose_errored
+        // / itinerary_composed events carry the right entry mode (the
+        // client compose_submitted above does too). Closes the gap
+        // where server-side lucky events used to default to
+        // "questionnaire".
+        body: JSON.stringify({ ...roll.body, mode: "lucky", excludeVenueIds }),
       });
       if (res.status === 422) {
         const body = (await res.json().catch(() => ({}))) as unknown;

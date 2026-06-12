@@ -130,6 +130,15 @@ export async function POST(request: Request) {
     const body = rawBody as unknown as GenerateRequestBody;
     analyticsInputs = body;
 
+    // Entry mode flows from the request body. Lucky and Tonight's Pick
+    // send the explicit value; the questionnaire omits it and the
+    // builder's default ("questionnaire") applies. Threading it via
+    // buildComposeContext(inputsForCtx) keeps every server-emitted
+    // event (compose_failed via respondComposeFailure, compose_errored
+    // via respondComposeErrored, itinerary_composed below) consistently
+    // tagged.
+    const mode = body.mode ?? "questionnaire";
+
     const excludeVenueIds = Array.isArray(body.excludeVenueIds)
       ? body.excludeVenueIds.filter((id): id is string => typeof id === "string")
       : [];
@@ -141,6 +150,11 @@ export async function POST(request: Request) {
     // resolved shape so the UI can render real times.
     const window = resolveTimeWindow(body.startTime);
     const inputs: QuestionnaireAnswers = { ...body, endTime: window.endTime };
+    // Inputs as ComposeContextInputs (with mode) — passed to every
+    // analytics emission. NOT used for filtering or scoring; the
+    // pipeline downstream still reads `inputs` (QuestionnaireAnswers)
+    // unchanged.
+    const inputsForCtx = { ...inputs, mode };
 
     // fetchActiveVenues paginates through the catalog and cross-checks
     // against an exact count. .catch handles the throw path so we can
@@ -186,7 +200,7 @@ export async function POST(request: Request) {
       return respondComposeFailure(
         pre.zeroingStage,
         "generate",
-        inputs,
+        inputsForCtx,
         { userId: analyticsUserId, distinctId, sessionId },
       );
     }
@@ -216,7 +230,7 @@ export async function POST(request: Request) {
       // can't reach Main within the walking cap; defaults to
       // "proximity" if composer didn't tag it.
       const stage = composed.zeroingStage ?? "proximity";
-      return respondComposeFailure(stage, "generate", inputs, {
+      return respondComposeFailure(stage, "generate", inputsForCtx, {
         userId: analyticsUserId,
         distinctId,
         sessionId,
@@ -346,7 +360,7 @@ export async function POST(request: Request) {
       EVENTS.ITINERARY_COMPOSED,
       { userId: analyticsUserId, distinctId, sessionId },
       {
-        ...buildComposeContext(inputs),
+        ...buildComposeContext(inputsForCtx),
         itinerary_id: null,
         requested_stop_count: requestedStopCount,
         stop_count: actualStopCount,
@@ -378,6 +392,9 @@ export async function POST(request: Request) {
     return respondComposeErrored(
       error,
       "generate",
+      // analyticsInputs (Partial<GenerateRequestBody>) carries mode
+      // already since we kept body.mode in the partial, so the
+      // builder picks it up without explicit threading here.
       analyticsInputs,
       { userId: analyticsUserId, distinctId, sessionId },
       Math.round(performance.now() - generationStartMs),

@@ -54,8 +54,10 @@ export function createSeededRandom(seed: number): () => number {
   };
 }
 
-/** FNV-1a 32-bit hash. */
-function fnv1a32(input: string): number {
+/** FNV-1a 32-bit hash. Exported so other deterministic-seed paths
+ *  (e.g. Tonight's Pick keyed on (user_id, pick_date)) can derive a
+ *  32-bit seed from arbitrary string inputs without re-implementing. */
+export function fnv1a32(input: string): number {
   let hash = 0x811c9dc5;
   for (let i = 0; i < input.length; i++) {
     hash ^= input.charCodeAt(i);

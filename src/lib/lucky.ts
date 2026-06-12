@@ -23,6 +23,7 @@ import {
   type ComposeStartTime,
 } from "@/lib/itinerary/time-blocks";
 import { LUCKY } from "@/config/lucky";
+import { createSeededRandom, fnv1a32 } from "@/lib/itinerary/seed";
 import type {
   GenerateRequestBody,
   OccasionBucket,
@@ -153,4 +154,26 @@ export function rollLuckyInputs(
     },
     groupId: group.id,
   };
+}
+
+/** Deterministic variant of `rollLuckyInputs`. Same dice space, same
+ *  predicates — only the randomness source is swapped from Math.random
+ *  to a PRNG seeded by `(seedSource, attempt)`.
+ *
+ *  Used by Tonight's Pick (seed = `${user_id}|${pick_date}`) so the
+ *  daily roll is stable across the day and across retries. Each retry
+ *  passes a higher `attempt` so the seed differs — without that the
+ *  same dice space + same seed would just re-roll the same losing
+ *  combination on every 422.
+ *
+ *  Returns the same shape as `rollLuckyInputs`. */
+export function rollLuckyInputsSeeded(
+  now: Date,
+  startTime: ComposeStartTime,
+  seedSource: string,
+  attempt: number = 1,
+): LuckyRollResult {
+  const seed = fnv1a32(`${seedSource}|attempt:${attempt}`);
+  const rand = createSeededRandom(seed);
+  return rollLuckyInputs(now, startTime, rand);
 }
