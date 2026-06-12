@@ -30,8 +30,9 @@ interface StopCardProps {
    *  registry. */
   swapFailure?: ComposeFailure | null;
   /** True while the ~8s post-swap window is open, replacing the deleted
-   *  Toast pattern (audit item 19). Triggers the inline "Swapped · Undo"
-   *  affordance below the meta line. */
+   *  Toast pattern (audit item 19). When set, the Swap pill in the
+   *  actions row is replaced IN PLACE by "Swapped · Undo" so the two
+   *  states share one slot instead of stacking confusingly. */
   justSwapped?: boolean;
   onUndoSwap?: () => void;
   /** When true, hide the reserve link (and Swap, by virtue of `onSwap`
@@ -123,7 +124,13 @@ export function StopCard({
     !isPast && !hasSlots && v.reservation_url === "Walk-in Only";
 
   const showInlineSwap = !!onSwap && !hasSlots;
-  const showActionsRow = showInlineReserve || showWalkInLabel || showInlineSwap;
+  // When the post-swap window is active and there's no failure to
+  // surface instead, the right slot renders Swapped + Undo. We honor
+  // this even when showInlineSwap is false (hasSlots case) so the user
+  // never loses the undo affordance after a slot-grid swap.
+  const showSwappedSlot = justSwapped && !swapFailure && !!onUndoSwap;
+  const showActionsRow =
+    showInlineReserve || showWalkInLabel || showInlineSwap || showSwappedSlot;
 
   // Build a date-aware reservation URL.
   // Prefer canonical slug URL; for Resy venues without a slug, append
@@ -254,44 +261,44 @@ export function StopCard({
                   <span className="text-muted">Walk-in only</span>
                 )}
               </div>
-              {showInlineSwap && (
-                // Audit item 9: bordered burgundy pill so Swap reads as
-                // tappable. min-h-[36px] meets the >=36px touch-target
-                // bar for secondary actions. Same treatment lives in
-                // StopAvailability's slot-grid Swap so the two surfaces
-                // stay consistent.
-                <button
-                  type="button"
-                  onClick={onSwap}
-                  className="inline-flex items-center justify-center min-h-[36px] px-3 rounded-full border border-burgundy/30 font-sans text-xs font-medium text-burgundy hover:border-burgundy hover:bg-burgundy/5 transition-colors"
+              {/* Right slot: ONE affordance at a time. While the
+                  post-swap window is active, "Swapped · Undo" replaces
+                  the Swap pill in place — same row, same right slot,
+                  same pill treatment. The role=status wrapper announces
+                  the confirmation to assistive tech the way the deleted
+                  Toast did. Pill heights match (min-h-[36px]) so the
+                  slot stays the same vertical size across all three
+                  states. */}
+              {showSwappedSlot ? (
+                <div
+                  role="status"
+                  aria-live="polite"
+                  className="inline-flex items-center gap-3 font-sans text-xs text-warm-gray"
                 >
-                  Swap
-                </button>
+                  <span>Swapped</span>
+                  <button
+                    type="button"
+                    onClick={onUndoSwap}
+                    className="inline-flex items-center justify-center min-h-[36px] px-3 rounded-full border border-burgundy/30 font-sans text-xs font-medium text-burgundy hover:border-burgundy hover:bg-burgundy/5 transition-colors"
+                  >
+                    Undo
+                  </button>
+                </div>
+              ) : (
+                showInlineSwap && (
+                  // Audit item 9: bordered burgundy pill so Swap reads
+                  // as tappable. min-h-[36px] meets the >=36px touch-
+                  // target bar. Same treatment as the Undo pill above
+                  // so the slot's vertical size is invariant.
+                  <button
+                    type="button"
+                    onClick={onSwap}
+                    className="inline-flex items-center justify-center min-h-[36px] px-3 rounded-full border border-burgundy/30 font-sans text-xs font-medium text-burgundy hover:border-burgundy hover:bg-burgundy/5 transition-colors"
+                  >
+                    Swap
+                  </button>
+                )
               )}
-            </div>
-          )}
-
-          {/* Audit item 19 — inline "Swapped · Undo" replaces the
-              deleted Toast. role=status so screen readers get the same
-              confirmation a sighted user does. Hidden once the failure
-              block renders (defensive — useSwapStop clears one when
-              the other lands, but the early return guards a stale
-              concurrent render). */}
-          {justSwapped && !swapFailure && (
-            <div
-              role="status"
-              aria-live="polite"
-              className="mt-3 flex items-center gap-3 font-sans text-xs text-warm-gray"
-            >
-              <span>Swapped</span>
-              <span aria-hidden className="text-border">·</span>
-              <button
-                type="button"
-                onClick={onUndoSwap}
-                className="inline-flex items-center justify-center min-h-[36px] px-3 rounded-full border border-burgundy/30 font-medium text-burgundy hover:border-burgundy hover:bg-burgundy/5 transition-colors"
-              >
-                Undo
-              </button>
             </div>
           )}
 
