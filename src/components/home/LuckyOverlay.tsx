@@ -18,7 +18,7 @@
 // compose_submitted with `mode: "lucky"` and `attempt: n` on rerolls.
 // All server events flow unchanged.
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { ComposeFailureBlock } from "@/components/itinerary/ComposeFailureBlock";
@@ -53,14 +53,16 @@ export function LuckyOverlay({
 }: LuckyOverlayProps) {
   const router = useRouter();
   const [phase, setPhase] = useState<Phase>({ kind: "rolling", attempt: 1 });
-  // Once-per-mount guard — StrictMode dev double-invokes effects;
-  // without this we'd kick off two parallel roll loops.
-  const startedRef = useRef(false);
 
   useEffect(() => {
-    if (startedRef.current) return;
-    startedRef.current = true;
-
+    // No once-per-mount guard: a ref that latches on the FIRST run
+    // would bail the StrictMode dev re-run while the first closure's
+    // `cancelled` is already true, leaving the overlay frozen at the
+    // initial "rolling" phase forever. The per-closure `cancelled`
+    // flag below is the correct dedup: in dev StrictMode the first
+    // closure aborts after `await runLuckyRolls`, the second runs
+    // through to setPhase / router.push. In production useEffect
+    // runs once.
     const startedAt =
       typeof performance !== "undefined" ? performance.now() : 0;
     let cancelled = false;

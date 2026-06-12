@@ -458,6 +458,16 @@ describe("Lucky source contract — no questionnaire-flow touchpoints", () => {
     expect(overlaySrc).toMatch(/lucky-die-pulse/);
   });
 
+  it("Overlay does NOT latch a once-per-mount useRef guard inside the effect", () => {
+    // Regression for the dev-StrictMode hang: an `if (startedRef.current) return;`
+    // pattern combined with cleanup-driven cancellation freezes the
+    // overlay at the initial rolling phase forever. The per-closure
+    // `cancelled` flag is the correct dedup; this assertion fails
+    // loudly if the latching pattern comes back.
+    expect(overlaySrc).not.toMatch(/startedRef\.current\s*=\s*true/);
+    expect(overlaySrc).not.toMatch(/if\s*\(\s*startedRef\.current\s*\)/);
+  });
+
   it("Overlay renders role=status + aria-live on the visible rolling line", () => {
     // a11y contract: exactly ONE live region active per phase, and its
     // accessible name matches the visible content. The rolling phase

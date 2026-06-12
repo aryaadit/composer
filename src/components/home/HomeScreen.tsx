@@ -93,7 +93,7 @@ export function HomeScreen({ userName }: HomeScreenProps) {
         </h1>
       </div>
 
-      {/* Main CTA + secondary "Surprise me" die.
+      {/* Main CTA + secondary "Random tonight?" die.
        * Lucky is a secondary action — small icon + word under the
        * filled New plan button, not a second filled button. Same auth
        * gating as New plan (no gate here; the home screen is the

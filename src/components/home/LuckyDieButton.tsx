@@ -1,20 +1,14 @@
 "use client";
 
-// Secondary "surprise me" action — small die icon under the New plan
-// CTA on both the authed Home and the logged-out Splash. Tapping it
-// opens the LuckyOverlay which rolls inputs through /api/generate and
-// navigates on success.
+// Secondary "Random tonight?" action — small die icon under the New
+// plan CTA on the authed Home. Tapping it opens the LuckyOverlay
+// which rolls inputs through /api/generate and navigates on success.
 //
 // Design intent: NOT a second filled button (would compete with New
 // plan). A small icon + word treatment — burgundy die on cream, no
 // background fill, hover/active darken only. First-run users need a
 // word because the behavior isn't learned yet; icon-only is reserved
-// for a later iteration once "die = surprise" is established.
-//
-// Label choices to propose in the PR description (per BRAND_VOICE —
-// short, observational, no hedge): "Surprise me", "Roll the night",
-// "Tonight, you decide for me". Default below uses "Surprise me" —
-// the most directly observational.
+// for a later iteration once "die = random" is established.
 
 import { useEffect, useState } from "react";
 import { LuckyOverlay } from "./LuckyOverlay";
@@ -95,7 +89,7 @@ export function LuckyDieButton({ userId, className = "" }: LuckyDieButtonProps) 
         type="button"
         onClick={handleClick}
         disabled={disabled}
-        aria-label="Surprise me — roll a plan for tonight"
+        aria-label="Random tonight? Roll a plan for tonight."
         className={
           "inline-flex items-center gap-2 font-sans text-sm text-burgundy " +
           "hover:text-burgundy-light transition-colors disabled:opacity-40 " +
@@ -104,7 +98,7 @@ export function LuckyDieButton({ userId, className = "" }: LuckyDieButtonProps) 
         }
       >
         <DieGlyph size={20} />
-        <span>{eligible ? "Surprise me" : "Too late tonight"}</span>
+        <span>{eligible ? "Random tonight?" : "Too late tonight"}</span>
       </button>
       {overlayOpen && (
         <LuckyOverlay
