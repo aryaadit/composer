@@ -457,4 +457,77 @@ describe("composeItinerary — Drinks path (focus = drinks_led)", () => {
     expect(stops).toHaveLength(0);
     expect(zeroingStage).toBe("proximity");
   });
+
+  it("excludes main+closer venues (Seoul Salon shape) from the Drinks pool — restaurants with a late bar room are NOT bars", () => {
+    // Under the collapsed role model, the right "actual bar" signal
+    // is stop1-pool-eligible AND not main-eligible. A venue tagged
+    // ["main","closer"] is a restaurant that stays open late, not a
+    // bar — Drinks shouldn't reach for it. The only pure bar here
+    // has no companion bar in range, so the pair fails honestly.
+    const venues = [
+      makeVenue({ id: "pure-bar", stop_roles: ["opener"], ...NEAR, category: "wine_bar" }),
+      // The Seoul Salon shape: main + closer. Excluded from Drinks.
+      makeVenue({
+        id: "dinner-plus-bar-room",
+        stop_roles: ["main", "closer"],
+        ...NEAR,
+        category: "korean",
+      }),
+      // Another restaurant to ensure no bar pairing exists for
+      // pure-bar — the test asserts failure, not silent substitution.
+      makeVenue({
+        id: "another-restaurant",
+        stop_roles: ["main"],
+        ...NEAR,
+        category: "japanese",
+      }),
+    ];
+    const { stops, zeroingStage } = composeItinerary(
+      venues,
+      DRINKS,
+      CLEAR,
+      0,
+      () => 0.5,
+    );
+    expect(stops).toHaveLength(0);
+    expect(zeroingStage).toBe("proximity");
+    // Belt-and-suspenders: the Seoul-Salon-shape venue is not in any
+    // returned stop even though it carries the "closer" tag.
+    expect(stops.map((s) => s.venue.id)).not.toContain(
+      "dinner-plus-bar-room",
+    );
+  });
+
+  it("Koreatown shape — one pure bar + closer-tagged restaurants → empty with 'proximity'", () => {
+    // The neighborhood-level analogue: one actual bar, plus several
+    // restaurants tagged main+closer (their late kitchen / bar room
+    // marks them closer-eligible venue-side but they're really
+    // restaurants). The collapsed-role bar filter rejects them, so
+    // the only real bar has no companion and Drinks fails honestly
+    // instead of pairing the bar with a dinner spot.
+    const venues = [
+      makeVenue({ id: "real-bar", stop_roles: ["opener"], ...NEAR, category: "cocktail_bar" }),
+      makeVenue({
+        id: "kimchi-spot",
+        stop_roles: ["main", "closer"],
+        ...NEAR,
+        category: "korean",
+      }),
+      makeVenue({
+        id: "bbq-spot",
+        stop_roles: ["main", "closer"],
+        ...NEAR,
+        category: "korean",
+      }),
+    ];
+    const { stops, zeroingStage } = composeItinerary(
+      venues,
+      DRINKS,
+      CLEAR,
+      0,
+      () => 0.5,
+    );
+    expect(stops).toHaveLength(0);
+    expect(zeroingStage).toBe("proximity");
+  });
 });
