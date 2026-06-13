@@ -109,7 +109,7 @@ describe("rollLuckyInputs — dice space honors gate predicates", () => {
   });
 
   it("Across many rolls, only visible groups + selectable tiers appear", () => {
-    // 200 iterations is overkill for ~25 groups × 3 tiers × 3 vibes,
+    // 200 iterations is overkill for ~25 groups × 3 tiers × 2 vibes,
     // but exercises Math.random uniformly enough to catch a regression
     // where the filter is silently dropped.
     const now = new Date(2026, 5, 12, 17, 0);
@@ -135,7 +135,8 @@ describe("rollLuckyInputs — dice space honors gate predicates", () => {
         isTierSelectable(group!, body.budget as (typeof COMPOSE_TIERS)[number]),
       ).toBe(true);
 
-      // Vibe MUST be one of the 3 focus options (not mix_it_up).
+      // Vibe MUST be one of the focus options (no mix_it_up, no
+      // activity_food after the 2026-06-13 focus collapse).
       expect(LUCKY_VIBES).toContain(body.vibe);
 
       // Occasion always the configured default.
@@ -153,8 +154,9 @@ describe("rollLuckyInputs — dice space honors gate predicates", () => {
     // Hit at least 3 distinct groups across 200 rolls — guards against
     // a stuck-roll regression where rand always returns 0.
     expect(seenGroups.size).toBeGreaterThanOrEqual(3);
-    // All 3 focus vibes hit.
-    expect(seenVibes.size).toBe(3);
+    // Both focus vibes hit (food_forward + drinks_led after the
+    // 2026-06-13 collapse).
+    expect(seenVibes.size).toBe(2);
     // At least 2 budget tiers hit (some groups may only support 1).
     expect(seenBudgets.size).toBeGreaterThanOrEqual(2);
   });

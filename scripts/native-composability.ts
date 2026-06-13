@@ -142,6 +142,12 @@ interface TierStats {
   stop1s: number;
   both: number;
   itineraries: number;
+  /** Unordered (stop1, stop1) pairs that satisfy the proximity cap.
+   *  Models the Drinks shape: two stop1-eligible venues, no main.
+   *  Analysis only — the live visibility gate still reads `itineraries`
+   *  (Meal shape). See "Table 1b — Drinks shape" in the markdown
+   *  report. */
+  drinksPairs: number;
 }
 
 function countItinerariesForTier(pool: VenueRow[]): TierStats {
@@ -167,7 +173,32 @@ function countItinerariesForTier(pool: VenueRow[]): TierStats {
       }
     }
   }
-  return { mains: mains.length, stop1s: stop1s.length, both, itineraries: pairs };
+
+  // Drinks shape: unordered (stop1, stop1) pairs within MAX_WALK_KM.
+  // i < j to avoid double-counting; same proximity cap as the Meal pair.
+  let drinksPairs = 0;
+  for (let i = 0; i < stop1s.length; i++) {
+    for (let j = i + 1; j < stop1s.length; j++) {
+      if (
+        walkDistanceKm(
+          stop1s[i].latitude,
+          stop1s[i].longitude,
+          stop1s[j].latitude,
+          stop1s[j].longitude,
+        ) <= MAX_WALK_KM
+      ) {
+        drinksPairs++;
+      }
+    }
+  }
+
+  return {
+    mains: mains.length,
+    stop1s: stop1s.length,
+    both,
+    itineraries: pairs,
+    drinksPairs,
+  };
 }
 
 interface GroupReport {
@@ -328,6 +359,80 @@ function emitMarkdown(reports: GroupReport[]): void {
     lines.push(
       `| ${r.label} | ${venues} | ${counts} | ${r.medianPairKm} | ${tick(r.survives25Worst)} | ${tick(r.survives25Mid)} | ${tick(r.survives50Worst)} | ${tick(r.survives50Mid)} | ${tick(r.survives100Worst)} | ${tick(r.survives100Mid)} |`,
     );
+  }
+
+  // ── Table 1b — Drinks shape (analysis only; live gate unchanged) ──
+  //
+  // Two stop1-eligible venues, no main, same proximity cap. The median
+  // is the sorted middle-of-three drinks-pair counts across casual /
+  // nice_out / splurge — same shape as the Meal mid in Table 1.
+  //
+  // Mid-tier @ 25 here mirrors the live Meal-shape gate so the two
+  // can be eyeballed side-by-side; downstream impact (which groups
+  // would gain / lose) is summarised under "Drinks-shape impact".
+  function drinksMidOf(r: GroupReport): number {
+    return [...TIERS.map((t) => r.perTier[t].drinksPairs)].sort(
+      (a, b) => a - b,
+    )[1];
+  }
+  function mealMidOf(r: GroupReport): number {
+    return [...TIERS.map((t) => r.perTier[t].itineraries)].sort(
+      (a, b) => a - b,
+    )[1];
+  }
+
+  lines.push(`\n## Table 1b — Drinks shape\n`);
+  lines.push(
+    `Unordered (stop1, stop1) pairs within the standard ${MAX_WALK_KM} km cap. Analysis only — the live gate in \`src/config/group-visibility.ts\` still reads the Meal shape from Table 1.\n`,
+  );
+  lines.push(`| group | drinks pairs casual / mid / splurge | drinks 25-mid |`);
+  lines.push(`| --- | --- | --- |`);
+  for (const r of reports) {
+    const counts = TIERS.map((t) => r.perTier[t].drinksPairs).join(" / ");
+    const tick = drinksMidOf(r) >= 25 ? "✓" : "✗";
+    lines.push(`| ${r.label} | ${counts} | ${tick} |`);
+  }
+
+  lines.push(`\n## Drinks-shape impact\n`);
+  lines.push(
+    `Both lists are computed from the mid-of-three median per shape. Meal median is the live gate today; Drinks median is the prospective gate under the new focus-dependent rule.\n`,
+  );
+
+  const newlyComposable = reports.filter(
+    (r) => mealMidOf(r) < 25 && drinksMidOf(r) >= 25,
+  );
+  const visibleButNoDrinks = reports.filter(
+    (r) => mealMidOf(r) >= 25 && drinksMidOf(r) < 25,
+  );
+
+  lines.push(`### Newly composable under Meal-OR-Drinks\n`);
+  lines.push(
+    `Groups whose Meal median < 25 (hidden today) but Drinks median ≥ 25. These would appear in the picker if visibility moved to a Meal-OR-Drinks rule.\n`,
+  );
+  if (newlyComposable.length === 0) {
+    lines.push(`_None._\n`);
+  } else {
+    for (const r of newlyComposable) {
+      lines.push(
+        `- **${r.label}** — meal mid ${mealMidOf(r)}, drinks mid ${drinksMidOf(r)}`,
+      );
+    }
+    lines.push("");
+  }
+
+  lines.push(`### Visible but no Drinks\n`);
+  lines.push(
+    `Groups whose Meal median ≥ 25 (visible today) but Drinks median < 25. A Drinks night can't compose there — candidates for disabling the Drinks focus option.\n`,
+  );
+  if (visibleButNoDrinks.length === 0) {
+    lines.push(`_None._\n`);
+  } else {
+    for (const r of visibleButNoDrinks) {
+      lines.push(
+        `- **${r.label}** — meal mid ${mealMidOf(r)}, drinks mid ${drinksMidOf(r)}`,
+      );
+    }
+    lines.push("");
   }
 
   lines.push(`\n## Table 2 — sourcing worklist\n`);

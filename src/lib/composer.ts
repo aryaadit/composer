@@ -128,7 +128,8 @@ function mainCouldFit(
 /** True if (`stop1`, picked `main`) project a finish time within the
  * user's window. Uses real coords for the walk and the picked Main's
  * actual duration. Stop 1's role is "opener" — both opener and closer
- * carry the same average so the choice is symmetric. */
+ * carry the same average so the choice is symmetric. Order-independent:
+ * the same total holds for [main, stop1] (late-start Meal). */
 function pairFits(
   stop1: Venue,
   main: Venue,
@@ -146,18 +147,95 @@ function pairFits(
   return startMin + s1Dur + walk + mainDur <= endMin;
 }
 
+/**
+ * Meal ordering threshold. Start times at or after this hour push the
+ * Main to slot 1 ([main, stop1]) and the bar becomes a nightcap
+ * ("closer"). Earlier starts keep the bar-before-meal order
+ * ([stop1, main]) ("opener"). 19 (7 PM) lines up with dinner-time
+ * convention: at 17–18 the bar can still warm up, at 19+ the meal
+ * anchors immediately.
+ */
+const MEAL_MAIN_FIRST_HOUR = 19;
+
+function isMealMainFirst(startTime: string): boolean {
+  const [h] = startTime.split(":").map(Number);
+  return h >= MEAL_MAIN_FIRST_HOUR;
+}
+
+/** Set form of STOP_1_POOL for the Drinks-path eligibility check. */
+const STOP_1_CANONICAL_SET: ReadonlySet<StopRole> = new Set<StopRole>(STOP_1_POOL);
+
+function isStop1PoolEligible(v: Venue): boolean {
+  return v.stop_roles.some((r) =>
+    (ROLE_EXPANSION[r] ?? []).some((canon) =>
+      STOP_1_CANONICAL_SET.has(canon as StopRole),
+    ),
+  );
+}
+
+/** Drinks-path analogue of `mainCouldFit`: loose upper bound on the
+ * first bar candidate, assuming the shortest possible second bar +
+ * minimum walk. Both stop1 slots use the opener/closer average
+ * (symmetric — same as the Meal pairFits). */
+function drinksPairCouldFit(
+  first: Venue,
+  startMin: number,
+  endMin: number,
+): boolean {
+  const firstDur = durationMin(first, "opener");
+  const minSecondDur = Math.min(
+    ROLE_AVG_DURATION_MIN.opener,
+    ROLE_AVG_DURATION_MIN.closer,
+  );
+  return (
+    startMin + firstDur + MIN_INTER_STOP_WALK_MIN + minSecondDur <= endMin
+  );
+}
+
+/** Drinks-path analogue of `pairFits`: exact projection across two
+ * bars with real coords. Symmetric — opener/closer use the same
+ * average duration, so the formula is order-independent in the same
+ * sense as the Meal pairFits. */
+function drinksPairFits(
+  first: Venue,
+  second: Venue,
+  startMin: number,
+  endMin: number,
+): boolean {
+  const firstDur = durationMin(first, "opener");
+  const secondDur = durationMin(second, "opener");
+  const walk = walkTimeMinutes(
+    first.latitude,
+    first.longitude,
+    second.latitude,
+    second.longitude,
+  );
+  return startMin + firstDur + walk + secondDur <= endMin;
+}
+
 export function planStopMix(
   answers: QuestionnaireAnswers,
   random: () => number = Math.random,
 ): StopPattern {
   const stop1Hint = getStop1Hint(answers.vibe, random);
-  return [
-    {
-      role: STOP_1_POOL,
-      ...(stop1Hint ? { venueRoleHint: stop1Hint } : {}),
-    },
-    { role: "main" },
-  ];
+  const stop1Slot = {
+    role: STOP_1_POOL,
+    ...(stop1Hint ? { venueRoleHint: stop1Hint } : {}),
+  };
+
+  // Drinks: two bar slots, no main. Both carry the same hint so the
+  // scoring inner loop sees a consistent role bias on both picks.
+  if (answers.vibe === "drinks_led") {
+    return [stop1Slot, stop1Slot];
+  }
+
+  // Meal late-start: main anchors slot 1, bar becomes the nightcap.
+  if (isMealMainFirst(answers.startTime)) {
+    return [{ role: "main" }, stop1Slot];
+  }
+
+  // Meal early-start (the original default): bar before meal.
+  return [stop1Slot, { role: "main" }];
 }
 
 /**
@@ -177,6 +255,18 @@ export function planStopMix(
  *          stops may be shorter than pattern if a role couldn't be filled
  *          (single-stop fallback or worse).
  */
+type ComposeResult = {
+  stops: ItineraryStop[];
+  pattern: StopPattern;
+  /** Populated when stops is empty so /api/generate can surface the
+   * right ComposeFailure stage. `"proximity"` for unfillable stop 1
+   * after the cascade; `"fit"` when the projected timeline overshoots
+   * endTime; `"hours"` when Main has no role-eligible candidate at all.
+   * Drinks-path failures always emit `"proximity"` (no degradation to
+   * one bar). */
+  zeroingStage?: ZeroingStage;
+};
+
 export function composeItinerary(
   venues: Venue[],
   answers: QuestionnaireAnswers,
@@ -185,15 +275,25 @@ export function composeItinerary(
   random: () => number = Math.random,
   dayColumn: DayColumn | null = null,
   window: TimeWindow | null = null,
-): {
-  stops: ItineraryStop[];
-  pattern: StopPattern;
-  /** Populated when stops is empty so /api/generate can surface the
-   * right ComposeFailure stage. `"proximity"` for unfillable stop 1
-   * after the cascade; `"fit"` when the projected timeline overshoots
-   * endTime; `"hours"` when Main has no role-eligible candidate at all. */
-  zeroingStage?: ZeroingStage;
-} {
+): ComposeResult {
+  // Branch on focus. Anything that is NOT drinks_led — food_forward,
+  // unknown vibes, legacy/lingering activity_food — takes the Meal
+  // path (one bar + one main, ordered by start time).
+  if (answers.vibe === "drinks_led") {
+    return composeDrinks(venues, answers, weather, jitter, random, dayColumn, window);
+  }
+  return composeMeal(venues, answers, weather, jitter, random, dayColumn, window);
+}
+
+function composeMeal(
+  venues: Venue[],
+  answers: QuestionnaireAnswers,
+  weather: WeatherInfo | null,
+  jitter: number,
+  random: () => number,
+  dayColumn: DayColumn | null,
+  window: TimeWindow | null,
+): ComposeResult {
   const pattern = planStopMix(answers, random);
   const usedIds = new Set<string>();
   const usedCategories = new Set<string>();
@@ -253,7 +353,9 @@ export function composeItinerary(
   const mainStop = makeStop("main", main, main.curation_note ?? "", true, mainPlanB);
 
   // 3. Filter stop 1 candidates by exact projection against the picked
-  // Main. Real walk distance, real Main duration — no estimates.
+  // Main. Real walk distance, real Main duration — no estimates. Note
+  // pairFits is order-independent, so the same pool is correct
+  // whether the final order is [stop1, main] or [main, stop1].
   const stop1Pool = fitGate
     ? venues.filter((v) => v.id !== main.id && pairFits(v, main, startMin, endMin))
     : venues;
@@ -261,8 +363,12 @@ export function composeItinerary(
     return { stops: [], pattern, zeroingStage: "fit" };
   }
 
-  // 4. Pick stop 1 from STOP_1_POOL, anchored to Main.
-  const stop1Hint = pattern[0];
+  // 4. Pick stop 1 from STOP_1_POOL, anchored to Main. The pattern's
+  // stop1 slot may be at index 0 (early start, [stop1, main]) or
+  // index 1 (late start, [main, stop1]); the hint lives on whichever
+  // slot holds STOP_1_POOL.
+  const mainFirst = isMealMainFirst(answers.startTime);
+  const stop1Hint = pattern[mainFirst ? 1 : 0];
   const stop1HintRole = (stop1Hint?.venueRoleHint as VenueRole | undefined) ?? undefined;
   const { best: stop1Venue, scored: stop1Scored } = pickBestForRole(
     stop1Pool,
@@ -289,7 +395,9 @@ export function composeItinerary(
   usedIds.add(stop1Venue.id);
   if (stop1Venue.category) usedCategories.add(stop1Venue.category);
   const stop1PlanB = stop1Scored.find((v) => v.id !== stop1Venue.id) ?? null;
-  const stop1Role = disambiguateStop1Role(stop1Venue);
+  // 2026-06-13: role label decided by ORDER, not disambiguateStop1Role.
+  // bar-before-meal (early) → "opener"; bar-as-nightcap (late) → "closer".
+  const stop1Role: StopRole = mainFirst ? "closer" : "opener";
   const stop1 = makeStop(
     stop1Role,
     stop1Venue,
@@ -298,7 +406,109 @@ export function composeItinerary(
     stop1PlanB,
   );
 
-  return { stops: [stop1, mainStop], pattern };
+  return {
+    stops: mainFirst ? [mainStop, stop1] : [stop1, mainStop],
+    pattern,
+  };
+}
+
+function composeDrinks(
+  venues: Venue[],
+  answers: QuestionnaireAnswers,
+  weather: WeatherInfo | null,
+  jitter: number,
+  random: () => number,
+  dayColumn: DayColumn | null,
+  window: TimeWindow | null,
+): ComposeResult {
+  const pattern = planStopMix(answers, random);
+  const usedIds = new Set<string>();
+  const usedCategories = new Set<string>();
+
+  const fitGate = window !== null;
+  const startMin = fitGate ? parseHHMM(answers.startTime) : 0;
+  const endMin = fitGate ? windowEndMin(answers.startTime, answers.endTime) : 0;
+
+  // The Drinks hint is identical on both slots (planStopMix sets the
+  // same object on each); read it from slot 0.
+  const drinksHint = (pattern[0]?.venueRoleHint as VenueRole | undefined) ?? undefined;
+
+  // 1. First bar — NO anchor (scored freely). Pre-filter by the
+  // loose drinksPairCouldFit bound on stop-1-eligible venues so a
+  // first pick whose duration alone forces overshoot can't win the
+  // scoring race only to be rejected later. Symmetrical to the
+  // Meal mainPool filter.
+  const firstPool = fitGate
+    ? venues.filter((v) => {
+        if (!isStop1PoolEligible(v)) return true;
+        return drinksPairCouldFit(v, startMin, endMin);
+      })
+    : venues;
+
+  const { best: first, scored: firstScored } = pickBestForRole(
+    firstPool,
+    STOP_1_POOL,
+    answers,
+    weather,
+    usedIds,
+    null,
+    jitter,
+    random,
+    usedCategories,
+    dayColumn,
+    window,
+    drinksHint,
+  );
+  // Spec: a null first bar → "proximity" (honest "two bars couldn't
+  // be sourced", no degradation to one).
+  if (!first) return { stops: [], pattern, zeroingStage: "proximity" };
+  usedIds.add(first.id);
+  if (first.category) usedCategories.add(first.category);
+  const firstPlanB = firstScored.find((v) => v.id !== first.id) ?? null;
+  const openerStop = makeStop(
+    "opener",
+    first,
+    first.curation_note ?? "",
+    false,
+    firstPlanB,
+  );
+
+  // 2. Second bar — anchored to first (proximity cap enforced by
+  // pickBestForRole when an anchor is passed), excluding first, with
+  // the same drinks hint. Exact fit projection against the picked
+  // first.
+  const secondPool = fitGate
+    ? venues.filter((v) => v.id !== first.id && drinksPairFits(first, v, startMin, endMin))
+    : venues.filter((v) => v.id !== first.id);
+
+  const { best: second, scored: secondScored } = pickBestForRole(
+    secondPool,
+    STOP_1_POOL,
+    answers,
+    weather,
+    usedIds,
+    first,
+    jitter,
+    random,
+    usedCategories,
+    dayColumn,
+    window,
+    drinksHint,
+  );
+  // Spec: a null second bar → "proximity". Same honest failure.
+  if (!second) return { stops: [], pattern, zeroingStage: "proximity" };
+  usedIds.add(second.id);
+  if (second.category) usedCategories.add(second.category);
+  const secondPlanB = secondScored.find((v) => v.id !== second.id) ?? null;
+  const closerStop = makeStop(
+    "closer",
+    second,
+    second.curation_note ?? "",
+    false,
+    secondPlanB,
+  );
+
+  return { stops: [openerStop, closerStop], pattern };
 }
 
 /** Exported for swap-stop / add-stop to post-validate a patched
