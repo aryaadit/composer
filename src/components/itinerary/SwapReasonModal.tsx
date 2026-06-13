@@ -28,8 +28,6 @@ export const SWAP_REASON_OPTIONS: readonly SwapReasonOption[] = [
   { key: "not_interested", label: "Not interested in this place" },
   { key: "looking_for_different", label: "Looking for something else here" },
   { key: "wrong_vibe", label: "Wrong vibe" },
-  { key: "out_of_budget", label: "Out of budget" },
-  { key: "already_been", label: "Already been" },
   { key: "other", label: "Other" },
 ] as const;
 
