@@ -51,6 +51,12 @@ interface ItineraryHeroCardProps {
    *  <h2>{title}</h2> for a different element (e.g. SavedPlanRowExpanded's
    *  inline rename <input>). */
   titleSlot?: ReactNode;
+  /** When true, the hero wraps its zones in a surface with the
+   *  burgundy-tint + burgundy/30 border recipe (the old
+   *  TonightsPickCard teaser shading). Default false: hero renders
+   *  as a fragment and the consumer wrapper provides the surface —
+   *  the contract SavedPlanRowExpanded ships with. */
+  tinted?: boolean;
 }
 
 export function ItineraryHeroCard({
@@ -60,6 +66,7 @@ export function ItineraryHeroCard({
   stops,
   walks,
   titleSlot,
+  tinted = false,
 }: ItineraryHeroCardProps) {
   // Mapbox static URL. Defaults to the same 600×180@2x padding 60
   // recipe SavedPlanRowExpanded shipped. Null when token is missing
@@ -79,7 +86,7 @@ export function ItineraryHeroCard({
   );
   const [mapErrored, setMapErrored] = useState(false);
 
-  return (
+  const zones = (
     <>
       {/* ─── Zone 1 — Text header ────────────────────────── */}
       <div className="px-5 pt-5 pb-4">
@@ -198,4 +205,21 @@ export function ItineraryHeroCard({
       )}
     </>
   );
+
+  // Tinted surface — burgundy-tint fill + burgundy/30 border (the old
+  // TonightsPickCard teaser shading). When `tinted` is false the hero
+  // stays a fragment and the consumer wrapper owns the surface, which
+  // is what SavedPlanRowExpanded relies on for byte-identity.
+  if (tinted) {
+    return (
+      <div
+        data-testid="hero-tinted-surface"
+        className="rounded-xl border border-burgundy/30 bg-burgundy-tint overflow-hidden transition-colors hover:border-burgundy/60"
+      >
+        {zones}
+      </div>
+    );
+  }
+
+  return zones;
 }

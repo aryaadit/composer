@@ -31,8 +31,8 @@ function ctx(overrides: Partial<SwapContext> = {}): SwapContext {
 }
 
 describe("SWAP_REASON_OPTIONS", () => {
-  it("has exactly 6 entries", () => {
-    expect(SWAP_REASON_OPTIONS).toHaveLength(6);
+  it("has exactly 4 entries", () => {
+    expect(SWAP_REASON_OPTIONS).toHaveLength(4);
   });
 
   it("includes every spec-mandated key in display order", () => {
@@ -40,8 +40,6 @@ describe("SWAP_REASON_OPTIONS", () => {
       "not_interested",
       "looking_for_different",
       "wrong_vibe",
-      "out_of_budget",
-      "already_been",
       "other",
     ]);
   });

@@ -111,9 +111,24 @@ describe("Tonight's Pick hero shape (2026-06-13)", () => {
     expect(pick).not.toMatch(/aria-label="Remove saved plan"/);
     expect(pick).not.toMatch(/\/api\/itineraries\//);
   });
+
+  it("passes tinted to the hero so the burgundy-tint surface reads as ours", async () => {
+    const { pick, hero } = await readSources();
+    // The pick is the only consumer that should pass tinted today.
+    // Saved-plan hero stays cream + burgundy/15 via its outer wrapper.
+    expect(pick).toMatch(/<ItineraryHeroCard[\s\S]*?\btinted\b/);
+    // The hero owns the burgundy-tint surface — TonightsPickHero
+    // must NOT duplicate it on the outer button.
+    const buttonClass = pick.match(/<button[\s\S]*?className="([^"]+)"/)?.[1] ?? "";
+    expect(buttonClass).not.toMatch(/bg-burgundy-tint/);
+    expect(buttonClass).not.toMatch(/bg-cream/);
+    // And the hero source actually applies the tinted surface classes.
+    expect(hero).toMatch(/bg-burgundy-tint/);
+    expect(hero).toMatch(/border-burgundy\/30/);
+  });
 });
 
-describe("HomeScreen — Tonight's Pick gate", () => {
+describe("HomeScreen — Tonight's Pick gate (showPick)", () => {
   it("imports TonightsPickHero (not TonightsPickCard)", async () => {
     const { home } = await readSources();
     expect(home).toMatch(
@@ -132,24 +147,54 @@ describe("HomeScreen — Tonight's Pick gate", () => {
     );
   });
 
-  it("renders the pick only when status === 'ready' AND !hasTonightPlan", async () => {
+  it("derives showPick once: ready-narrowed pickData + !hasTonightPlan", async () => {
     const { home } = await readSources();
+    // Single source of truth for the gate. The upcoming-section
+    // branch and the pick gate both read off the same `showPick`,
+    // so the single-hero invariant can't drift.
     expect(home).toMatch(
-      /tonightsPick\.data\?\.status === "ready" && !hasTonightPlan[\s\S]*?<TonightsPickHero/,
+      /const pickData =\s*tonightsPick\.data\?\.status === "ready" \? tonightsPick\.data : null/,
     );
-    // No standalone TonightsPickHero mount without the gate.
+    expect(home).toMatch(
+      /const showPick = pickData !== null && !hasTonightPlan/,
+    );
+  });
+
+  it("renders the pick only when showPick (and only one mount on the page)", async () => {
+    const { home } = await readSources();
+    expect(home).toMatch(/\{showPick && pickData &&[\s\S]*?<TonightsPickHero/);
     const hits = home.match(/<TonightsPickHero\b/g) ?? [];
     expect(hits.length).toBe(1);
   });
+});
 
-  it("the gated block references !hasTonightPlan (the new condition)", async () => {
+describe("HomeScreen — single-hero rule on the page", () => {
+  it("Upcoming section branches on showPick — pick visible ⇒ ALL upcoming render as compact SavedPlanRow (no SavedPlanRowExpanded hero)", async () => {
     const { home } = await readSources();
-    // Pull the conditional block and verify the gate is part of it.
-    const block = home.match(
-      /\{tonightsPick\.data\?\.status === "ready"[\s\S]*?\)\}/,
+    // The branch is the load-bearing piece: when showPick is true,
+    // the section degrades to compact SavedPlanRow for every entry.
+    // Pin both the branch shape and the absence of a hero in the
+    // showPick=true window.
+    expect(home).toMatch(
+      /\{showPick \? \([\s\S]*?upcoming\.map\(\(plan\)[\s\S]*?<SavedPlanRow\b/,
     );
-    expect(block).not.toBeNull();
-    expect(block?.[0]).toMatch(/!hasTonightPlan/);
+    // The hero in the showPick branch would defeat the whole point.
+    const showPickBranch = home.match(
+      /\{showPick \? \([\s\S]*?\) : \(/,
+    );
+    expect(showPickBranch).not.toBeNull();
+    expect(showPickBranch?.[0]).not.toMatch(/SavedPlanRowExpanded/);
+  });
+
+  it("Upcoming section's !showPick branch keeps the SavedPlanRowExpanded hero for upcoming[0]", async () => {
+    const { home } = await readSources();
+    // Exactly one SavedPlanRowExpanded mount in HomeScreen, and it
+    // sits in the else branch behind the showPick gate.
+    const heroHits = home.match(/<SavedPlanRowExpanded\b/g) ?? [];
+    expect(heroHits.length).toBe(1);
+    expect(home).toMatch(
+      /\) : \([\s\S]*?<SavedPlanRowExpanded[\s\S]*?plan=\{upcoming\[0\]\}/,
+    );
   });
 });
 
@@ -187,6 +232,20 @@ describe("ItineraryHeroCard — shared three-zone presentation", () => {
     // DOM position without breaking byte-identity.
     expect(hero).toMatch(/titleSlot\?:\s*ReactNode/);
     expect(hero).toMatch(/\{titleSlot \?\? \(/);
+  });
+
+  it("exposes a `tinted?: boolean` prop defaulting to false — fragment unless on", async () => {
+    const { hero } = await readSources();
+    // The contract: tinted=false stays a fragment so consumer
+    // wrappers (SavedPlanRowExpanded) keep providing the surface.
+    // tinted=true wraps the zones in the burgundy-tint surface.
+    expect(hero).toMatch(/tinted\?:\s*boolean/);
+    expect(hero).toMatch(/tinted = false/);
+    expect(hero).toMatch(/if \(tinted\)/);
+    // The tinted wrapper carries the canonical pick surface classes.
+    expect(hero).toMatch(
+      /bg-burgundy-tint[\s\S]*?border-burgundy\/30|border-burgundy\/30[\s\S]*?bg-burgundy-tint/,
+    );
   });
 });
 

@@ -173,6 +173,25 @@ function isStop1PoolEligible(v: Venue): boolean {
   );
 }
 
+/** Mirrors the Meal mainPool's inline check. Extracted so the Drinks
+ *  bar filter can negate it without re-spelling the role-expansion
+ *  walk. */
+function isMainEligibleVenue(v: Venue): boolean {
+  return v.stop_roles.some((r) =>
+    (ROLE_EXPANSION[r] ?? []).includes("main"),
+  );
+}
+
+/** "Actual bar" signal for the Drinks path under the collapsed role
+ *  model (no venue is tagged "drinks" venue-side anymore). A bar is
+ *  stop1-pool-eligible AND not main-eligible — this excludes
+ *  restaurants tagged ["main","closer"] (the Seoul Salon / Koreatown
+ *  shape) so Drinks nights don't silently pair a bar with a dinner
+ *  spot. */
+function isBarEligible(v: Venue): boolean {
+  return isStop1PoolEligible(v) && !isMainEligibleVenue(v);
+}
+
 /** Drinks-path analogue of `mainCouldFit`: loose upper bound on the
  * first bar candidate, assuming the shortest possible second bar +
  * minimum walk. Both stop1 slots use the opener/closer average
@@ -430,20 +449,22 @@ function composeDrinks(
   const endMin = fitGate ? windowEndMin(answers.startTime, answers.endTime) : 0;
 
   // The Drinks hint is identical on both slots (planStopMix sets the
-  // same object on each); read it from slot 0.
+  // same object on each); read it from slot 0. Post-collapse no
+  // venue carries "drinks" venue-side so the hint is moot at the
+  // scorer; the load-bearing constraint is the isBarEligible filter
+  // applied to both pools below.
   const drinksHint = (pattern[0]?.venueRoleHint as VenueRole | undefined) ?? undefined;
 
-  // 1. First bar — NO anchor (scored freely). Pre-filter by the
-  // loose drinksPairCouldFit bound on stop-1-eligible venues so a
-  // first pick whose duration alone forces overshoot can't win the
-  // scoring race only to be rejected later. Symmetrical to the
-  // Meal mainPool filter.
-  const firstPool = fitGate
-    ? venues.filter((v) => {
-        if (!isStop1PoolEligible(v)) return true;
-        return drinksPairCouldFit(v, startMin, endMin);
-      })
-    : venues;
+  // 1. First bar — NO anchor (scored freely). Pre-filter to ACTUAL
+  // bars: stop1-pool-eligible AND not main-eligible. Then trim by
+  // the loose drinksPairCouldFit bound so a first pick whose duration
+  // alone forces overshoot can't win the scoring race only to be
+  // rejected later.
+  const firstPool = venues.filter((v) => {
+    if (!isBarEligible(v)) return false;
+    if (!fitGate) return true;
+    return drinksPairCouldFit(v, startMin, endMin);
+  });
 
   const { best: first, scored: firstScored } = pickBestForRole(
     firstPool,
@@ -473,13 +494,16 @@ function composeDrinks(
     firstPlanB,
   );
 
-  // 2. Second bar — anchored to first (proximity cap enforced by
-  // pickBestForRole when an anchor is passed), excluding first, with
-  // the same drinks hint. Exact fit projection against the picked
-  // first.
-  const secondPool = fitGate
-    ? venues.filter((v) => v.id !== first.id && drinksPairFits(first, v, startMin, endMin))
-    : venues.filter((v) => v.id !== first.id);
+  // 2. Second bar — same isBarEligible filter, anchored to first
+  // (proximity cap enforced by pickBestForRole when an anchor is
+  // passed), excluding first, exact fit projection against the
+  // picked first.
+  const secondPool = venues.filter((v) => {
+    if (v.id === first.id) return false;
+    if (!isBarEligible(v)) return false;
+    if (!fitGate) return true;
+    return drinksPairFits(first, v, startMin, endMin);
+  });
 
   const { best: second, scored: secondScored } = pickBestForRole(
     secondPool,

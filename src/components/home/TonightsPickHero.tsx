@@ -91,9 +91,13 @@ export function TonightsPickHero({
         type="button"
         onClick={handleOpen}
         aria-label="Open tonight's pick"
-        className="w-full text-left rounded-xl border border-burgundy/30 bg-cream overflow-hidden transition-colors hover:border-burgundy/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-burgundy/50"
+        className="block w-full text-left rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-burgundy/50"
       >
+        {/* tinted = the burgundy-tint + burgundy/30 border the old
+            TonightsPickCard teaser shipped. The hero now owns the
+            surface; the outer button is just the interactive shell. */}
         <ItineraryHeroCard
+          tinted
           eyebrow={{
             text: "Tonight’s pick · from us",
             urgency: "today",

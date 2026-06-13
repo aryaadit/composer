@@ -174,17 +174,22 @@ function countItinerariesForTier(pool: VenueRow[]): TierStats {
     }
   }
 
-  // Drinks shape: unordered (stop1, stop1) pairs within MAX_WALK_KM.
-  // i < j to avoid double-counting; same proximity cap as the Meal pair.
+  // Drinks shape: unordered (bar, bar) pairs within MAX_WALK_KM.
+  // i < j to avoid double-counting; same proximity cap as the Meal
+  // pair. Under the collapsed role model the right "actual bar"
+  // signal is stop1-eligible AND not main-eligible — restaurants
+  // tagged ["main","closer"] (the Seoul Salon / Koreatown shape) are
+  // not bars and were over-counted by the previous stop1-only loop.
+  const bars = stop1s.filter((v) => !isMainEligible(v.stop_roles));
   let drinksPairs = 0;
-  for (let i = 0; i < stop1s.length; i++) {
-    for (let j = i + 1; j < stop1s.length; j++) {
+  for (let i = 0; i < bars.length; i++) {
+    for (let j = i + 1; j < bars.length; j++) {
       if (
         walkDistanceKm(
-          stop1s[i].latitude,
-          stop1s[i].longitude,
-          stop1s[j].latitude,
-          stop1s[j].longitude,
+          bars[i].latitude,
+          bars[i].longitude,
+          bars[j].latitude,
+          bars[j].longitude,
         ) <= MAX_WALK_KM
       ) {
         drinksPairs++;

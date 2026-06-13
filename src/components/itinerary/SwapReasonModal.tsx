@@ -3,16 +3,38 @@
 // Post-swap reason capture. Appears AFTER a swap completes (the new
 // venue is already rendered, the inline Swapped/Undo affordance may
 // still be visible on the swapped StopCard — see audit item 19).
-// Skippable: Esc, backdrop click, X button, and explicit "Skip" link
-// all dismiss as skip. Submit captures a categorical reason + optional
-// free-text "Other" detail.
+// Skippable: Esc, backdrop / outside-click, X button, and explicit
+// "Skip" link all dismiss as skip. Submit captures a categorical
+// reason + optional free-text "Other" detail.
 //
-// Following VenueDetailModal's visual pattern: bottom-sheet on mobile,
-// centered modal on desktop. Body scroll lock when open. Esc/backdrop
-// dismiss. AnimatePresence for enter/exit.
+// Two presentations, branched on viewport + anchor availability:
+//   - MOBILE (or no anchor): bottom-sheet over a full-page backdrop
+//     with body scroll lock. This is the historical default, unchanged.
+//   - DESKTOP (Tailwind md, viewport ≥ 768px) + anchor element from the
+//     page: a popover positioned via @floating-ui/react, anchored to
+//     the swap action-slot wrapper inside the corresponding StopCard.
+//     No backdrop, no scroll lock — the itinerary stays interactive
+//     behind the popover. Outside-click and the existing Esc handler
+//     dismiss as skip.
+//
+// AnimatePresence drives enter/exit for both branches.
 
-import { useEffect, useRef, useState } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { motion, AnimatePresence } from "motion/react";
+import {
+  autoUpdate,
+  flip,
+  offset,
+  shift,
+  useDismiss,
+  useFloating,
+  useInteractions,
+} from "@floating-ui/react";
 import { Button } from "@/components/ui/Button";
 
 export interface SwapReasonOption {
@@ -21,15 +43,13 @@ export interface SwapReasonOption {
 }
 
 /**
- * The six categorical reasons offered to the user, in display order.
+ * The categorical reasons offered to the user, in display order.
  * "other" is last and special-cased to reveal a free-text input.
  */
 export const SWAP_REASON_OPTIONS: readonly SwapReasonOption[] = [
   { key: "not_interested", label: "Not interested in this place" },
   { key: "looking_for_different", label: "Looking for something else here" },
   { key: "wrong_vibe", label: "Wrong vibe" },
-  { key: "out_of_budget", label: "Out of budget" },
-  { key: "already_been", label: "Already been" },
   { key: "other", label: "Other" },
 ] as const;
 
@@ -39,6 +59,47 @@ interface SwapReasonModalProps {
   swappedFromVenueName: string;
   onSubmit: (reason: string, otherText: string | null) => void;
   onSkip: () => void;
+  /** When provided AND the viewport is ≥ Tailwind md (768px), the
+   *  modal renders as a popover anchored to this element instead of
+   *  a centered/bottom-sheet dialog. The page owns a ref map keyed by
+   *  stop index and supplies the active stop's swap action-slot
+   *  wrapper here; if null or undefined, the mobile sheet renders
+   *  even on desktop. */
+  anchorEl?: HTMLElement | null;
+}
+
+// ── Desktop detection: SSR-safe, no flash of the sheet ────────────
+//
+// useSyncExternalStore reads matchMedia synchronously on the client so
+// the first browser render already knows desktop-vs-not. SSR renders
+// with `false` (and the bottom sheet shape, which we degrade to
+// gracefully). The matchMedia subscription auto-syncs on viewport
+// resize so resizing into / out of md flips the presentation live.
+
+const MD_QUERY = "(min-width: 768px)";
+
+function subscribeIsDesktop(callback: () => void): () => void {
+  if (typeof window === "undefined" || !window.matchMedia) return () => {};
+  const mql = window.matchMedia(MD_QUERY);
+  mql.addEventListener("change", callback);
+  return () => mql.removeEventListener("change", callback);
+}
+
+function getIsDesktopSnapshot(): boolean {
+  if (typeof window === "undefined" || !window.matchMedia) return false;
+  return window.matchMedia(MD_QUERY).matches;
+}
+
+function getIsDesktopServerSnapshot(): boolean {
+  return false;
+}
+
+function useIsDesktop(): boolean {
+  return useSyncExternalStore(
+    subscribeIsDesktop,
+    getIsDesktopSnapshot,
+    getIsDesktopServerSnapshot,
+  );
 }
 
 export function SwapReasonModal({
@@ -46,6 +107,7 @@ export function SwapReasonModal({
   swappedFromVenueName,
   onSubmit,
   onSkip,
+  anchorEl,
 }: SwapReasonModalProps) {
   // Keep a stable ref to the latest onSkip so the Esc handler can
   // depend only on isOpen — re-binding keydown on every render of
@@ -55,7 +117,9 @@ export function SwapReasonModal({
     onSkipRef.current = onSkip;
   }, [onSkip]);
 
-  // Esc dismissal — counts as skip.
+  // Esc dismissal — counts as skip. Covers BOTH the sheet and the
+  // desktop popover. floating-ui's escapeKey dismiss is intentionally
+  // OFF so we don't double-fire onSkip.
   useEffect(() => {
     if (!isOpen) return;
     const handler = (e: KeyboardEvent) => {
@@ -65,20 +129,26 @@ export function SwapReasonModal({
     return () => window.removeEventListener("keydown", handler);
   }, [isOpen]);
 
-  // Body scroll lock when open. Saves the prior overflow value so
-  // nested modals (or other consumers) don't get clobbered.
+  const isDesktop = useIsDesktop();
+  const popoverBranch = isOpen && isDesktop && anchorEl != null;
+  const sheetBranch = isOpen && !popoverBranch;
+
+  // Body scroll lock applies ONLY in the sheet branch. The desktop
+  // popover leaves the page interactive behind it, so locking would
+  // be hostile (and the user can't tap into the body to dismiss
+  // otherwise — outsidePress handles that).
   useEffect(() => {
-    if (!isOpen) return;
+    if (!sheetBranch) return;
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
       document.body.style.overflow = prev;
     };
-  }, [isOpen]);
+  }, [sheetBranch]);
 
   return (
     <AnimatePresence>
-      {isOpen && (
+      {sheetBranch && (
         <>
           <motion.div
             key="backdrop"
@@ -112,7 +182,82 @@ export function SwapReasonModal({
           </motion.div>
         </>
       )}
+
+      {popoverBranch && (
+        // Dedicated sub-component so the floating-ui hooks are called
+        // unconditionally within it. anchorEl is non-null inside this
+        // branch (popoverBranch checks it above).
+        <DesktopPopover
+          key="popover"
+          anchorEl={anchorEl}
+          swappedFromVenueName={swappedFromVenueName}
+          onSubmit={onSubmit}
+          onSkip={onSkip}
+        />
+      )}
     </AnimatePresence>
+  );
+}
+
+function DesktopPopover({
+  anchorEl,
+  swappedFromVenueName,
+  onSubmit,
+  onSkip,
+}: {
+  anchorEl: HTMLElement;
+  swappedFromVenueName: string;
+  onSubmit: (reason: string, otherText: string | null) => void;
+  onSkip: () => void;
+}) {
+  const { refs, floatingStyles, context } = useFloating({
+    open: true,
+    onOpenChange: (next) => {
+      if (!next) onSkip();
+    },
+    placement: "bottom-end",
+    middleware: [offset(8), flip(), shift({ padding: 8 })],
+    whileElementsMounted: autoUpdate,
+    elements: { reference: anchorEl },
+  });
+
+  // Outside-click dismisses (→ onSkip via onOpenChange) without a
+  // blocking layer, so clicks fall through to the itinerary. Esc is
+  // OFF here because the window-level handler in SwapReasonModal
+  // already owns Esc; enabling it on floating-ui would double-fire.
+  const dismiss = useDismiss(context, { outsidePress: true, escapeKey: false });
+  const { getFloatingProps } = useInteractions([dismiss]);
+
+  return (
+    <motion.div
+      // `refs.setFloating` is a stable callback-ref setter returned by
+      // useFloating — it's a function, not a React ref object, so
+      // attaching it to <motion.div ref={...}> is the documented
+      // @floating-ui/react usage. The react-hooks/refs lint flags the
+      // shape because of the `refs.` prefix; the access is safe here.
+      // eslint-disable-next-line react-hooks/refs
+      ref={refs.setFloating}
+      style={floatingStyles}
+      role="dialog"
+      aria-modal="false"
+      aria-label={`Why did you swap ${swappedFromVenueName}?`}
+      // The "fixed" positioning + z-50 keeps the popover above the
+      // itinerary content and the sticky LooksGoodCTA at the bottom.
+      // ~320px wide; cream/rounded/shadow card matches VenueDetailModal
+      // and ConfirmModal so the visual family stays consistent.
+      className="z-50 w-[320px] bg-cream rounded-2xl shadow-xl"
+      initial={{ opacity: 0, scale: 0.96 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.96 }}
+      transition={{ duration: 0.15 }}
+      {...getFloatingProps()}
+    >
+      <SwapReasonContent
+        swappedFromVenueName={swappedFromVenueName}
+        onSubmit={onSubmit}
+        onSkip={onSkip}
+      />
+    </motion.div>
   );
 }
 
