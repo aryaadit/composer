@@ -27,24 +27,28 @@ import {
 const VIBE_LABEL_OVERRIDES: Record<string, string> = {
   food_forward: "Meal",
   drinks_led: "Drinks",
-  activity_food: "Activity",
 };
 
 const VIBE_DESCRIPTIONS: Record<string, string> = {
   food_forward: "A great meal anchors it all",
   drinks_led: "Bars and cocktails are the focus",
-  activity_food: "Something to do first, then eat",
 };
 
-// Phase 7: `mix_it_up` (Variety) dropped from the questionnaire. The
-// generated source still includes it — we filter here at the consumer
-// layer so `npm run generate-configs` doesn't have to re-clean. Old
-// saved itineraries with `vibe: "mix_it_up"` still render: the slug
-// is a string lookup that gracefully falls through (scoring uses
+// Phase 7: `mix_it_up` (Variety) dropped from the questionnaire.
+// 2026-06-13: `activity_food` (Activity) also dropped; the focus
+// taxonomy collapsed to Meal vs Drinks, and the composer no longer
+// has a third shape to drive activity-led nights. The generated
+// source still includes both — we filter here at the consumer layer
+// so `npm run generate-configs` doesn't have to re-clean. Old saved
+// itineraries with either slug still render: the lookup falls through
+// gracefully (vibeLabel returns "" for unknown slugs; scoring uses
 // `vibeMixItUpBaseline` as the defensive empty-tag baseline). The
-// Google Sheet should be updated to drop the row at the next
+// Google Sheet should be updated to drop the rows at the next
 // opportunity for cross-consumer consistency.
-const DROPPED_VIBES: ReadonlySet<string> = new Set(["mix_it_up"]);
+const DROPPED_VIBES: ReadonlySet<string> = new Set([
+  "mix_it_up",
+  "activity_food",
+]);
 
 // Vibe slugs match the sheet's Vibe Scoring Matrix keys (snake_case),
 // minus the user-facing drops above.
@@ -60,8 +64,11 @@ export const VIBES = VIBE_KEYS.map((key) => ({
 
 // `VibeSlug` narrows the generated key union by the same dropped set
 // so consumers (composer, scoring, templates) can't accidentally
-// reference mix_it_up at the type level.
-export type VibeSlug = Exclude<keyof typeof GEN_TAGS, "mix_it_up">;
+// reference mix_it_up or activity_food at the type level.
+export type VibeSlug = Exclude<
+  keyof typeof GEN_TAGS,
+  "mix_it_up" | "activity_food"
+>;
 
 export const VIBE_LABELS: Record<string, string> = Object.fromEntries(
   VIBES.map((v) => [v.slug, v.label])

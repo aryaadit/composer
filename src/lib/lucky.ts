@@ -33,11 +33,11 @@ import type {
 
 /** Three focus vibes only. `mix_it_up` is "no specific focus" — a
  *  random pick of it would mean "anything goes," which isn't a real
- *  surprise. The dice space is the three concrete focuses. */
+ *  surprise. 2026-06-13: activity_food was retired with the Activity
+ *  focus collapse; the dice space is now Meal + Drinks. */
 export const LUCKY_VIBES: readonly Vibe[] = [
   "food_forward",
   "drinks_led",
-  "activity_food",
 ] as const;
 
 /** Occasion is scoring-only (no filter), so a fixed default is fine.
