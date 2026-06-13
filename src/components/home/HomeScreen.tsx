@@ -13,9 +13,9 @@ import { SavedPlanRow } from "@/components/shared/SavedPlanRow";
 import { SavedPlanRowExpanded } from "@/components/shared/SavedPlanRowExpanded";
 import { LuckyDieButton } from "@/components/home/LuckyDieButton";
 import { Button } from "@/components/ui/Button";
-import { TonightsPickCard } from "@/components/home/TonightsPickCard";
+import { TonightsPickHero } from "@/components/home/TonightsPickHero";
 import { useTonightsPick } from "@/hooks/useTonightsPick";
-import { splitPlansByDate } from "@/lib/dateUtils";
+import { splitPlansByDate, todayLocalISO } from "@/lib/dateUtils";
 
 function UserIcon() {
   return (
@@ -73,6 +73,11 @@ export function HomeScreen({ userName }: HomeScreenProps) {
     [savedPlans],
   );
   const hasAnyPlans = savedPlans.length > 0;
+  // When the user already has a saved plan for tonight, that plan
+  // takes the upcoming hero slot (upcoming[0]) and the daily pick
+  // steps aside — we don't want two heroes competing for the same
+  // intent. Match by ISO day to avoid timezone drift.
+  const hasTonightPlan = upcoming.some((p) => p.day === todayLocalISO());
   const tonightsPick = useTonightsPick(user?.id ?? null);
 
   return (
@@ -117,11 +122,13 @@ export function HomeScreen({ userName }: HomeScreenProps) {
       </div>
 
       {/* Tonight's Pick — between the action row and Upcoming.
-       * Renders only when the seeded daily roll succeeded (status:
-       * "ready"). Failures + the loading shimmer render nothing —
-       * spec: "no error state for unrequested content". */}
-      {tonightsPick.data?.status === "ready" && (
-        <TonightsPickCard
+       * Renders only when (a) the seeded daily roll succeeded
+       * (status: "ready") AND (b) the user has no saved plan for
+       * tonight (otherwise the upcoming hero is already showing
+       * their own intent). Failures + the loading shimmer render
+       * nothing — spec: "no error state for unrequested content". */}
+      {tonightsPick.data?.status === "ready" && !hasTonightPlan && (
+        <TonightsPickHero
           inputs={tonightsPick.data.inputs}
           itinerary={tonightsPick.data.itinerary}
           pickDate={tonightsPick.data.pick_date}

@@ -1,21 +1,17 @@
 "use client";
 
-// Three-zone hero card for the soonest upcoming saved itinerary.
+// Hero row for the soonest upcoming saved itinerary. The three-zone
+// layout (countdown header, static Mapbox map, venue timeline) lives in
+// `ItineraryHeroCard`; this component is the thin wrapper that:
+//   - maps the SavedItinerary row to hero props (countdown, title,
+//     meta line, walks fallback)
+//   - owns the outer Link to the saved-itinerary page
+//   - keeps the rename + delete affordances + their absolute-positioned
+//     pencil/trash buttons + the inline-rename input that replaces the
+//     hero's default <h2>{title}</h2> via the `titleSlot` escape hatch.
 //
-//   Zone 1 — Text header on the card's cream background. Countdown
-//            line, large serif title, day · time · neighborhood.
-//            No overlaid-on-image text.
-//   Zone 2 — Static Mapbox map with numbered burgundy pins. Strictly
-//            functional preview — no interactive layer. Hidden when
-//            Mapbox returns null OR the request errors (token scope
-//            issue, missing coords).
-//   Zone 3 — Venue timeline. Numbered marker · name · role on the
-//            right · category line. Walk-minutes separator between
-//            stops, rebuilt from venue coords via rebuildWalks.
-//
-// Phase 9 rebuild — dropped the hero venue image entirely. Card sits
-// on the cream surface with a subtle burgundy-tinted border to
-// differentiate from the standard SavedPlanRow.
+// Phase 9 originated the three-zone treatment. 2026-06-13 split the
+// presentation out so Tonight's Pick can reuse the same hero shape.
 
 import { useRef, useState } from "react";
 import Link from "next/link";
@@ -26,14 +22,13 @@ import {
   startTimeFromLegacyBlock,
 } from "@/lib/itinerary/time-blocks";
 import { neighborhoodLabel } from "@/config/neighborhoods";
-import type { LineString } from "geojson";
-import { buildItineraryStaticMapUrl } from "@/lib/mapbox";
 import { rebuildWalks } from "@/lib/itinerary/saved-hydration";
-import { getStopEyebrowLabel } from "@/lib/format/stop-eyebrow";
-import { formatCategory } from "@/lib/format/category";
-import { getVenueHeroImageUrl } from "@/lib/venues/images";
+import {
+  ItineraryHeroCard,
+  type EyebrowUrgency,
+} from "@/components/shared/ItineraryHeroCard";
 
-export type CountdownUrgency = "today" | "tomorrow";
+export type CountdownUrgency = EyebrowUrgency;
 
 export interface CountdownLabel {
   text: string;
@@ -101,32 +96,6 @@ export function SavedPlanRowExpanded({
 
   const countdown = getCountdownLabel(plan.day, resolvedStartTime);
 
-  // Mapbox static URL. Phase 9 defaults to 600×180@2x padding 60 so
-  // pins read clearly. Null when token is missing or no stop has
-  // finite coords. `mapErrored` switches to "hide map zone" if the
-  // image GET fails at runtime (e.g. token's Static Images scope
-  // isn't granted in the Mapbox dashboard — see mapbox.ts comment).
-  //
-  // Phase 10: thread route_geometry from each WalkSegment into the
-  // builder's routeGeometries option so the hero map draws the actual
-  // street-following polylines as a `path-…` overlay (under the pins).
-  // Per-segment LineStrings come from composer_walking_routes via the
-  // persisted `walks` column; legacy rows with rebuildWalks stubs (no
-  // route_geometry) pass null entries → builder skips that segment's
-  // overlay → pins-only fallback for that gap, intact as before.
-  const mapUrl = buildItineraryStaticMapUrl(
-    stops.map((s) => ({
-      latitude: s.venue.latitude,
-      longitude: s.venue.longitude,
-    })),
-    {
-      routeGeometries: walks.map(
-        (w) => (w.route_geometry as LineString | null | undefined) ?? null,
-      ),
-    },
-  );
-  const [mapErrored, setMapErrored] = useState(false);
-
   // ── Inline rename ───────────────────────────────────────────
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(displayName);
@@ -181,142 +150,39 @@ export function SavedPlanRowExpanded({
   // ── Confirm delete ──────────────────────────────────────────
   const [confirming, setConfirming] = useState(false);
 
+  // The rename input replaces the default <h2>{title}</h2> via the
+  // hero's titleSlot escape hatch when editing. The meta line is
+  // suppressed (empty string) so the input has visual breathing room
+  // matching the pre-extraction layout.
+  const titleSlot = editing ? (
+    <input
+      ref={inputRef}
+      type="text"
+      value={draft}
+      onChange={(e) => setDraft(e.target.value)}
+      onKeyDown={handleKeyDown}
+      onBlur={() => void saveRename()}
+      onClick={(e) => e.preventDefault()}
+      disabled={saving}
+      aria-label="Rename plan"
+      className="w-full font-serif text-2xl text-charcoal leading-tight bg-transparent border-b border-burgundy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-burgundy/40 disabled:opacity-50"
+    />
+  ) : undefined;
+
   return (
     <div
       data-testid="saved-plan-row-expanded"
       className="relative w-full mb-6 rounded-xl border border-burgundy/15 bg-cream overflow-hidden"
     >
       <Link href={`/itinerary/saved/${plan.id}`} className="block">
-        {/* ─── Zone 1 — Text header ────────────────────────── */}
-        <div className="px-5 pt-5 pb-4">
-          {countdown && (
-            <div
-              data-testid="countdown"
-              className={`flex items-center gap-2 font-sans text-[11px] tracking-widest uppercase mb-2 ${
-                countdown.urgency === "today"
-                  ? "text-burgundy"
-                  : "text-burgundy/60"
-              }`}
-            >
-              <span
-                data-testid="countdown-dot"
-                className={
-                  countdown.urgency === "today"
-                    ? "inline-block w-1.5 h-1.5 rounded-full bg-burgundy"
-                    : "inline-block w-1.5 h-1.5 rounded-full bg-burgundy/60"
-                }
-                aria-hidden
-              />
-              <span>{countdown.text}</span>
-            </div>
-          )}
-
-          {editing ? (
-            <input
-              ref={inputRef}
-              type="text"
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              onKeyDown={handleKeyDown}
-              onBlur={() => void saveRename()}
-              onClick={(e) => e.preventDefault()}
-              disabled={saving}
-              aria-label="Rename plan"
-              className="w-full font-serif text-2xl text-charcoal leading-tight bg-transparent border-b border-burgundy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-burgundy/40 disabled:opacity-50"
-            />
-          ) : (
-            <h2 className="font-serif text-2xl text-charcoal leading-tight pr-20">
-              {displayName}
-            </h2>
-          )}
-
-          {secondaryLine && !editing && (
-            <p className="font-sans text-sm text-muted mt-1">
-              {secondaryLine}
-            </p>
-          )}
-        </div>
-
-        {/* ─── Zone 2 — Functional static map ──────────────── */}
-        {mapUrl && !mapErrored && (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={mapUrl}
-            alt="Itinerary route map"
-            className="w-full h-[180px] object-cover"
-            loading="lazy"
-            onError={() => setMapErrored(true)}
-          />
-        )}
-
-        {/* ─── Zone 3 — Venue timeline ─────────────────────── */}
-        {stops.length > 0 && (
-          <div className="px-5 py-4">
-            {stops.map((stop, i) => {
-              const thumb = getVenueHeroImageUrl(stop.venue.image_keys ?? []);
-              return (
-                <div key={`${stop.venue.id}-${i}`}>
-                  <div className="flex items-center gap-3">
-                    {/* Venue thumbnail (or first-letter fallback). The
-                        row order matches the map's pin numbers, so an
-                        explicit number on the timeline is redundant. */}
-                    <div
-                      data-testid="venue-thumbnail"
-                      className="shrink-0 w-12 h-12 rounded-md overflow-hidden bg-burgundy/10 flex items-center justify-center"
-                    >
-                      {thumb ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={thumb}
-                          alt={stop.venue.name}
-                          className="w-full h-full object-cover"
-                          loading="lazy"
-                        />
-                      ) : (
-                        <span
-                          data-testid="thumbnail-fallback"
-                          className="font-serif text-lg text-burgundy"
-                        >
-                          {stop.venue.name.charAt(0)}
-                        </span>
-                      )}
-                    </div>
-                    {/* Name + category (left), role (right) */}
-                    <div className="flex-1 min-w-0 flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <div className="font-serif text-base text-charcoal truncate">
-                          {stop.venue.name}
-                        </div>
-                        {stop.venue.category && (
-                          <div className="font-sans text-xs text-muted mt-0.5">
-                            {formatCategory(stop.venue.category)}
-                          </div>
-                        )}
-                      </div>
-                      <div className="shrink-0 font-sans text-[10px] tracking-widest uppercase text-muted whitespace-nowrap pt-1">
-                        {getStopEyebrowLabel(stop, i, stops)}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Walk separator — between stops only, not after the last */}
-                  {i < stops.length - 1 && walks[i] && (
-                    <div
-                      data-testid="walk-separator"
-                      className="flex items-center gap-3 my-3 ml-6"
-                    >
-                      <span className="flex-1 border-t border-border" aria-hidden />
-                      <span className="font-sans text-[11px] text-muted whitespace-nowrap">
-                        {walks[i].walk_minutes} min walk
-                      </span>
-                      <span className="flex-1 border-t border-border" aria-hidden />
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
+        <ItineraryHeroCard
+          eyebrow={countdown}
+          title={displayName}
+          metaLine={editing ? "" : secondaryLine}
+          stops={stops}
+          walks={walks}
+          titleSlot={titleSlot}
+        />
       </Link>
 
       {/* Affordances — top-right, outside the Link */}
