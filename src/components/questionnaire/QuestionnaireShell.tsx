@@ -17,7 +17,6 @@ import {
 } from "@/config/neighborhoods";
 import {
   COMPOSE_TIERS,
-  TIER_UNAVAILABLE_COPY,
   isTierSelectableForGroups,
 } from "@/config/group-visibility";
 import {
@@ -357,17 +356,17 @@ export function QuestionnaireShell() {
 
               {step.kind === "cards" && (
                 <StandardStep
-                  options={step.options}
+                  options={
+                    step.id === "budget"
+                      ? step.options.filter(
+                          (o) => !disabledBudgetTiers.has(o.value),
+                        )
+                      : step.options
+                  }
                   selectedValue={
                     state.answers[step.id] as string | undefined
                   }
                   onSelect={(value) => handleCardSelect(step.id, value)}
-                  disabledValues={
-                    step.id === "budget" ? disabledBudgetTiers : undefined
-                  }
-                  disabledNote={
-                    step.id === "budget" ? TIER_UNAVAILABLE_COPY : undefined
-                  }
                 />
               )}
 
