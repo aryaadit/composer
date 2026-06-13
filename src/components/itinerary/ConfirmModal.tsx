@@ -229,11 +229,19 @@ function ConfirmModalContent({
       </div>
 
       <div className="px-6 pt-2">
-        <h2 className="font-serif text-2xl font-normal text-charcoal leading-snug mb-1">
-          You&apos;re set.
-        </h2>
+        {/* The save has already landed by the time this modal opens
+            (LooksGoodCTA auto-saves before firing onClose to open
+            the modal), so the header explicitly confirms that —
+            green check + "Saved to your itineraries". The subtitle
+            then teases the three actions below. */}
+        <div className="flex items-center gap-2 mb-1">
+          <SavedCheckIcon />
+          <h2 className="font-serif text-2xl font-normal text-charcoal leading-snug">
+            Saved to your itineraries
+          </h2>
+        </div>
         <p className="font-sans text-sm text-muted mb-6">
-          Lock it in, or send it.
+          Add it to your calendar, or send it.
         </p>
 
         <div className="space-y-2">
@@ -280,6 +288,25 @@ function ConfirmModalContent({
 }
 
 // ── Icons (inline SVG to avoid a dep + keep icon family consistent) ──
+
+function SavedCheckIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width="20"
+      height="20"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+      className="shrink-0 text-emerald-600"
+    >
+      <path d="M20 6 9 17l-5-5" />
+    </svg>
+  );
+}
 
 function CalendarIcon() {
   return (
