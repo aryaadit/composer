@@ -65,6 +65,10 @@ interface ItineraryViewProps {
    *  this is false / omitted. Computed at the consumer page from
    *  isLuckyItinerary(itinerary.inputs). */
   isLucky?: boolean;
+  /** Page-level swap-anchor registrar. Forwarded verbatim to each
+   *  StopCard so the page's SwapReasonModal can read its action-slot
+   *  element for desktop-popover anchoring. */
+  registerSwapAnchor?: (index: number, el: HTMLElement | null) => void;
 }
 
 export function ItineraryView({
@@ -84,6 +88,7 @@ export function ItineraryView({
   isPast = false,
   surface = "fresh_itinerary",
   isLucky = false,
+  registerSwapAnchor,
 }: ItineraryViewProps) {
   const { trackEngagement, incrementEngagement } = useEngagement();
 
@@ -219,6 +224,7 @@ export function ItineraryView({
                 onUndoSwap={onUndoSwap}
                 isPast={isPast}
                 highlighted={highlightedStopIndex === i}
+                registerSwapAnchor={registerSwapAnchor}
               />
               {!isPast && stop.availability && (
                 <div className="px-0 pb-6">

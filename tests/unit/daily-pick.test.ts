@@ -142,8 +142,12 @@ describe("Daily-pick source contract", () => {
       join(srcRoot, "hooks", "useTonightsPick.ts"),
       "utf-8",
     );
+    // 2026-06-13: TonightsPickCard was renamed → TonightsPickHero
+    // when the teaser was promoted to the shared three-zone hero.
+    // The contract assertions below still apply verbatim to the
+    // renamed component — the daily-pick path is the same.
     cardSrc = readFileSync(
-      join(srcRoot, "components", "home", "TonightsPickCard.tsx"),
+      join(srcRoot, "components", "home", "TonightsPickHero.tsx"),
       "utf-8",
     );
   });

@@ -1,16 +1,19 @@
 import { describe, expect, it } from "vitest";
 
-// Home redesign 2026-06-12 — three contracts pinned at the source
-// level since the project doesn't ship a render harness (see
-// vitest.config.ts). The label-helper behavior lives in
-// stop-eyebrow.test.ts; this file covers the structural changes:
+// Home contracts pinned at the source level since the project doesn't
+// ship a render harness (see vitest.config.ts).
 //
-//   1. Tonight's Pick is a teaser — no map, no stop rows, ONE
-//      subtitle line, right-aligned chevron. The handoff +
-//      daily_pick_opened analytics survive.
-//   2. The header carries the die. The "Random tonight?" labeled
-//      row under New plan is gone. The die fires the lucky flow
-//      with no compose_started and no abandon flag.
+//   1. Tonight's Pick is now a RICH HERO (2026-06-13). Same three-zone
+//      layout as the saved-plan hero (countdown header + Mapbox map +
+//      venue timeline). Routed through the shared ItineraryHeroCard.
+//   2. The pick renders only when the user has NO saved plan for
+//      tonight — when one exists, the upcoming hero already surfaces
+//      it and the pick steps aside.
+//   3. The handoff + daily_pick_opened analytics survive the rename
+//      from TonightsPickCard → TonightsPickHero.
+//   4. The header carries the die. The "Random tonight?" labeled row
+//      under New plan is gone. The die fires the lucky flow with no
+//      compose_started and no abandon flag.
 
 async function readSources() {
   const { readFileSync } = await import("node:fs");
@@ -20,7 +23,11 @@ async function readSources() {
   const srcRoot = join(here, "..", "..", "src");
   return {
     pick: readFileSync(
-      join(srcRoot, "components", "home", "TonightsPickCard.tsx"),
+      join(srcRoot, "components", "home", "TonightsPickHero.tsx"),
+      "utf-8",
+    ),
+    hero: readFileSync(
+      join(srcRoot, "components", "shared", "ItineraryHeroCard.tsx"),
       "utf-8",
     ),
     home: readFileSync(
@@ -34,76 +41,211 @@ async function readSources() {
   };
 }
 
-describe("Tonight's Pick teaser shape", () => {
-  it("renders without a Mapbox map (no static-map URL, no img onError)", async () => {
-    const { pick } = await readSources();
-    // The map machinery was the whole point of the redesign — yank
-    // it cleanly. No mapbox import, no onError fallback state.
+describe("Tonight's Pick hero shape (2026-06-13)", () => {
+  it("renders THROUGH the shared ItineraryHeroCard (map + timeline come from there, not duplicated)", async () => {
+    const { pick, hero } = await readSources();
+    // The pick must compose the hero, not reimplement the three-zone
+    // layout. Pin the import + the JSX use.
+    expect(pick).toMatch(
+      /import \{ ItineraryHeroCard \} from "@\/components\/shared\/ItineraryHeroCard"/,
+    );
+    expect(pick).toMatch(/<ItineraryHeroCard\b/);
+    // The map machinery and per-stop list belong to the hero — no
+    // duplicate buildItineraryStaticMapUrl or stops.map in the pick.
     expect(pick).not.toMatch(/buildItineraryStaticMapUrl/);
-    expect(pick).not.toMatch(/mapErrored/);
-    expect(pick).not.toMatch(/onError=/);
-    // No <img> at all on the card — the chevron is an inline SVG.
-    expect(pick).not.toMatch(/<img\b/);
-  });
-
-  it("renders no stop rows (no per-stop list inside the teaser)", async () => {
-    const { pick } = await readSources();
-    // The old card mapped stops.slice(0, 2) into a <ul>. That goes.
-    expect(pick).not.toMatch(/stops\.slice/);
     expect(pick).not.toMatch(/stops\.map/);
-    // The stop-row marker (numbered badge + venue name) is gone.
-    expect(pick).not.toMatch(/<li\b/);
-    expect(pick).not.toMatch(/stop\.venue\.name/);
+    expect(pick).not.toMatch(/mapErrored/);
+    // The hero IS the source of those primitives.
+    expect(hero).toMatch(/buildItineraryStaticMapUrl/);
+    expect(hero).toMatch(/stops\.map/);
+    expect(hero).toMatch(/mapErrored/);
   });
 
-  it("keeps the eyebrow, serif title, ONE subtitle line, and the chevron", async () => {
+  it("eyebrow text is 'Tonight's pick · from us' with urgency 'today'", async () => {
     const { pick } = await readSources();
-    // Eyebrow with burgundy dot + label.
-    expect(pick).toMatch(/Tonight&apos;s pick &middot; from us/);
-    expect(pick).toMatch(/data-testid="tonights-pick-eyebrow"/);
-    // Title is the generated header title in serif, truncated.
-    expect(pick).toMatch(
-      /<h2 className="truncate font-serif[\s\S]*?\{title\}/,
-    );
-    // Subtitle is the existing copy, truncated to ONE line.
-    expect(pick).toMatch(
-      /<p className="mt-1 truncate font-sans[\s\S]*?\{subtitle\}/,
-    );
-    // Right-aligned chevron icon present.
-    expect(pick).toMatch(/ChevronRightIcon\b/);
+    // The pick passes a plain string to the hero — same copy the
+    // teaser shipped, just routed through props instead of inline JSX.
+    expect(pick).toMatch(/text:\s*"Tonight['’]s pick · from us"/);
+    expect(pick).toMatch(/urgency:\s*"today"/);
   });
 
-  it("keeps the burgundy/30 border + tinted background treatment", async () => {
+  it("title is the generated header title; metaLine joins day · time · neighborhood", async () => {
     const { pick } = await readSources();
-    expect(pick).toMatch(/border-burgundy\/30/);
-    expect(pick).toMatch(/bg-burgundy-tint/);
+    // Title fall-through default preserved from the teaser.
+    expect(pick).toMatch(/itinerary\.header\?\.title \?\? "A plan for tonight"/);
+    // Meta line: same Day · Time · Neighborhood pattern the saved
+    // hero uses, fed from inputs.
+    expect(pick).toMatch(/formatShortDateLabel\(inputs\.day\)/);
+    expect(pick).toMatch(/formatStartTimeLabel\(inputs\.startTime\)/);
+    expect(pick).toMatch(/neighborhoodLabel\(firstNeighborhood\)/);
+    expect(pick).toMatch(/\.filter\(\(s\) => s\.length > 0\)/);
+    expect(pick).toMatch(/\.join\(" · "\)/);
   });
 
-  it("preserves the sessionStorage handoff and the daily_pick_opened event", async () => {
+  it("passes itinerary.stops + walks (with rebuild fallback) to the hero", async () => {
     const { pick } = await readSources();
-    // Tap fires the analytics event with itinerary_id null + pick_date.
+    expect(pick).toMatch(/stops=\{itinerary\.stops\}/);
+    // Walks prefer the response; fall back to rebuildWalks for
+    // safety on a (hypothetical) walks-empty pick response.
+    expect(pick).toMatch(/rebuildWalks\(itinerary\.stops\)/);
+  });
+
+  it("wraps the hero in a button firing the SAME sessionStorage handoff + DAILY_PICK_OPENED event", async () => {
+    const { pick } = await readSources();
+    // Outer is a <button>, not a Link or wrapper-less hero (per spec).
+    expect(pick).toMatch(/<button[\s\S]*?onClick=\{handleOpen\}/);
+    // The handoff + analytics survive verbatim from the teaser.
     expect(pick).toMatch(/DAILY_PICK_OPENED/);
-    // Standard handoff keys, unchanged.
     expect(pick).toMatch(/STORAGE_KEYS\.session\.questionnaireInputs/);
     expect(pick).toMatch(/STORAGE_KEYS\.session\.currentItinerary/);
     expect(pick).toMatch(/router\.push\("\/itinerary"\)/);
   });
 
-  it("HomeScreen still renders the pick teaser unconditionally for authed users with a 'ready' payload (no plan-existence gate)", async () => {
+  it("has NO rename or delete controls (those are SavedPlanRowExpanded's job)", async () => {
+    const { pick } = await readSources();
+    // The pick is read-only; no inline rename, no trash affordance,
+    // no PATCH to /api/itineraries.
+    expect(pick).not.toMatch(/PencilIcon/);
+    expect(pick).not.toMatch(/TrashIcon/);
+    expect(pick).not.toMatch(/aria-label="Rename"/);
+    expect(pick).not.toMatch(/aria-label="Remove saved plan"/);
+    expect(pick).not.toMatch(/\/api\/itineraries\//);
+  });
+
+  it("passes tinted to the hero so the burgundy-tint surface reads as ours", async () => {
+    const { pick, hero } = await readSources();
+    // The pick is the only consumer that should pass tinted today.
+    // Saved-plan hero stays cream + burgundy/15 via its outer wrapper.
+    expect(pick).toMatch(/<ItineraryHeroCard[\s\S]*?\btinted\b/);
+    // The hero owns the burgundy-tint surface — TonightsPickHero
+    // must NOT duplicate it on the outer button.
+    const buttonClass = pick.match(/<button[\s\S]*?className="([^"]+)"/)?.[1] ?? "";
+    expect(buttonClass).not.toMatch(/bg-burgundy-tint/);
+    expect(buttonClass).not.toMatch(/bg-cream/);
+    // And the hero source actually applies the tinted surface classes.
+    expect(hero).toMatch(/bg-burgundy-tint/);
+    expect(hero).toMatch(/border-burgundy\/30/);
+  });
+});
+
+describe("HomeScreen — Tonight's Pick gate (showPick)", () => {
+  it("imports TonightsPickHero (not TonightsPickCard)", async () => {
     const { home } = await readSources();
-    // The render gate is status === "ready" only. No conditional on
-    // savedPlans.length / hasAnyPlans / upcoming.length.
     expect(home).toMatch(
-      /tonightsPick\.data\?\.status === "ready"[\s\S]*?<TonightsPickCard/,
+      /import \{ TonightsPickHero \} from "@\/components\/home\/TonightsPickHero"/,
     );
-    // Defensive: no plan-existence check in the same block as the
-    // pick render.
-    const block = home.match(
-      /\{tonightsPick\.data\?\.status === "ready"[\s\S]*?\)\}/,
+    expect(home).not.toMatch(/TonightsPickCard/);
+  });
+
+  it("computes hasTonightPlan from upcoming + todayLocalISO", async () => {
+    const { home } = await readSources();
+    expect(home).toMatch(
+      /const hasTonightPlan = upcoming\.some\(\(p\) => p\.day === todayLocalISO\(\)\)/,
     );
-    expect(block).not.toBeNull();
-    expect(block?.[0]).not.toMatch(/hasAnyPlans/);
-    expect(block?.[0]).not.toMatch(/upcoming\./);
+    expect(home).toMatch(
+      /import \{ splitPlansByDate, todayLocalISO \} from "@\/lib\/dateUtils"/,
+    );
+  });
+
+  it("derives showPick once: ready-narrowed pickData + !hasTonightPlan", async () => {
+    const { home } = await readSources();
+    // Single source of truth for the gate. The upcoming-section
+    // branch and the pick gate both read off the same `showPick`,
+    // so the single-hero invariant can't drift.
+    expect(home).toMatch(
+      /const pickData =\s*tonightsPick\.data\?\.status === "ready" \? tonightsPick\.data : null/,
+    );
+    expect(home).toMatch(
+      /const showPick = pickData !== null && !hasTonightPlan/,
+    );
+  });
+
+  it("renders the pick only when showPick (and only one mount on the page)", async () => {
+    const { home } = await readSources();
+    expect(home).toMatch(/\{showPick && pickData &&[\s\S]*?<TonightsPickHero/);
+    const hits = home.match(/<TonightsPickHero\b/g) ?? [];
+    expect(hits.length).toBe(1);
+  });
+});
+
+describe("HomeScreen — single-hero rule on the page", () => {
+  it("Upcoming section branches on showPick — pick visible ⇒ ALL upcoming render as compact SavedPlanRow (no SavedPlanRowExpanded hero)", async () => {
+    const { home } = await readSources();
+    // The branch is the load-bearing piece: when showPick is true,
+    // the section degrades to compact SavedPlanRow for every entry.
+    // Pin both the branch shape and the absence of a hero in the
+    // showPick=true window.
+    expect(home).toMatch(
+      /\{showPick \? \([\s\S]*?upcoming\.map\(\(plan\)[\s\S]*?<SavedPlanRow\b/,
+    );
+    // The hero in the showPick branch would defeat the whole point.
+    const showPickBranch = home.match(
+      /\{showPick \? \([\s\S]*?\) : \(/,
+    );
+    expect(showPickBranch).not.toBeNull();
+    expect(showPickBranch?.[0]).not.toMatch(/SavedPlanRowExpanded/);
+  });
+
+  it("Upcoming section's !showPick branch keeps the SavedPlanRowExpanded hero for upcoming[0]", async () => {
+    const { home } = await readSources();
+    // Exactly one SavedPlanRowExpanded mount in HomeScreen, and it
+    // sits in the else branch behind the showPick gate.
+    const heroHits = home.match(/<SavedPlanRowExpanded\b/g) ?? [];
+    expect(heroHits.length).toBe(1);
+    expect(home).toMatch(
+      /\) : \([\s\S]*?<SavedPlanRowExpanded[\s\S]*?plan=\{upcoming\[0\]\}/,
+    );
+  });
+});
+
+describe("ItineraryHeroCard — shared three-zone presentation", () => {
+  it("does NOT own the outer interactive wrapper (no Link or button at top level)", async () => {
+    const { hero } = await readSources();
+    // The hero is purely presentational. Its consumers wrap it
+    // (SavedPlanRowExpanded → Link; TonightsPickHero → button).
+    expect(hero).not.toMatch(/^[\s]*import Link from "next\/link"/m);
+    expect(hero).not.toMatch(/<Link\b/);
+    expect(hero).not.toMatch(/<button\b/);
+  });
+
+  it("does NOT own rename or delete affordances (SavedPlanRowExpanded keeps those)", async () => {
+    const { hero } = await readSources();
+    expect(hero).not.toMatch(/PencilIcon/);
+    expect(hero).not.toMatch(/TrashIcon/);
+    expect(hero).not.toMatch(/aria-label="Rename"/);
+    expect(hero).not.toMatch(/aria-label="Remove saved plan"/);
+    expect(hero).not.toMatch(/\/api\/itineraries\//);
+  });
+
+  it("renders all three zones (eyebrow / title / meta / map / timeline)", async () => {
+    const { hero } = await readSources();
+    expect(hero).toMatch(/data-testid="countdown"/);
+    expect(hero).toMatch(/<h2 className="font-serif text-2xl text-charcoal/);
+    expect(hero).toMatch(/data-testid="venue-thumbnail"/);
+    expect(hero).toMatch(/data-testid="walk-separator"/);
+  });
+
+  it("exposes the titleSlot escape hatch for SavedPlanRowExpanded's inline rename", async () => {
+    const { hero } = await readSources();
+    // The default <h2>{title}</h2> is replaced when titleSlot is
+    // passed — the only way the rename input can sit in the same
+    // DOM position without breaking byte-identity.
+    expect(hero).toMatch(/titleSlot\?:\s*ReactNode/);
+    expect(hero).toMatch(/\{titleSlot \?\? \(/);
+  });
+
+  it("exposes a `tinted?: boolean` prop defaulting to false — fragment unless on", async () => {
+    const { hero } = await readSources();
+    // The contract: tinted=false stays a fragment so consumer
+    // wrappers (SavedPlanRowExpanded) keep providing the surface.
+    // tinted=true wraps the zones in the burgundy-tint surface.
+    expect(hero).toMatch(/tinted\?:\s*boolean/);
+    expect(hero).toMatch(/tinted = false/);
+    expect(hero).toMatch(/if \(tinted\)/);
+    // The tinted wrapper carries the canonical pick surface classes.
+    expect(hero).toMatch(
+      /bg-burgundy-tint[\s\S]*?border-burgundy\/30|border-burgundy\/30[\s\S]*?bg-burgundy-tint/,
+    );
   });
 });
 
@@ -121,9 +263,6 @@ describe("Header dice — moved out of the body row", () => {
 
   it("HomeScreen mounts the die inside the Header rightSlot, beside the profile link", async () => {
     const { home } = await readSources();
-    // The rightSlot is now a flex container holding the die +
-    // profile glyph. The die mounts BEFORE the profile link so it
-    // reads left-to-right in DOM order.
     expect(home).toMatch(
       /rightSlot=\{\s*<div className="flex items-center gap-3">\s*<LuckyDieButton[\s\S]*?<Link\s+href="\/profile"/,
     );
@@ -131,36 +270,24 @@ describe("Header dice — moved out of the body row", () => {
 
   it("LuckyDieButton is icon-only with aria-label 'Random tonight'", async () => {
     const { die } = await readSources();
-    // Exact aria-label per spec.
     expect(die).toMatch(/aria-label="Random tonight"/);
-    // No visible label text remains ("Random tonight?" / "Too late
-    // tonight" used to render as a sibling <span>). The icon-only
-    // render uses <DieGlyph /> alone.
     expect(die).not.toMatch(/<span>Random tonight\?<\/span>/);
     expect(die).not.toMatch(/<span>\{eligible \?/);
   });
 
   it("after-cutoff state is a dimmed icon with aria-disabled", async () => {
     const { die } = await readSources();
-    // aria-disabled mirrors the disabled state for AT.
     expect(die).toMatch(/aria-disabled=\{disabled \|\| undefined\}/);
-    // Visual dim is the canonical opacity-40 (matches CLAUDE.md
-    // disabled treatment).
     expect(die).toMatch(/disabled:opacity-40/);
-    // Eligibility is still polled — after-cutoff users see the dim.
     expect(die).toMatch(/useTodayHasEligibleSlot/);
   });
 
   it("clicking the die opens LuckyOverlay — does NOT fire compose_started and does NOT set the abandon flag", async () => {
     const { die } = await readSources();
-    // Click handler sets overlayOpen = true; LuckyOverlay then owns
-    // the seeded roll + analytics. There is no compose flow involved.
     expect(die).toMatch(/setOverlayOpen\(true\)/);
     expect(die).toMatch(/<LuckyOverlay\b/);
-    // Sanity: no compose-flow analytics or abandon-flag writes leak
-    // into this component. Match invocations specifically so the
-    // contract-documenting comment ("No compose_started") doesn't
-    // trip the assertion.
+    // Match invocations specifically so the contract-documenting
+    // comment ("No compose_started") doesn't trip the assertion.
     expect(die).not.toMatch(/track\([\s\S]*?COMPOSE_STARTED/);
     expect(die).not.toMatch(/EVENTS\.COMPOSE_STARTED/);
     expect(die).not.toMatch(/sessionStorage\.setItem\([\s\S]*?abandon/i);
@@ -169,8 +296,6 @@ describe("Header dice — moved out of the body row", () => {
 
   it("debounce still gates spend (Gemini + Mapbox)", async () => {
     const { die } = await readSources();
-    // The debounce was the only thing preventing rage-tapping the
-    // overlay open. Pin it so a refactor can't quietly drop it.
     expect(die).toMatch(/debouncedUntil/);
     expect(die).toMatch(/LUCKY\.debounceMs/);
   });

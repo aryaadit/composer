@@ -130,53 +130,98 @@ describe("disambiguateStop1Role", () => {
   });
 });
 
-describe("planStopMix — Phase 2 collapsed shape", () => {
+describe("planStopMix — focus + start-time branching", () => {
   it("always returns a 2-stop pattern", () => {
     const pattern = planStopMix(ANSWERS, () => 0.5);
     expect(pattern).toHaveLength(2);
   });
 
-  it("first slot is STOP_1_POOL", () => {
-    const pattern = planStopMix(ANSWERS, () => 0.5);
-    expect(pattern[0].role).toEqual(STOP_1_POOL);
-  });
+  // ── Meal early start: [stop1, main] ─────────────────────────────
 
-  it("second slot is main", () => {
-    const pattern = planStopMix(ANSWERS, () => 0.5);
+  it("Meal early start (17:00): first slot is STOP_1_POOL, second is main", () => {
+    const pattern = planStopMix(
+      { ...ANSWERS, vibe: "food_forward", startTime: "17:00" },
+      () => 0.5,
+    );
+    expect(pattern[0].role).toEqual(STOP_1_POOL);
     expect(pattern[1].role).toBe("main");
   });
 
-  it("drinks_led applies a drinks venueRoleHint to stop 1", () => {
+  it("food_forward applies no hint on the stop1 slot", () => {
+    const pattern = planStopMix(
+      { ...ANSWERS, vibe: "food_forward", startTime: "17:00" },
+      () => 0.5,
+    );
+    expect(pattern[0].venueRoleHint).toBeUndefined();
+  });
+
+  // ── Meal late start: [main, stop1] ──────────────────────────────
+
+  it("Meal late start (19:00 — the threshold): first slot is main, second is STOP_1_POOL", () => {
+    const pattern = planStopMix(
+      { ...ANSWERS, vibe: "food_forward", startTime: "19:00" },
+      () => 0.5,
+    );
+    expect(pattern[0].role).toBe("main");
+    expect(pattern[1].role).toEqual(STOP_1_POOL);
+  });
+
+  it("Meal late start (20:00) also reorders to [main, stop1]", () => {
+    const pattern = planStopMix(
+      { ...ANSWERS, vibe: "food_forward", startTime: "20:00" },
+      () => 0.5,
+    );
+    expect(pattern[0].role).toBe("main");
+    expect(pattern[1].role).toEqual(STOP_1_POOL);
+  });
+
+  // ── Drinks: [stop1, stop1], no main ─────────────────────────────
+
+  it("drinks_led returns two STOP_1_POOL slots, no main", () => {
+    const pattern = planStopMix(
+      { ...ANSWERS, vibe: "drinks_led" },
+      () => 0.5,
+    );
+    expect(pattern).toHaveLength(2);
+    expect(pattern[0].role).toEqual(STOP_1_POOL);
+    expect(pattern[1].role).toEqual(STOP_1_POOL);
+    // Neither slot is "main" — Drinks has no main.
+    expect(pattern.some((p) => p.role === "main")).toBe(false);
+  });
+
+  it("drinks_led applies a drinks venueRoleHint to BOTH slots", () => {
     const pattern = planStopMix(
       { ...ANSWERS, vibe: "drinks_led" },
       () => 0.5,
     );
     expect(pattern[0].venueRoleHint).toBe("drinks");
-    expect(pattern[1].venueRoleHint).toBeUndefined();
+    expect(pattern[1].venueRoleHint).toBe("drinks");
   });
 
-  it("activity_food applies an activity hint to stop 1", () => {
-    const pattern = planStopMix(
-      { ...ANSWERS, vibe: "activity_food" },
+  it("drinks_led ignores start time (always two bars)", () => {
+    const early = planStopMix(
+      { ...ANSWERS, vibe: "drinks_led", startTime: "17:00" },
       () => 0.5,
     );
-    expect(pattern[0].venueRoleHint).toBe("activity");
-  });
-
-  it("food_forward applies no hint (null in VIBE_STOP_1_HINTS)", () => {
-    const pattern = planStopMix(
-      { ...ANSWERS, vibe: "food_forward" },
+    const late = planStopMix(
+      { ...ANSWERS, vibe: "drinks_led", startTime: "21:00" },
       () => 0.5,
     );
-    expect(pattern[0].venueRoleHint).toBeUndefined();
+    // Both shapes identical — Drinks doesn't reorder by start time.
+    expect(early.map((p) => p.role)).toEqual(late.map((p) => p.role));
   });
 });
 
-describe("composeItinerary — STOP_1_POOL composition", () => {
+describe("composeItinerary — Meal path (focus = food_forward)", () => {
   // Coordinates for proximity: keep everyone within walking range of Main.
   const NEAR = { latitude: 40.7336, longitude: -74.0027 };
 
-  it("picks main for stop 2 and an opener-or-closer for stop 1", () => {
+  // ANSWERS uses startTime "17:00" which is < MEAL_MAIN_FIRST_HOUR (19),
+  // so the default shape is [stop1(opener), main]. Late-start tests
+  // use 19:00+ to trip the [main, stop1(closer)] branch.
+  const LATE: QuestionnaireAnswers = { ...ANSWERS, startTime: "19:00", endTime: "00:00" };
+
+  it("early start: stop 1 is opener (bar before meal), stop 2 is main", () => {
     const venues = [
       makeVenue({ id: "main-1", name: "Main Spot", stop_roles: ["main"], ...NEAR }),
       makeVenue({ id: "opener-1", name: "Opener Spot", stop_roles: ["opener"], ...NEAR, category: "wine_bar" }),
@@ -184,12 +229,43 @@ describe("composeItinerary — STOP_1_POOL composition", () => {
     ];
     const { stops } = composeItinerary(venues, ANSWERS, CLEAR, 0, () => 0.5);
     expect(stops).toHaveLength(2);
-    // Stop 2 must be Main.
+    // Stop 1 = bar (label "opener" by ORDER, not from disambiguateStop1Role).
+    expect(stops[0].role).toBe("opener");
+    expect(["opener-1", "closer-1"]).toContain(stops[0].venue.id);
+    // Stop 2 = Main.
     expect(stops[1].role).toBe("main");
     expect(stops[1].venue.id).toBe("main-1");
-    // Stop 1 must be opener or closer (the only non-main candidates).
-    expect(["opener", "closer"]).toContain(stops[0].role);
-    expect(["opener-1", "closer-1"]).toContain(stops[0].venue.id);
+  });
+
+  it("late start (19:00): stop 1 is main, stop 2 is closer (bar as nightcap)", () => {
+    const venues = [
+      makeVenue({ id: "main-1", name: "Main Spot", stop_roles: ["main"], ...NEAR }),
+      makeVenue({ id: "opener-1", name: "Opener Spot", stop_roles: ["opener"], ...NEAR, category: "wine_bar" }),
+      makeVenue({ id: "closer-1", name: "Closer Spot", stop_roles: ["closer"], ...NEAR, category: "cocktail_bar" }),
+    ];
+    const { stops } = composeItinerary(venues, LATE, CLEAR, 0, () => 0.5);
+    expect(stops).toHaveLength(2);
+    // Stop 1 = Main.
+    expect(stops[0].role).toBe("main");
+    expect(stops[0].venue.id).toBe("main-1");
+    // Stop 2 = bar (label "closer" by ORDER).
+    expect(stops[1].role).toBe("closer");
+    expect(["opener-1", "closer-1"]).toContain(stops[1].venue.id);
+  });
+
+  it("late start labels even an opener-only-tagged venue as 'closer' (label comes from order, not venue role)", () => {
+    // The picked bar is opener-only at the venue level. Pre-2026-06-13
+    // composer ran it through disambiguateStop1Role and would have
+    // labeled the stop "opener". The new contract: label by ORDER.
+    const venues = [
+      makeVenue({ id: "main-1", stop_roles: ["main"], ...NEAR }),
+      makeVenue({ id: "opener-only", stop_roles: ["opener"], ...NEAR, category: "wine_bar" }),
+    ];
+    const { stops } = composeItinerary(venues, LATE, CLEAR, 0, () => 0.5);
+    expect(stops).toHaveLength(2);
+    expect(stops[0].role).toBe("main");
+    expect(stops[1].role).toBe("closer");
+    expect(stops[1].venue.id).toBe("opener-only");
   });
 
   it("main-tagged venues are excluded from stop 1's pool — empty stops on stop-1 failure (2026-06-11 strict-filters)", () => {
@@ -256,14 +332,202 @@ describe("composeItinerary — STOP_1_POOL composition", () => {
     const venues = [
       makeVenue({ id: "main-1", stop_roles: ["main"], ...NEAR }),
       // Only candidate for stop 1 is drinks-tagged. Via ROLE_EXPANSION
-      // it serves both opener and closer canonically, so it should be
-      // eligible for STOP_1_POOL.
+      // it serves both opener and closer canonically, so it's eligible
+      // for STOP_1_POOL.
       makeVenue({ id: "drinks-1", stop_roles: ["drinks"], ...NEAR, category: "cocktail_bar" }),
     ];
     const { stops } = composeItinerary(venues, ANSWERS, CLEAR, 0, () => 0.5);
     expect(stops).toHaveLength(2);
     expect(stops[0].venue.id).toBe("drinks-1");
-    // Disambiguated to opener (chronologically natural for stop 1).
+    // ANSWERS startTime is 17:00 (early Meal) → order is [stop1, main]
+    // → the stop1 label is "opener" by ORDER (no longer routed through
+    // disambiguateStop1Role).
     expect(stops[0].role).toBe("opener");
+  });
+});
+
+describe("composeItinerary — Drinks path (focus = drinks_led)", () => {
+  const NEAR = { latitude: 40.7336, longitude: -74.0027 };
+  const DRINKS: QuestionnaireAnswers = { ...ANSWERS, vibe: "drinks_led" };
+
+  it("two bar venues yield two STOP_1_POOL stops (opener then closer), no main", () => {
+    const venues = [
+      makeVenue({ id: "bar-1", stop_roles: ["opener"], ...NEAR, category: "wine_bar" }),
+      makeVenue({ id: "bar-2", stop_roles: ["closer"], ...NEAR, category: "cocktail_bar" }),
+      // Plus a main-tagged venue that should be IGNORED — Drinks
+      // doesn't compose a main.
+      makeVenue({ id: "main-trap", stop_roles: ["main"], ...NEAR, category: "italian" }),
+    ];
+    const { stops, zeroingStage } = composeItinerary(
+      venues,
+      DRINKS,
+      CLEAR,
+      0,
+      () => 0.5,
+    );
+    expect(stops).toHaveLength(2);
+    expect(zeroingStage).toBeUndefined();
+    // Roles by ORDER: first bar = opener, second bar = closer.
+    expect(stops[0].role).toBe("opener");
+    expect(stops[1].role).toBe("closer");
+    // The main-trap venue is not in the result.
+    expect(stops.map((s) => s.venue.id)).not.toContain("main-trap");
+    // Both picks are from the bar pool.
+    expect(["bar-1", "bar-2"]).toContain(stops[0].venue.id);
+    expect(["bar-1", "bar-2"]).toContain(stops[1].venue.id);
+    expect(stops[0].venue.id).not.toBe(stops[1].venue.id);
+  });
+
+  it("a drinks-tagged venue counts as bar-eligible (ROLE_EXPANSION)", () => {
+    // drinks expands to [opener, closer], so it should satisfy
+    // STOP_1_POOL eligibility on both slots of the Drinks path.
+    const venues = [
+      makeVenue({ id: "drinks-1", stop_roles: ["drinks"], ...NEAR, category: "wine_bar" }),
+      makeVenue({ id: "drinks-2", stop_roles: ["drinks"], ...NEAR, category: "cocktail_bar" }),
+    ];
+    const { stops, zeroingStage } = composeItinerary(
+      venues,
+      DRINKS,
+      CLEAR,
+      0,
+      () => 0.5,
+    );
+    expect(stops).toHaveLength(2);
+    expect(zeroingStage).toBeUndefined();
+    expect(stops[0].role).toBe("opener");
+    expect(stops[1].role).toBe("closer");
+  });
+
+  it("only one bar-eligible venue → empty stops with zeroingStage 'proximity' (no degradation to one bar)", () => {
+    // The first bar picks fine; the second can't be sourced because
+    // the only other venue is main-tagged. Spec: emit "proximity"
+    // and return empty stops, do NOT degrade to a one-bar itinerary.
+    const venues = [
+      makeVenue({ id: "bar-1", stop_roles: ["opener"], ...NEAR, category: "wine_bar" }),
+      makeVenue({ id: "main-1", stop_roles: ["main"], ...NEAR, category: "italian" }),
+    ];
+    const { stops, zeroingStage } = composeItinerary(
+      venues,
+      DRINKS,
+      CLEAR,
+      0,
+      () => 0.5,
+    );
+    expect(stops).toHaveLength(0);
+    expect(zeroingStage).toBe("proximity");
+  });
+
+  it("zero bar-eligible venues → empty stops with zeroingStage 'proximity'", () => {
+    // No first bar to pick — the failure is at the very first stage.
+    const venues = [
+      makeVenue({ id: "main-1", stop_roles: ["main"], ...NEAR }),
+      makeVenue({ id: "main-2", stop_roles: ["main"], ...NEAR, category: "french" }),
+    ];
+    const { stops, zeroingStage } = composeItinerary(
+      venues,
+      DRINKS,
+      CLEAR,
+      0,
+      () => 0.5,
+    );
+    expect(stops).toHaveLength(0);
+    expect(zeroingStage).toBe("proximity");
+  });
+
+  it("second bar must be within walking range of the first (proximity cap)", () => {
+    // First bar at NEAR; second bar way uptown (well beyond 1.5 km cap).
+    // pickBestForRole's anchor enforces proximity on the second pick.
+    const venues = [
+      makeVenue({ id: "near-bar", stop_roles: ["opener"], ...NEAR, category: "wine_bar" }),
+      makeVenue({
+        id: "far-bar",
+        stop_roles: ["closer"],
+        latitude: 40.85,
+        longitude: -73.9,
+        category: "cocktail_bar",
+      }),
+    ];
+    const { stops, zeroingStage } = composeItinerary(
+      venues,
+      DRINKS,
+      CLEAR,
+      0,
+      () => 0.5,
+    );
+    expect(stops).toHaveLength(0);
+    expect(zeroingStage).toBe("proximity");
+  });
+
+  it("excludes main+closer venues (Seoul Salon shape) from the Drinks pool — restaurants with a late bar room are NOT bars", () => {
+    // Under the collapsed role model, the right "actual bar" signal
+    // is stop1-pool-eligible AND not main-eligible. A venue tagged
+    // ["main","closer"] is a restaurant that stays open late, not a
+    // bar — Drinks shouldn't reach for it. The only pure bar here
+    // has no companion bar in range, so the pair fails honestly.
+    const venues = [
+      makeVenue({ id: "pure-bar", stop_roles: ["opener"], ...NEAR, category: "wine_bar" }),
+      // The Seoul Salon shape: main + closer. Excluded from Drinks.
+      makeVenue({
+        id: "dinner-plus-bar-room",
+        stop_roles: ["main", "closer"],
+        ...NEAR,
+        category: "korean",
+      }),
+      // Another restaurant to ensure no bar pairing exists for
+      // pure-bar — the test asserts failure, not silent substitution.
+      makeVenue({
+        id: "another-restaurant",
+        stop_roles: ["main"],
+        ...NEAR,
+        category: "japanese",
+      }),
+    ];
+    const { stops, zeroingStage } = composeItinerary(
+      venues,
+      DRINKS,
+      CLEAR,
+      0,
+      () => 0.5,
+    );
+    expect(stops).toHaveLength(0);
+    expect(zeroingStage).toBe("proximity");
+    // Belt-and-suspenders: the Seoul-Salon-shape venue is not in any
+    // returned stop even though it carries the "closer" tag.
+    expect(stops.map((s) => s.venue.id)).not.toContain(
+      "dinner-plus-bar-room",
+    );
+  });
+
+  it("Koreatown shape — one pure bar + closer-tagged restaurants → empty with 'proximity'", () => {
+    // The neighborhood-level analogue: one actual bar, plus several
+    // restaurants tagged main+closer (their late kitchen / bar room
+    // marks them closer-eligible venue-side but they're really
+    // restaurants). The collapsed-role bar filter rejects them, so
+    // the only real bar has no companion and Drinks fails honestly
+    // instead of pairing the bar with a dinner spot.
+    const venues = [
+      makeVenue({ id: "real-bar", stop_roles: ["opener"], ...NEAR, category: "cocktail_bar" }),
+      makeVenue({
+        id: "kimchi-spot",
+        stop_roles: ["main", "closer"],
+        ...NEAR,
+        category: "korean",
+      }),
+      makeVenue({
+        id: "bbq-spot",
+        stop_roles: ["main", "closer"],
+        ...NEAR,
+        category: "korean",
+      }),
+    ];
+    const { stops, zeroingStage } = composeItinerary(
+      venues,
+      DRINKS,
+      CLEAR,
+      0,
+      () => 0.5,
+    );
+    expect(stops).toHaveLength(0);
+    expect(zeroingStage).toBe("proximity");
   });
 });

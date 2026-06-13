@@ -13,9 +13,9 @@ import { SavedPlanRow } from "@/components/shared/SavedPlanRow";
 import { SavedPlanRowExpanded } from "@/components/shared/SavedPlanRowExpanded";
 import { LuckyDieButton } from "@/components/home/LuckyDieButton";
 import { Button } from "@/components/ui/Button";
-import { TonightsPickCard } from "@/components/home/TonightsPickCard";
+import { TonightsPickHero } from "@/components/home/TonightsPickHero";
 import { useTonightsPick } from "@/hooks/useTonightsPick";
-import { splitPlansByDate } from "@/lib/dateUtils";
+import { splitPlansByDate, todayLocalISO } from "@/lib/dateUtils";
 
 function UserIcon() {
   return (
@@ -73,7 +73,22 @@ export function HomeScreen({ userName }: HomeScreenProps) {
     [savedPlans],
   );
   const hasAnyPlans = savedPlans.length > 0;
+  // When the user already has a saved plan for tonight, that plan
+  // takes the upcoming hero slot (upcoming[0]) and the daily pick
+  // steps aside — we don't want two heroes competing for the same
+  // intent. Match by ISO day to avoid timezone drift.
+  const hasTonightPlan = upcoming.some((p) => p.day === todayLocalISO());
   const tonightsPick = useTonightsPick(user?.id ?? null);
+  // Narrow to the "ready" variant once so the render gate doesn't
+  // repeat the discriminant check. `pickData` is the typed handle
+  // we read inputs/itinerary/pick_date off of below.
+  const pickData =
+    tonightsPick.data?.status === "ready" ? tonightsPick.data : null;
+  // One-hero-per-page rule. Computed once here so the pick gate and
+  // the upcoming-section branch stay perfectly in sync — if showPick
+  // is true, the pick hero renders AND the upcoming section drops
+  // its SavedPlanRowExpanded hero in favor of compact SavedPlanRow.
+  const showPick = pickData !== null && !hasTonightPlan;
 
   return (
     <div className="min-h-screen flex flex-col bg-cream">
@@ -117,14 +132,16 @@ export function HomeScreen({ userName }: HomeScreenProps) {
       </div>
 
       {/* Tonight's Pick — between the action row and Upcoming.
-       * Renders only when the seeded daily roll succeeded (status:
-       * "ready"). Failures + the loading shimmer render nothing —
-       * spec: "no error state for unrequested content". */}
-      {tonightsPick.data?.status === "ready" && (
-        <TonightsPickCard
-          inputs={tonightsPick.data.inputs}
-          itinerary={tonightsPick.data.itinerary}
-          pickDate={tonightsPick.data.pick_date}
+       * Renders only when (a) the seeded daily roll succeeded
+       * (status: "ready") AND (b) the user has no saved plan for
+       * tonight (otherwise the upcoming hero is already showing
+       * their own intent). Failures + the loading shimmer render
+       * nothing — spec: "no error state for unrequested content". */}
+      {showPick && pickData && (
+        <TonightsPickHero
+          inputs={pickData.inputs}
+          itinerary={pickData.itinerary}
+          pickDate={pickData.pick_date}
         />
       )}
 
@@ -162,16 +179,12 @@ export function HomeScreen({ userName }: HomeScreenProps) {
                 <h2 className="font-sans text-xs tracking-widest uppercase text-muted mb-4">
                   Upcoming
                 </h2>
-                {/* Phase 6: hero treatment for the soonest upcoming. */}
-                <SavedPlanRowExpanded
-                  key={upcoming[0].id}
-                  plan={upcoming[0]}
-                  onDelete={deletePlan}
-                  onRenamed={renamePlan}
-                />
-                {upcoming.length > 1 && (
+                {showPick ? (
+                  // One-hero-per-page: the pick is already the page's
+                  // hero, so the Upcoming section degrades to compact
+                  // SavedPlanRow for ALL entries (no second hero).
                   <div className="divide-y divide-border border-t border-border">
-                    {upcoming.slice(1).map((plan) => (
+                    {upcoming.map((plan) => (
                       <SavedPlanRow
                         key={plan.id}
                         plan={plan}
@@ -180,6 +193,29 @@ export function HomeScreen({ userName }: HomeScreenProps) {
                       />
                     ))}
                   </div>
+                ) : (
+                  <>
+                    {/* Phase 6: hero treatment for the soonest upcoming
+                        when nothing else is competing for the slot. */}
+                    <SavedPlanRowExpanded
+                      key={upcoming[0].id}
+                      plan={upcoming[0]}
+                      onDelete={deletePlan}
+                      onRenamed={renamePlan}
+                    />
+                    {upcoming.length > 1 && (
+                      <div className="divide-y divide-border border-t border-border">
+                        {upcoming.slice(1).map((plan) => (
+                          <SavedPlanRow
+                            key={plan.id}
+                            plan={plan}
+                            onDelete={deletePlan}
+                            onRenamed={renamePlan}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </>
                 )}
               </section>
             )}

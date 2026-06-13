@@ -235,6 +235,19 @@ function ItineraryBody({
   // overwriting with the new context.
   const [swapReason, setSwapReason] = useState<SwapReasonContext | null>(null);
 
+  // Map of swap-anchor elements, keyed by stop index. Each StopCard
+  // registers its action-slot wrapper here on mount (and clears on
+  // unmount) so the desktop SwapReasonModal can position its popover
+  // against the right swap button after a swap completes. Mobile
+  // ignores the anchor and falls back to the bottom sheet.
+  const swapAnchorsRef = useRef<Map<number, HTMLElement | null>>(new Map());
+  const registerSwapAnchor = useCallback(
+    (i: number, el: HTMLElement | null) => {
+      swapAnchorsRef.current.set(i, el);
+    },
+    [],
+  );
+
   const onSwapComplete = useCallback(
     (ctx: SwapContext) => {
       // A successful swap changed the candidate pool (the swapped venue
@@ -454,6 +467,7 @@ function ItineraryBody({
           swappedIndex={swappedIndex}
           onUndoSwap={undoSwap}
           isLucky={isLuckyItinerary(itinerary.inputs)}
+          registerSwapAnchor={registerSwapAnchor}
         />
       </div>
       <ActionBar itinerary={itinerary} />
@@ -465,6 +479,7 @@ function ItineraryBody({
         swappedFromVenueName={swapReason?.swapContext.originalVenue.name ?? ""}
         onSubmit={handleReasonSubmit}
         onSkip={handleReasonSkip}
+        anchorEl={swapReason ? (swapAnchorsRef.current.get(swapReason.swapContext.stopIndex) ?? null) : null}
       />
     </main>
   );
