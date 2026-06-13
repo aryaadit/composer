@@ -8,6 +8,7 @@ import { AnimatePresence, motion } from "motion/react";
 import type { StopRole, Venue } from "@/types";
 import { neighborhoodLabel } from "@/config/neighborhoods";
 import { formatCategory, formatVibeTag } from "@/lib/format/category";
+import { formatVenueHours } from "@/lib/format/hours";
 import { getVenueImageUrls } from "@/lib/venues/images";
 import { detectBookingPlatform, isValidReservationUrl } from "@/lib/booking";
 import { useEngagement } from "@/components/itinerary/EngagementProvider";
@@ -102,6 +103,7 @@ function VenueDetailContent({
   const { trackEngagement } = useEngagement();
   // V2 venues have Google data as direct fields, not JSONB
   const photos = getVenueImageUrls(venue.image_keys ?? []);
+  const hoursDisplay = formatVenueHours(venue.hours);
 
   return (
     <div className="pb-[max(1.5rem,env(safe-area-inset-bottom))]">
@@ -192,9 +194,23 @@ function VenueDetailContent({
         )}
 
         {/* Hours */}
-        {venue.hours && (
+        {hoursDisplay && (
           <div className="mt-4">
-            <p className="font-sans text-sm text-muted">{venue.hours}</p>
+            {hoursDisplay.kind === "raw" ? (
+              <p className="font-sans text-sm text-muted">{hoursDisplay.text}</p>
+            ) : (
+              <div className="space-y-0.5">
+                {hoursDisplay.rows.map((row) => (
+                  <div
+                    key={row.days}
+                    className="flex justify-between gap-6 font-sans text-sm"
+                  >
+                    <span className="text-charcoal">{row.days}</span>
+                    <span className="text-muted text-right">{row.hours}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
         {venue.happy_hour && (
