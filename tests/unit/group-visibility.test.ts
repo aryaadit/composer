@@ -181,16 +181,18 @@ describe("visible-group snapshot — fails loudly when the catalog shifts", () =
     // test fails. Regenerate the snapshot below ONLY after eyeballing
     // the new list and confirming the change is intended.
     //
-    // Generated 2026-06-11 against
+    // Regenerated 2026-06-13 against
     //   median(itinerariesByTier) >= 25
     // with itinerariesByTier baked from Friday-evening native counts.
-    // 18 groups render; 7 hide (gramercy_murray_hill, harlem_uptown,
+    // 17 groups render; 8 hide (gramercy_murray_hill, harlem_uptown,
     // upper_east_side, upper_west_side, south_brooklyn, queens,
-    // bronx_si). Refresh via:
+    // bronx_si, bed_stuy_crown_heights). Bed-Stuy dropped from the
+    // visible set on the 2026-06-13 rebake (1320 → 1309 active venues
+    // shifted splurge composability to 21, pulling the median below
+    // the gate). Refresh via:
     //   npx tsx -e "import { NEIGHBORHOOD_GROUPS } from '@/config/generated/neighborhoods'; import { isGroupVisible } from '@/config/group-visibility'; console.log(JSON.stringify(Object.entries(NEIGHBORHOOD_GROUPS).filter(([, g]) => isGroupVisible(g)).map(([id]) => id).sort(), null, 2));"
     const expected = new Set([
       "astoria_lic",
-      "bed_stuy_crown_heights",
       "chelsea",
       "chinatown",
       "dumbo_brooklyn_heights",

@@ -1,6 +1,6 @@
 // AUTO-GENERATED — DO NOT EDIT
-// Source: Google Sheet 1ZH8CniJglou0A72e7U4b3nvtsa7tDRVMIAzNqMqEck8
-// Generated: 2026-06-12T02:22:46.413887+00:00
+// Source: Google Sheet 1XEGDSlWU-mPBKZOIHYfi6MOWclB22_wLlM-ohX3kn9I
+// Generated: 2026-06-13T10:24:20.846151+00:00
 
 export interface NeighborhoodGroup {
   label: string;
@@ -25,43 +25,43 @@ export const NEIGHBORHOOD_GROUPS: Record<string, NeighborhoodGroup> = {
     label: "West Village",
     borough: "Manhattan",
     slugs: ["west_village"],
-    venueCount: 128,
-    itinerariesByTier: { casual: 80, nice_out: 1486, splurge: 1758 },
+    venueCount: 127,
+    itinerariesByTier: { casual: 182, nice_out: 2125, splurge: 2078 },
   },
   greenwich_village: {
     label: "Greenwich Village",
     borough: "Manhattan",
     slugs: ["greenwich_village"],
     venueCount: 31,
-    itinerariesByTier: { casual: 2, nice_out: 60, splurge: 114 },
+    itinerariesByTier: { casual: 2, nice_out: 68, splurge: 123 },
   },
   east_village_les: {
     label: "East Village / LES",
     borough: "Manhattan",
     slugs: ["east_village", "lower_east_side", "bowery"],
-    venueCount: 220,
-    itinerariesByTier: { casual: 296, nice_out: 3836, splurge: 2752 },
+    venueCount: 219,
+    itinerariesByTier: { casual: 690, nice_out: 6167, splurge: 3799 },
   },
   soho_nolita_tribeca: {
     label: "SoHo / Nolita / Tribeca",
     borough: "Manhattan",
     slugs: ["soho_nolita", "nolita", "noho", "tribeca", "little_italy", "hudson_square"],
-    venueCount: 149,
-    itinerariesByTier: { casual: 122, nice_out: 1104, splurge: 1366 },
+    venueCount: 148,
+    itinerariesByTier: { casual: 157, nice_out: 1219, splurge: 1478 },
   },
   chelsea: {
     label: "Chelsea",
     borough: "Manhattan",
     slugs: ["chelsea"],
     venueCount: 40,
-    itinerariesByTier: { casual: 5, nice_out: 159, splurge: 170 },
+    itinerariesByTier: { casual: 10, nice_out: 209, splurge: 206 },
   },
   flatiron_nomad: {
     label: "Flatiron / NoMad",
     borough: "Manhattan",
     slugs: ["flatiron", "nomad"],
-    venueCount: 62,
-    itinerariesByTier: { casual: 3, nice_out: 217, splurge: 464 },
+    venueCount: 61,
+    itinerariesByTier: { casual: 5, nice_out: 256, splurge: 554 },
   },
   gramercy_murray_hill: {
     label: "Gramercy / Murray Hill",
@@ -74,14 +74,14 @@ export const NEIGHBORHOOD_GROUPS: Record<string, NeighborhoodGroup> = {
     label: "Hell's Kitchen / Midtown West",
     borough: "Manhattan",
     slugs: ["midtown_west"],
-    venueCount: 30,
-    itinerariesByTier: { casual: 10, nice_out: 34, splurge: 52 },
+    venueCount: 29,
+    itinerariesByTier: { casual: 16, nice_out: 48, splurge: 55 },
   },
   midtown_east: {
     label: "Midtown East",
     borough: "Manhattan",
     slugs: ["midtown_east"],
-    venueCount: 29,
+    venueCount: 28,
     itinerariesByTier: { casual: 0, nice_out: 28, splurge: 55 },
   },
   koreatown: {
@@ -96,28 +96,28 @@ export const NEIGHBORHOOD_GROUPS: Record<string, NeighborhoodGroup> = {
     borough: "Manhattan",
     slugs: ["chinatown"],
     venueCount: 35,
-    itinerariesByTier: { casual: 54, nice_out: 154, splurge: 49 },
+    itinerariesByTier: { casual: 47, nice_out: 152, splurge: 49 },
   },
   fidi_lower_manhattan: {
     label: "FiDi / Lower Manhattan",
     borough: "Manhattan",
     slugs: ["fidi", "lower_manhattan", "battery_park_city"],
     venueCount: 25,
-    itinerariesByTier: { casual: 0, nice_out: 69, splurge: 40 },
+    itinerariesByTier: { casual: 4, nice_out: 83, splurge: 39 },
   },
   upper_west_side: {
     label: "Upper West Side",
     borough: "Manhattan",
     slugs: ["upper_west_side"],
     venueCount: 33,
-    itinerariesByTier: { casual: 0, nice_out: 21, splurge: 18 },
+    itinerariesByTier: { casual: 2, nice_out: 23, splurge: 12 },
   },
   upper_east_side: {
     label: "Upper East Side",
     borough: "Manhattan",
     slugs: ["upper_east_side"],
     venueCount: 26,
-    itinerariesByTier: { casual: 0, nice_out: 7, splurge: 42 },
+    itinerariesByTier: { casual: 0, nice_out: 7, splurge: 44 },
   },
   harlem_uptown: {
     label: "Harlem / Uptown",
@@ -131,42 +131,42 @@ export const NEIGHBORHOOD_GROUPS: Record<string, NeighborhoodGroup> = {
     borough: "Brooklyn",
     slugs: ["williamsburg", "greenpoint"],
     venueCount: 141,
-    itinerariesByTier: { casual: 31, nice_out: 1532, splurge: 1513 },
+    itinerariesByTier: { casual: 144, nice_out: 3055, splurge: 2603 },
   },
   east_williamsburg_bushwick: {
     label: "East Williamsburg / Bushwick",
     borough: "Brooklyn",
     slugs: ["east_williamsburg", "bushwick"],
-    venueCount: 76,
-    itinerariesByTier: { casual: 34, nice_out: 263, splurge: 127 },
+    venueCount: 75,
+    itinerariesByTier: { casual: 48, nice_out: 410, splurge: 218 },
   },
   dumbo_brooklyn_heights: {
     label: "DUMBO / Brooklyn Heights",
     borough: "Brooklyn",
     slugs: ["dumbo", "brooklyn_heights", "cobble_hill", "carroll_gardens"],
     venueCount: 51,
-    itinerariesByTier: { casual: 7, nice_out: 156, splurge: 110 },
+    itinerariesByTier: { casual: 8, nice_out: 180, splurge: 117 },
   },
   fort_greene_clinton_hill: {
     label: "Fort Greene / Clinton Hill",
     borough: "Brooklyn",
     slugs: ["fort_greene", "clinton_hill"],
-    venueCount: 20,
-    itinerariesByTier: { casual: 0, nice_out: 38, splurge: 51 },
+    venueCount: 19,
+    itinerariesByTier: { casual: 0, nice_out: 46, splurge: 54 },
   },
   park_slope_prospect: {
     label: "Park Slope / Prospect",
     borough: "Brooklyn",
     slugs: ["park_slope", "prospect_heights", "prospect_lefferts", "gowanus"],
-    venueCount: 44,
-    itinerariesByTier: { casual: 4, nice_out: 85, splurge: 92 },
+    venueCount: 42,
+    itinerariesByTier: { casual: 5, nice_out: 100, splurge: 96 },
   },
   bed_stuy_crown_heights: {
     label: "Bed-Stuy / Crown Heights",
     borough: "Brooklyn",
     slugs: ["bed_stuy", "crown_heights"],
     venueCount: 31,
-    itinerariesByTier: { casual: 4, nice_out: 69, splurge: 29 },
+    itinerariesByTier: { casual: 10, nice_out: 66, splurge: 21 },
   },
   south_brooklyn: {
     label: "South Brooklyn",
@@ -179,8 +179,8 @@ export const NEIGHBORHOOD_GROUPS: Record<string, NeighborhoodGroup> = {
     label: "Astoria / LIC",
     borough: "Queens",
     slugs: ["astoria", "long_island_city", "sunnyside"],
-    venueCount: 37,
-    itinerariesByTier: { casual: 0, nice_out: 30, splurge: 35 },
+    venueCount: 36,
+    itinerariesByTier: { casual: 0, nice_out: 30, splurge: 36 },
   },
   queens: {
     label: "Queens",
@@ -199,4 +199,4 @@ export const NEIGHBORHOOD_GROUPS: Record<string, NeighborhoodGroup> = {
 };
 
 export const ALL_NEIGHBORHOODS: string[] = ["arthur_avenue", "astoria", "battery_park_city", "bed_stuy", "bowery", "bronx", "bronx_concourse", "bronx_fordham", "brooklyn_heights", "bushwick", "carroll_gardens", "chelsea", "chinatown", "city_island", "clinton_hill", "cobble_hill", "columbia_waterfront", "crown_heights", "dumbo", "east_village", "east_williamsburg", "fidi", "flatiron", "flushing", "fort_greene", "gowanus", "gramercy", "gravesend", "greenpoint", "greenwich_village", "harlem", "howard_beach", "hudson_square", "jackson_heights", "koreatown", "little_italy", "long_island_city", "lower_east_side", "lower_manhattan", "midtown_east", "midtown_west", "mott_haven", "murray_hill", "noho", "nolita", "nomad", "park_slope", "prospect_heights", "prospect_lefferts", "red_hook", "ridgewood", "sheepshead_bay", "soho_nolita", "south_ozone_park", "stapleton_heights", "staten_island", "sunnyside", "sunset_park", "tribeca", "upper_east_side", "upper_west_side", "washington_heights", "west_village", "williamsburg"];
-export const BAKE_VERSION = "bade7a9fb4e7";
+export const BAKE_VERSION = "3a9f67ed58bd";

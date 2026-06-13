@@ -70,76 +70,139 @@ Never hardcode these. Never commit `.env.local`. Always use `process.env.*` serv
 ```
 src/
 ├── app/
+│   ├── layout.tsx                        # Root layout + AuthProvider
 │   ├── page.tsx                          # Root gate: AuthScreen → /onboarding → HomeScreen
+│   ├── globals.css                       # Tailwind 4 @theme tokens + crown utility shims
 │   ├── compose/page.tsx                  # Questionnaire flow
-│   ├── itinerary/page.tsx                # Composition output
+│   ├── itinerary/page.tsx                # Fresh composition output
 │   ├── itinerary/saved/[id]/page.tsx     # Saved itinerary view
-│   ├── itinerary/share/[id]/page.tsx     # Public shared itinerary view
+│   ├── itinerary/share/[id]/page.tsx     # Public shared itinerary view (snapshot)
 │   ├── onboarding/page.tsx               # Profile builder (2 steps: name → prefs)
 │   ├── profile/page.tsx                  # Profile + saved plans + admin section
-│   ├── privacy/page.tsx                  # Privacy policy (public, for Twilio TFV)
+│   ├── profile/_components/              # Profile-page-private widgets (saved list, field editor, sync panels)
+│   ├── auth/callback/                    # Supabase OAuth/OTP callback (legacy + email confirm)
+│   ├── auth/reset/page.tsx               # Password-reset landing
+│   ├── admin/onboarding/page.tsx         # Admin-only onboarding inspector
 │   └── api/
 │       ├── generate/route.ts             # POST: weather + scoring + Gemini → itinerary
 │       ├── add-stop/route.ts             # POST: extend itinerary
 │       ├── swap-stop/route.ts            # POST: replace one stop
+│       ├── daily-pick/route.ts           # POST: today's seeded pick (cache-once-per-day per user)
 │       ├── share/route.ts                # POST: snapshot itinerary into shareable link
+│       ├── itineraries/[id]/route.ts     # PATCH: rename saved itinerary (custom_name)
 │       ├── profile/route.ts              # PATCH: validated profile updates (server-side)
+│       ├── analytics/track/route.ts      # POST: server-side mirror write (Supabase)
+│       ├── availability/[venueId]/route.ts # GET: ad-hoc Resy availability lookup
 │       ├── health/route.ts               # GET: diagnostic (Supabase + scoring + Gemini)
 │       └── admin/
 │           ├── sync-venues/route.ts      # POST: re-sync from sheet
 │           └── venue/route.ts            # GET: lookup by name (admin)
 │
 ├── components/
-│   ├── ui/                               # Header (rightSlot prop), Button, StopCard, etc.
+│   ├── Header.tsx                        # Shared page header (variant: default | crown)
+│   ├── ui/                               # Button, StopCard, DatePicker, WalkConnector, OptionCard, ProgressBar, FeedbackButton
 │   ├── auth/                             # AuthScreen (phone-default), ForgotPasswordScreen
 │   ├── providers/                        # AuthProvider
-│   ├── shared/                           # NeighborhoodPicker (used by questionnaire + profile)
-│   ├── home/                             # HomeScreen
-│   ├── onboarding/                       # OnboardingFlow (3 steps; hood step commented out)
-│   ├── questionnaire/                    # Shell + step components
-│   └── itinerary/                        # CompositionHeader, ItineraryView, ActionBar, etc.
+│   ├── shared/                           # NeighborhoodPicker, SavedPlanRow, SavedPlanRowExpanded
+│   ├── home/                             # HomeScreen, LuckyDieButton, LuckyOverlay, TonightsPickCard
+│   ├── onboarding/                       # OnboardingFlow (2 steps; context step removed 2026-05-20)
+│   ├── questionnaire/                    # QuestionnaireShell, StandardStep, NeighborhoodStep, WhenStep, StepLoading, CitySwitcher
+│   ├── itinerary/                        # ActionBar, ComposeFailureBlock, CompositionHeader, ConfirmModal,
+│   │                                     # EngagementProvider, ItineraryMap(+Inner), ItineraryView,
+│   │                                     # LooksGoodCTA, LuckyBanner, LuckyCrown, OrderingConflictBanner,
+│   │                                     # PastItineraryBanner, SlotChip, StopAvailability, SwapReasonModal
+│   └── venue/                            # VenueDetailModal
+│
+├── hooks/
+│   ├── useSavedPlans.ts                  # Shared saved-itineraries list (home + profile)
+│   ├── useSwapStop.ts                    # Swap orchestration + undo + exclusions ref
+│   └── useTonightsPick.ts                # Daily-pick fetch on mount + once-per-day analytics
 │
 ├── lib/
 │   ├── supabase.ts                       # Anon + service-role Supabase clients
 │   ├── supabase/browser.ts               # Browser auth-aware client
 │   ├── supabase/server.ts                # Server auth-aware client
 │   ├── auth.ts                           # signIn/signUp/upsertProfile (validates payload)
+│   ├── analytics.ts                      # Client wrapper (typed track + identify + mirror)
+│   ├── analytics-server.ts               # Server wrapper (trackServer + mirror)
+│   ├── analytics/events.ts               # Canonical EventSchemas (single source of truth)
+│   ├── analytics/compose-abandoned.ts    # In-tab compose-abandon flag (sessionStorage)
+│   ├── analytics/signup-source.ts        # signup_at / signup_source $set_once helpers
+│   ├── posthog-server.ts                 # posthog-node client (server-only, gated import)
 │   ├── scoring.ts                        # Weighted scoring + cascade relaxation
 │   ├── composer.ts                       # planStopMix + composeItinerary
 │   ├── claude.ts                         # Gemini call with graceful fallback
 │   ├── weather.ts                        # OpenWeatherMap
-│   ├── geo.ts                            # Haversine + Manhattan grid factor
-│   ├── sharing.ts                        # URL param encode/decode
+│   ├── geo.ts                            # Haversine + Manhattan grid factor + maps URL
+│   ├── walking-routes.ts                 # Mapbox Directions cache + polyline encode
+│   ├── mapbox.ts                         # Mapbox static-map URL builder
+│   ├── google-places.ts                  # Photo enrichment client (admin scripts)
+│   ├── sharing.ts                        # Legacy URL-param share-link DECODER (today's share is a snapshot)
 │   ├── booking.ts                        # Booking platform detection
 │   ├── profanity.ts                      # validateName + obscenity-based filter
+│   ├── exclusions.ts                     # Recent-venue exclusion fetch (anti-stale-pick)
+│   ├── calendar.ts                       # ICS export for the Looks Good modal
+│   ├── dateUtils.ts                      # isPastDate + splitPlansByDate
+│   ├── styles.ts                         # Shared pillClass builder
+│   ├── lucky.ts                          # Pure rolls (rollLuckyInputs, nextEligibleStartTime)
+│   ├── lucky-runner.ts                   # Retry orchestration around /api/generate
+│   ├── questionnaireReducer.ts           # Questionnaire-shell reducer
+│   ├── format/category.ts                # Display formatting for category strings
+│   ├── format/stop-eyebrow.ts            # Position-aware stop label (Start here / Main / Last call)
 │   ├── validation/profile.ts             # validateProfilePayload (taxonomy check)
 │   ├── itinerary/
 │   │   ├── seed.ts                       # FNV-1a + Mulberry32 PRNG (deterministic jitter)
-│   │   ├── time-blocks.ts                # TimeBlock + blockCoverageFraction + isSlotInBlock
+│   │   ├── time-blocks.ts                # TimeWindow + resolve/format + isSlotInWindow
 │   │   ├── weighted-pick.ts              # Top-N rank-weighted sampling
-│   │   └── availability-enrichment.ts    # Resy availability per stop
+│   │   ├── availability-enrichment.ts    # Resy availability per stop
+│   │   ├── pre-filter.ts                 # Shared hard-filter stack for generate/swap/add
+│   │   ├── compose-failure.ts            # Client-safe failure copy registry + types
+│   │   ├── compose-failure-server.ts     # Server response helpers (posthog-node kept off client)
+│   │   ├── is-lucky.ts                   # Canonical isLuckyItinerary(inputs) predicate
+│   │   ├── save.ts                       # composer_saved_itineraries INSERT helper
+│   │   ├── saved-hydration.ts            # Row → ItineraryResponse for saved-page revisits
+│   │   └── swap-reason.ts                # Swap reason analytics payload builder
 │   ├── availability/
 │   │   ├── resy.ts                       # POST /4/find client
-│   │   └── booking-url.ts                # Resy deep-link URL builders
-│   └── venues/images.ts                  # Supabase Storage public URLs
+│   │   ├── opentable.ts                  # OpenTable URL pre-fill helpers
+│   │   ├── booking-url.ts                # Resy slot-specific deep-link builder
+│   │   └── index.ts                      # Re-exports
+│   └── venues/
+│       ├── fetch-active.ts               # Canonical paginated active-venue read
+│       ├── images.ts                     # Supabase Storage public URLs
+│       ├── import.ts                     # Sheet → DB pipeline (admin UI + CLI)
+│       ├── apply.ts                      # composer_apply_venue_import RPC client
+│       ├── diff.ts                       # Diff builder for import preview
+│       ├── assertions.ts                 # Sanity assertions (counts, taxonomy presence)
+│       ├── sheet.ts                      # Google Sheets reader
+│       ├── transform.ts                  # Sheet rows → venue shape
+│       ├── columns.ts                    # Sheet column metadata
+│       ├── config.ts                     # Shared importer config
+│       ├── audit.ts                      # composer_import_runs writer
+│       └── types.ts                      # Importer-local types
 │
 ├── config/
 │   ├── algorithm.ts                      # SINGLE source of truth for weights/thresholds/penalties
 │   ├── options.ts                        # Questionnaire step definitions
-│   ├── budgets.ts                        # BUDGET_TIERS + BUDGET_PRIMARY_TIER + label overrides
+│   ├── budgets.ts                        # BUDGET_TIERS + label overrides
 │   ├── vibes.ts                          # VIBES + label overrides + ALCOHOL_VIBE_TAGS
-│   ├── neighborhoods.ts                  # NEIGHBORHOOD_GROUPS + expand/derive helpers
-│   ├── onboarding.ts                     # CONTEXT_OPTIONS + CONTEXT_TO_OCCASION
+│   ├── neighborhoods.ts                  # expand/derive helpers (groups baked into generated/)
+│   ├── occasions.ts                      # OCCASION_BUCKET taxonomy + legacy slug map
+│   ├── onboarding.ts                     # Onboarding step copy (context step deprecated 2026-05-20)
 │   ├── templates.ts                      # Vibe-driven stop pattern templates
 │   ├── prompts.ts                        # Gemini system prompt + builder
 │   ├── storage.ts                        # sessionStorage keys (page-to-page in-tab only)
-│   ├── roles.ts                          # ROLE_LABELS for UI
+│   ├── roles.ts                          # STOP_ROLES + ROLE_LABELS (display fallback)
+│   ├── lucky.ts                          # LUCKY constants (cap times, debounce, attempts)
+│   ├── cities.ts                         # Single-city today; placeholder for multi-city expansion
+│   ├── group-visibility.ts               # Neighborhood-group visibility predicate
 │   └── generated/*.ts                    # Auto-generated from Google Sheet (DO NOT EDIT)
 │
 └── types/index.ts                        # Shared types (Venue, ItineraryResponse, etc.)
 
 scripts/                                  # Python: sheet sync, backfills, snapshots
 supabase/migrations/                      # Schema migrations (numbered by date)
+tests/unit/                               # Vitest (no jsdom — source-grep contracts for render code)
 ```
 
 ---
@@ -333,18 +396,18 @@ Surface a weather note in the composition header only when conditions affected t
 
 Defined in `config/options.ts`. Five steps, each with an explicit "Next →" button:
 
-1. **Occasion** — `dating` | `relationship` | `friends` | `family` | `solo`
-   Display labels: Dating, Relationship, Friends Night Out, Family, Solo
-2. **Neighborhoods** — pick up to 3 from borough-grouped picker (25 groups; thin groups <50 venues are hidden)
-3. **Budget** — `casual` | `nice_out` | `splurge` | `all_out` | `no_preference`
-   Display labels: Budget, Solid, Splurge, All Out, No Preference (`casual` slug renders as **"Budget"** per `BUDGET_LABEL_OVERRIDES` in `src/config/budgets.ts:13-18` — code wins over older "Casual" docs)
-4. **Vibe** — `food_forward` | `drinks_led` | `activity_food` | `mix_it_up`
-   Display labels: Meal, Drinks, Activity, Variety
-5. **When** — day (7-day pills + custom date picker) + time block (morning / afternoon / evening / late_night)
+1. **Occasion** (3 buckets) — `date` | `friends` | `solo`
+   Display labels: Date, Friends, Solo. Sheet-side slugs (`dating`, `relationship`, `family`, `couple`, `first_date`, …) collapse into the 3 buckets at scoring time via `OCCASION_BUCKET_TO_SHEET_SLUGS`; legacy save links still translate via `DEPRECATED_OCCASION_SLUG_TO_BUCKET` in `src/config/occasions.ts`.
+2. **Neighborhoods** — pick up to 3 from borough-grouped picker (25 groups; thin groups under `ALGORITHM.pools.minGroupVenuesToRender` are hidden)
+3. **Budget** (3 buckets) — `casual` | `nice_out` | `splurge`
+   Display labels: Casual, Solid, Splurge. Wider DB-side `Budget` type retains `all_out` / `no_preference` for legacy save reads; the questionnaire's `ComposeBudget` is narrowed to the three above (`src/types/index.ts`).
+4. **Vibe** (3 vibes) — `food_forward` | `drinks_led` | `activity_food`
+   Display labels: Meal, Drinks, Activity. `mix_it_up` (Variety) was dropped from the questionnaire in Phase 7; the slug is still accepted in saved itineraries and scoring falls through to the empty-tag baseline (`vibeMixItUpBaseline`).
+5. **When** — day (7-day pills + themed custom calendar on desktop / native OS picker on touch via pointer-modality split) + start-time pill (17:00 / 18:00 / 19:00 / 20:00 / 21:00). The server derives `endTime = startTime + 5h` (wrapping past midnight). The categorical TimeBlock type is internal venue-side metadata — it never appears on `QuestionnaireAnswers`.
 
 No auto-advance — every step requires an explicit button tap. **Occasion no longer auto-prefills** — the `CONTEXT_TO_OCCASION` map was removed 2026-05-20 with the onboarding context step. **Neighborhood prefill from `profile.favorite_hoods` no longer applies** — that data is no longer collected (see Onboarding Flow below).
 
-**Display labels are decoupled from slugs.** The slug values (`relationship`, `splurge`, `food_forward`, etc.) are stable; only the display strings change. Slug renames require coordinated updates to the venue sheet, taxonomy config, and any saved itineraries.
+**Display labels are decoupled from slugs.** The slug values are stable; only the display strings change. Slug renames require coordinated updates to the venue sheet, taxonomy config, and any saved itineraries.
 
 ## Onboarding Flow
 
@@ -423,6 +486,28 @@ The audit's call-out: SwapReasonModal Submit used to hand-roll `disabled:bg-mute
 Every async surface (page-level loaders, post-action confirmations, form-fetch spinners, dynamic count changes) ships `role="status"` + `aria-live="polite"`. The visible text content is the accessible name — no separate `aria-label` needed if the rendered copy already describes what's happening. The pattern lives in `src/components/home/LuckyOverlay.tsx` and `src/components/itinerary/StopAvailability.tsx`; mirror it.
 
 For toasts: don't. There is no Toast / Snackbar primitive in the app — the audit removed it in 2026-06-12. Surface outcomes IN CONTEXT next to the triggering control: save errors render above the sticky CTA in `LooksGoodCTA`; swap success renders as the "Swapped · Undo" line on the swapped StopCard. New ephemeral feedback follows the same rule.
+
+### Lucky itineraries — layer, not fork
+
+Itineraries from the dice roll (`inputs.mode === "lucky"`) get a distinct visual treatment as a **layer** on the standard render. Two layer touches today:
+
+**Above the seam — the inverted crown.** `LuckyCrown` wraps the page header, composition header, and dice banner in a deep-burgundy field. Three component variants:
+
+- `Header variant="crown"` — the lockup flips to cream via `brightness-0 invert`, and the focus ring uses the `crown-ring` token (the burgundy/50 ring is invisible on the dark field).
+- `CompositionHeader variant="crown"` — text colors switch to the `crown-text` / `crown-text-muted` tokens (both tuned to pass 4.5:1 on `crown-field`). The title die also tones to cream.
+- `LuckyBanner variant="crown"` — chip-on-field treatment using `crown-chip` + `crown-chip-border`.
+
+**Below the seam — wavy connectors only.** Everything in `ItineraryView` renders identically to a standard itinerary EXCEPT the `WalkConnector`, which switches to `variant="wavy"` — a hand-drawn-style burgundy SVG flank, decorative only. The map's route polyline is real data and stays untouched.
+
+The gate is the canonical predicate `isLuckyItinerary(inputs)` in `src/lib/itinerary/is-lucky.ts`. Daily picks (`mode === "daily"`) are NOT lucky — they render standard.
+
+**Color tokens** for the crown live next to the brand tokens in `src/app/globals.css` under the `--color-crown-*` group: `crown-field`, `crown-chip`, `crown-chip-border`, `crown-text`, `crown-text-muted`, `crown-ring`. The file also ships explicit `.bg-crown-field` / `.text-crown-*` class rules alongside the Tailwind `@theme` block — Turbopack's dev cache sometimes doesn't pick up new `@theme` tokens without a server restart, and the explicit rules guarantee the styles apply either way. Don't reach for raw hexes anywhere in the crown scope — always the token.
+
+**Rules for future contributors:**
+- Don't fork rendering paths on mode globally. Crown variants are **explicit props** on shared components (`Header`, `CompositionHeader`, `LuckyBanner`), never a style override that leaks into home, questionnaire, or standard itineraries.
+- Don't inline `inputs?.mode === "lucky"` checks. Always go through `isLuckyItinerary()` so the gate is grep-able when a new mode lands.
+- Below the seam: keep the lucky-layer touches minimal and decorative (wavy connectors only today). New below-seam touches require an explicit prop on the affected component gated through `isLuckyItinerary()`.
+- New lucky touches MUST be reversible: removing the `isLuckyItinerary(...)` calls in the consumer pages restores the standard render byte-for-byte.
 
 ---
 

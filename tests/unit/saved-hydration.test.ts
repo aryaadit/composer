@@ -241,3 +241,51 @@ describe("saved itinerary start_time round-trip (Phase 1 fidelity)", () => {
     });
   });
 });
+
+// ── 2026-06-12: entry mode round-trip (lucky-revisit theming gate) ──
+//
+// composer_saved_itineraries stores inputs as decomposed columns, not as
+// a JSONB blob — so the `mode` field on inputs needed its own column
+// (added in 20260612_add_mode_to_saved_itineraries) plus explicit
+// write/read on both sides. Before this fix, lucky-saved itineraries
+// silently rendered as standard on revisit because isLuckyItinerary()
+// reads inputs.mode and the hydrator never set it.
+
+describe("saved itinerary mode round-trip — lucky revisit gate", () => {
+  it("preserves mode='lucky' from the row onto inputs.mode", () => {
+    const saved = row({ mode: "lucky" });
+    const hydrated = hydrateSavedItinerary(saved);
+    expect(hydrated.inputs.mode).toBe("lucky");
+  });
+
+  it("preserves mode='daily' (daily-pick revisits land on saved page too)", () => {
+    const saved = row({ mode: "daily" });
+    const hydrated = hydrateSavedItinerary(saved);
+    expect(hydrated.inputs.mode).toBe("daily");
+  });
+
+  it("preserves mode='questionnaire'", () => {
+    const saved = row({ mode: "questionnaire" });
+    const hydrated = hydrateSavedItinerary(saved);
+    expect(hydrated.inputs.mode).toBe("questionnaire");
+  });
+
+  it("legacy row (mode=null, pre-20260612 migration) → mode absent from inputs", () => {
+    const saved = row({ mode: null });
+    const hydrated = hydrateSavedItinerary(saved);
+    // Matches the QuestionnaireAnswers.mode contract: optional field
+    // absent rather than present-but-undefined. isLuckyItinerary()
+    // resolves absent → false, so legacy lucky saves render as
+    // standard. We can't retroactively know which legacy saves were
+    // originally lucky — undefined is the honest answer.
+    expect(hydrated.inputs.mode).toBeUndefined();
+    expect("mode" in hydrated.inputs).toBe(false);
+  });
+
+  it("undefined mode (older fetch shape) also hydrates as absent", () => {
+    const saved = row({});
+    delete (saved as { mode?: string | null }).mode;
+    const hydrated = hydrateSavedItinerary(saved);
+    expect(hydrated.inputs.mode).toBeUndefined();
+  });
+});

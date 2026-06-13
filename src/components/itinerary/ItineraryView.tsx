@@ -58,6 +58,13 @@ interface ItineraryViewProps {
    * (venue_detail_opened, reservation_clicked) so we can segment
    * engagement by where the user encountered the itinerary. */
   surface?: ItinerarySurface;
+  /** Lucky-layer touches that survive below the seam. Today: the
+   *  WalkConnector switches to its wavy variant. The banner + title
+   *  die + crown band live ABOVE the seam, owned by LuckyCrown.
+   *  Standard + daily itineraries render exactly as before when
+   *  this is false / omitted. Computed at the consumer page from
+   *  isLuckyItinerary(itinerary.inputs). */
+  isLucky?: boolean;
 }
 
 export function ItineraryView({
@@ -76,6 +83,7 @@ export function ItineraryView({
   onUndoSwap,
   isPast = false,
   surface = "fresh_itinerary",
+  isLucky = false,
 }: ItineraryViewProps) {
   const { trackEngagement, incrementEngagement } = useEngagement();
 
@@ -243,6 +251,7 @@ export function ItineraryView({
               <WalkConnector
                 walkMinutes={walks[i].walk_minutes}
                 index={i}
+                variant={isLucky ? "wavy" : "default"}
               />
             )}
           </Fragment>

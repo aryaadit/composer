@@ -20,6 +20,8 @@ import {
 import { Header } from "@/components/Header";
 import { Button } from "@/components/ui/Button";
 import { isPastDate } from "@/lib/dateUtils";
+import { isLuckyItinerary } from "@/lib/itinerary/is-lucky";
+import { LuckyCrown } from "@/components/itinerary/LuckyCrown";
 import type { ItineraryResponse } from "@/types";
 
 type LoadState =
@@ -120,9 +122,23 @@ export default function SharedItineraryPage({
       composeInputs={itinerary.inputs ?? null}
     >
       <main className="flex flex-1 flex-col items-center min-h-screen pb-8">
-        <Header />
+        {isLuckyItinerary(itinerary.inputs) ? (
+          <LuckyCrown
+            header={itinerary.header}
+            inputs={itinerary.inputs}
+          />
+        ) : (
+          <>
+            <Header />
+            <div className="w-full px-6 mt-6 flex flex-col items-center">
+              <CompositionHeader
+                header={itinerary.header}
+                inputs={itinerary.inputs}
+              />
+            </div>
+          </>
+        )}
         <div className="w-full px-6 mt-6 flex flex-col items-center">
-          <CompositionHeader header={itinerary.header} inputs={itinerary.inputs} />
           {isPast && <PastItineraryBanner day={itinerary.inputs?.day} />}
           <ItineraryView
             stops={itinerary.stops}
@@ -132,6 +148,7 @@ export default function SharedItineraryPage({
             startTime={itinerary.inputs?.startTime}
             isPast={isPast}
             surface="share"
+            isLucky={isLuckyItinerary(itinerary.inputs)}
           />
           <ShareFooter
             mapsUrl={itinerary.maps_url}

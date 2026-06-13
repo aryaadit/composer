@@ -18,9 +18,42 @@
   --color-burgundy-light: #8A2A3E;
   --color-burgundy-tint: #FDF8F8; /* selected-state bg */
 
+  /* ─── Crown — lucky-itinerary inverted header band ───────────────
+   * Scoped tokens for the deep-burgundy field that wraps the page
+   * header + composition header + dice banner on lucky itineraries
+   * (mode === "lucky"). Standard and daily itineraries never reach
+   * these — see CLAUDE.md "Lucky itineraries — layer, not fork".
+   *
+   * Contrast budget (WCAG AA, 4.5:1 on body-size text):
+   *   crown-text       on crown-field ≈ 13.5:1  ✓
+   *   crown-text-muted on crown-field ≈ 7.5:1   ✓
+   *
+   * crown-ring is a deliberately brighter shade than crown-text-muted
+   * — the standard burgundy/50 focus ring is invisible on this dark
+   * field, so the crown scope ships its own visible ring token. */
+  --color-crown-field: #4A1520;
+  --color-crown-chip: #5E1B29;
+  --color-crown-chip-border: #C98A96;
+  --color-crown-text: #FFF7F2;
+  --color-crown-text-muted: #D9B8B0;
+  --color-crown-ring: #F2D9D2;
+
   --font-serif: var(--font-playfair);
   --font-sans: var(--font-dm-sans);
 }
+
+/* Crown utilities — explicit class rules in addition to the Tailwind
+ * 4 @theme generation above. Turbopack's dev cache sometimes doesn't
+ * invalidate when new --color-* tokens land, so the bg-crown-field /
+ * text-crown-* utilities can stay un-generated until a manual server
+ * restart. These explicit rules guarantee the styles apply either
+ * way — production already has them via @theme generation; dev gets
+ * them via these rules even on a stale Turbopack cache. */
+.bg-crown-field { background-color: var(--color-crown-field); }
+.bg-crown-chip { background-color: var(--color-crown-chip); }
+.border-crown-chip-border { border-color: var(--color-crown-chip-border); }
+.text-crown-text { color: var(--color-crown-text); }
+.text-crown-text-muted { color: var(--color-crown-text-muted); }
 
 html {
   /* Reserve scrollbar space on every page, scrollbar present or not.

@@ -27,8 +27,6 @@ export {
   buildItineraryContext,
   type ComposeContext,
   type ComposeContextInputs,
-  type ItineraryRef,
-  type VenueRef,
   type EventName,
   type EventSchemas,
 } from "@/lib/analytics/events";
@@ -145,9 +143,13 @@ export function getAnalyticsHeaders(): Record<string, string> {
   return headers;
 }
 
-/** Person-property helpers. PostHog $set updates the latest values;
- * $set_once only writes on first identify (signup_at, signup_source).
+/** Person-property helper. PostHog $set updates the latest values.
  * No Supabase mirror — person properties live on PostHog only.
+ *
+ * $set_once writes (signup_at, signup_source — first-identify only)
+ * are NOT owned here. AuthProvider's direct posthog.identify(distinct,
+ * $set, $set_once) call is the allowlist-blessed writer of those
+ * fields; routing them through a thin wrapper here was redundant.
  *
  * PII denylist enforced via tests/unit/analytics-pii-denylist.test.ts —
  * don't pass `email`, `phone`, or `name` here. */
@@ -158,16 +160,6 @@ export function setPersonProperties(props: Record<string, unknown>) {
     posthog.setPersonProperties(props);
   } catch (err) {
     console.error("PostHog setPersonProperties failed:", err);
-  }
-}
-
-export function setPersonPropertiesOnce(props: Record<string, unknown>) {
-  if (typeof window === "undefined") return;
-  if (!isProductionEnv()) return;
-  try {
-    posthog.setPersonProperties(undefined, props);
-  } catch (err) {
-    console.error("PostHog setPersonPropertiesOnce failed:", err);
   }
 }
 

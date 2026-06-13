@@ -1,10 +1,24 @@
-// Share-link URL encoding/decoding. Share URLs are stateless — the
-// itinerary page reads the inputs from the query string and
-// re-generates, so a shared link is a recipe, not a snapshot.
+// Share-link decoder. Today's share flow is a SNAPSHOT, not a recipe:
+// `/api/share` writes the full ItineraryResponse as JSONB into
+// `composer_shared_itineraries` and returns a `/itinerary/share/[id]`
+// URL. The share page reads the JSONB back verbatim, so shared links
+// don't carry the inputs in their query string.
+//
+// What this module still does: decode the OLD `?occasion=...&...`
+// query-string share URLs that pre-date the snapshot flow. The
+// itinerary page falls through to sessionStorage when
+// `decodeParamsToInputs(searchParams)` returns null, so a current
+// share link (no params) lands on the snapshot path; legacy share
+// links (with params) get re-generated against today's catalog and
+// land via `/api/generate`.
 //
 // Phase 1: the URL carries `startTime`. The decoder also accepts old
 // `?timeBlock=...` links (written before Phase 1) and translates via
 // `startTimeFromLegacyBlock` so legacy share links keep working.
+//
+// The matching encoder (encodeInputsToParams) and builder
+// (buildShareUrl) were retired 2026-06-12 — the share button writes
+// a snapshot, not a query string, so there was nothing to encode.
 
 import {
   GenerateRequestBody,
@@ -16,17 +30,6 @@ import {
   startTimeFromLegacyBlock,
 } from "@/lib/itinerary/time-blocks";
 import { DEPRECATED_OCCASION_SLUG_TO_BUCKET } from "@/config/occasions";
-
-export function encodeInputsToParams(inputs: GenerateRequestBody): string {
-  const params = new URLSearchParams();
-  params.set("occasion", inputs.occasion);
-  params.set("neighborhoods", inputs.neighborhoods.join(","));
-  params.set("budget", inputs.budget);
-  params.set("vibe", inputs.vibe);
-  params.set("day", inputs.day);
-  params.set("startTime", inputs.startTime);
-  return params.toString();
-}
 
 export function decodeParamsToInputs(
   searchParams: URLSearchParams
@@ -85,9 +88,4 @@ export function decodeParamsToInputs(
     day,
     startTime,
   };
-}
-
-export function buildShareUrl(inputs: GenerateRequestBody): string {
-  const params = encodeInputsToParams(inputs);
-  return `${window.location.origin}/itinerary?${params}`;
 }

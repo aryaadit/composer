@@ -153,7 +153,7 @@ These are enforced by [CLAUDE.md](CLAUDE.md). Read that file for the full rule s
 
 Venues live in the `composer_venues_v2` table in Supabase (the v1 `composer_venues` is deprecated). **Every venue is human-curated — no AI-generated entries.** The curation layer is the product.
 
-Venues are managed in a Google Sheet (current ID: `1ZH8CniJglou0A72e7U4b3nvtsa7tDRVMIAzNqMqEck8`) and synced to Supabase via the canonical importer at `src/lib/venues/`. Two surfaces:
+Venues are managed in a Google Sheet (current ID: `1XEGDSlWU-mPBKZOIHYfi6MOWclB22_wLlM-ohX3kn9I`) and synced to Supabase via the canonical importer at `src/lib/venues/`. Two surfaces:
 
 - **CLI** (`npm run import-venues -- dry-run|apply|history|show`) for engineer-driven imports with full visibility into the diff and audit trail
 - **Admin UI** at `/profile` for the operator-facing preview→apply flow
@@ -213,7 +213,7 @@ OPENWEATHERMAP_API_KEY=your_openweathermap_key
 # Sheet sync (admin-only)
 GOOGLE_SHEETS_CLIENT_EMAIL=service_account_email
 GOOGLE_SHEETS_PRIVATE_KEY=service_account_private_key
-GOOGLE_SHEET_ID=1ZH8CniJglou0A72e7U4b3nvtsa7tDRVMIAzNqMqEck8
+GOOGLE_SHEET_ID=1XEGDSlWU-mPBKZOIHYfi6MOWclB22_wLlM-ohX3kn9I
 
 # Optional
 GOOGLE_PLACES_API_KEY=your_google_places_key
