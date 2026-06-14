@@ -116,6 +116,32 @@ function ItineraryContent() {
   useEffect(() => {
     async function load() {
       try {
+        // Pending compose failure from a failed /api/generate submit
+        // on /compose. Read and CONSUME this key first, before any
+        // other hydration branch, so a 422 in the questionnaire
+        // can't fall through to a stale itinerary still sitting in
+        // sessionStorage from a prior compose. Consuming the entry
+        // also prevents a back-button revisit from re-firing the
+        // failure surface forever — once shown, it's spent.
+        const pendingFailure = sessionStorage.getItem(
+          STORAGE_KEYS.session.composeFailure,
+        );
+        if (pendingFailure) {
+          sessionStorage.removeItem(STORAGE_KEYS.session.composeFailure);
+          try {
+            const parsed = JSON.parse(pendingFailure) as unknown;
+            if (isComposeFailure(parsed)) {
+              setComposeFailureState(parsed);
+              setLoading(false);
+              return;
+            }
+          } catch {
+            // Malformed payload — fall through to the standard
+            // hydration. The next branch will either find an
+            // itinerary or surface the "no plan loaded" error.
+          }
+        }
+
         const paramsInputs = decodeParamsToInputs(searchParams);
         if (paramsInputs) {
           const data = await fetchItinerary(paramsInputs);
