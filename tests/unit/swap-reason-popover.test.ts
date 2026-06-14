@@ -149,18 +149,45 @@ describe("SwapReasonModal — page → view → card anchor plumbing", () => {
     );
     // The registrar identity must be stable (empty deps) so StopCard's
     // own useCallback ref doesn't churn on every render of the page.
+    // It also pushes the latest element into state when this card's
+    // index matches the open swap-reason — that closes the post-swap
+    // race where the new StopCard's ref fires AFTER the swapReason
+    // effect has already read the (stale) map.
     expect(page).toMatch(
-      /const registerSwapAnchor = useCallback\(\s*\(i: number, el: HTMLElement \| null\) => \{[\s\S]*?swapAnchorsRef\.current\.set\(i, el\);[\s\S]*?\},\s*\[\],\s*\)/,
+      /const registerSwapAnchor = useCallback\(\s*\(i: number, el: HTMLElement \| null\) => \{[\s\S]*?swapAnchorsRef\.current\.set\(i, el\);[\s\S]*?if \(activeAnchorIndexRef\.current === i\) \{[\s\S]*?setSwapAnchorEl\(el\);[\s\S]*?\}[\s\S]*?\},\s*\[\],\s*\)/,
     );
   });
 
-  it("page passes anchorEl=swapAnchorsRef.lookup(swapReason.swapContext.stopIndex)", async () => {
+  it("page mirrors the open swap-reason's anchor in state, not via a render-time ref read", async () => {
     const { page } = await readSources();
-    // The lookup must coalesce missing entries to null so the modal's
-    // anchorEl != null check fires correctly on the very first frame
-    // after a swap (StopCard hasn't mounted yet → no entry yet).
+    // Reading swapAnchorsRef.current.get(...) inline during the page's
+    // render captures the LAST commit's wrapper — which, after a swap
+    // re-keys the StopCard by venue.id, is the about-to-detach DOM
+    // node. floating-ui then measures a detached element and pins
+    // the popover to (0,0). Holding the anchor in state and feeding
+    // it via setSwapAnchorEl (both from the effect-phase seed AND
+    // from the post-commit registrar) is what keeps floating-ui's
+    // elements.reference reactive to live wrappers.
     expect(page).toMatch(
-      /anchorEl=\{swapReason \? \(swapAnchorsRef\.current\.get\(swapReason\.swapContext\.stopIndex\) \?\? null\) : null\}/,
+      /const \[swapAnchorEl, setSwapAnchorEl\] = useState<HTMLElement \| null>\(null\)/,
+    );
+    expect(page).toMatch(
+      /const activeAnchorIndexRef = useRef<number \| null>\(null\)/,
+    );
+    expect(page).toMatch(
+      /useEffect\(\(\) => \{[\s\S]*?if \(!swapReason\)[\s\S]*?activeAnchorIndexRef\.current = null;[\s\S]*?setSwapAnchorEl\(null\);[\s\S]*?return;[\s\S]*?\}[\s\S]*?const idx = swapReason\.swapContext\.stopIndex;[\s\S]*?activeAnchorIndexRef\.current = idx;[\s\S]*?setSwapAnchorEl\(swapAnchorsRef\.current\.get\(idx\) \?\? null\);[\s\S]*?\}, \[swapReason\]\);/,
+    );
+  });
+
+  it("SwapReasonModal receives the stateful swapAnchorEl, NOT a render-time ref read", async () => {
+    const { page } = await readSources();
+    expect(page).toMatch(/anchorEl=\{swapAnchorEl\}/);
+    // And the old render-time pattern is GONE — its presence would
+    // silently bypass the state mirror and re-introduce the detached-
+    // node bug. Grep for the inline `swapAnchorsRef.current.get(` on
+    // the same line as `anchorEl=` to catch a regression.
+    expect(page).not.toMatch(
+      /anchorEl=\{[^}]*swapAnchorsRef\.current\.get\(/,
     );
   });
 
