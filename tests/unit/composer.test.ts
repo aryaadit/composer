@@ -225,7 +225,7 @@ describe("composeItinerary — Meal path (focus = food_forward)", () => {
     const venues = [
       makeVenue({ id: "main-1", name: "Main Spot", stop_roles: ["main"], ...NEAR }),
       makeVenue({ id: "opener-1", name: "Opener Spot", stop_roles: ["opener"], ...NEAR, category: "wine_bar" }),
-      makeVenue({ id: "closer-1", name: "Closer Spot", stop_roles: ["closer"], ...NEAR, category: "cocktail_bar" }),
+      makeVenue({ id: "closer-1", name: "Closer Spot", stop_roles: ["closer"], ...NEAR, category: "bar" }),
     ];
     const { stops } = composeItinerary(venues, ANSWERS, CLEAR, 0, () => 0.5);
     expect(stops).toHaveLength(2);
@@ -241,7 +241,7 @@ describe("composeItinerary — Meal path (focus = food_forward)", () => {
     const venues = [
       makeVenue({ id: "main-1", name: "Main Spot", stop_roles: ["main"], ...NEAR }),
       makeVenue({ id: "opener-1", name: "Opener Spot", stop_roles: ["opener"], ...NEAR, category: "wine_bar" }),
-      makeVenue({ id: "closer-1", name: "Closer Spot", stop_roles: ["closer"], ...NEAR, category: "cocktail_bar" }),
+      makeVenue({ id: "closer-1", name: "Closer Spot", stop_roles: ["closer"], ...NEAR, category: "bar" }),
     ];
     const { stops } = composeItinerary(venues, LATE, CLEAR, 0, () => 0.5);
     expect(stops).toHaveLength(2);
@@ -320,7 +320,7 @@ describe("composeItinerary — Meal path (focus = food_forward)", () => {
     const venues = [
       makeVenue({ id: "main-1", stop_roles: ["main"], ...NEAR }),
       makeVenue({ id: "opener-1", stop_roles: ["opener"], ...NEAR, category: "wine_bar", quality_score: 9 }),
-      makeVenue({ id: "closer-1", stop_roles: ["closer"], ...NEAR, category: "cocktail_bar", quality_score: 7 }),
+      makeVenue({ id: "closer-1", stop_roles: ["closer"], ...NEAR, category: "bar", quality_score: 7 }),
     ];
     const { stops } = composeItinerary(venues, ANSWERS, CLEAR, 0, () => 0.5);
     const stop1 = stops[0];
@@ -334,7 +334,7 @@ describe("composeItinerary — Meal path (focus = food_forward)", () => {
       // Only candidate for stop 1 is drinks-tagged. Via ROLE_EXPANSION
       // it serves both opener and closer canonically, so it's eligible
       // for STOP_1_POOL.
-      makeVenue({ id: "drinks-1", stop_roles: ["drinks"], ...NEAR, category: "cocktail_bar" }),
+      makeVenue({ id: "drinks-1", stop_roles: ["drinks"], ...NEAR, category: "bar" }),
     ];
     const { stops } = composeItinerary(venues, ANSWERS, CLEAR, 0, () => 0.5);
     expect(stops).toHaveLength(2);
@@ -353,7 +353,7 @@ describe("composeItinerary — Drinks path (focus = drinks_led)", () => {
   it("two bar venues yield two STOP_1_POOL stops (opener then closer), no main", () => {
     const venues = [
       makeVenue({ id: "bar-1", stop_roles: ["opener"], ...NEAR, category: "wine_bar" }),
-      makeVenue({ id: "bar-2", stop_roles: ["closer"], ...NEAR, category: "cocktail_bar" }),
+      makeVenue({ id: "bar-2", stop_roles: ["closer"], ...NEAR, category: "bar" }),
       // Plus a main-tagged venue that should be IGNORED — Drinks
       // doesn't compose a main.
       makeVenue({ id: "main-trap", stop_roles: ["main"], ...NEAR, category: "italian" }),
@@ -383,7 +383,7 @@ describe("composeItinerary — Drinks path (focus = drinks_led)", () => {
     // STOP_1_POOL eligibility on both slots of the Drinks path.
     const venues = [
       makeVenue({ id: "drinks-1", stop_roles: ["drinks"], ...NEAR, category: "wine_bar" }),
-      makeVenue({ id: "drinks-2", stop_roles: ["drinks"], ...NEAR, category: "cocktail_bar" }),
+      makeVenue({ id: "drinks-2", stop_roles: ["drinks"], ...NEAR, category: "bar" }),
     ];
     const { stops, zeroingStage } = composeItinerary(
       venues,
@@ -444,7 +444,7 @@ describe("composeItinerary — Drinks path (focus = drinks_led)", () => {
         stop_roles: ["closer"],
         latitude: 40.85,
         longitude: -73.9,
-        category: "cocktail_bar",
+        category: "bar",
       }),
     ];
     const { stops, zeroingStage } = composeItinerary(
@@ -506,7 +506,7 @@ describe("composeItinerary — Drinks path (focus = drinks_led)", () => {
     // the only real bar has no companion and Drinks fails honestly
     // instead of pairing the bar with a dinner spot.
     const venues = [
-      makeVenue({ id: "real-bar", stop_roles: ["opener"], ...NEAR, category: "cocktail_bar" }),
+      makeVenue({ id: "real-bar", stop_roles: ["opener"], ...NEAR, category: "bar" }),
       makeVenue({
         id: "kimchi-spot",
         stop_roles: ["main", "closer"],

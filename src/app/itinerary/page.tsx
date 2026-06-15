@@ -522,7 +522,15 @@ function ItineraryBody({
           date={itinerary.inputs.day}
           partySize={2}
           startTime={itinerary.inputs.startTime}
-          onAddStop={handleAddStop}
+          // Hide "Add another stop" on Drinks nights — composeDrinks
+          // returns two bars with no Main, and add-stop's anchor logic
+          // assumes a Main exists. The server backstop in
+          // /api/add-stop/route.ts returns a typed ComposeFailure if
+          // a stale client POSTs anyway. Third-stop support for Drinks
+          // is a post-launch decision.
+          onAddStop={
+            itinerary.inputs.vibe === "drinks_led" ? undefined : handleAddStop
+          }
           isAddingStop={addingStop}
           addStopFailure={addStopFailure}
           onSwapStop={handleSwap}

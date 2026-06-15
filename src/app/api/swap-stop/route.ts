@@ -17,7 +17,7 @@ import {
 } from "@/lib/analytics-server";
 import { fetchWeather } from "@/lib/weather";
 import { pickBestForRole } from "@/lib/scoring";
-import { itineraryFits } from "@/lib/composer";
+import { itineraryFits, isBarEligible } from "@/lib/composer";
 import { enrichWithAvailability } from "@/lib/itinerary/availability-enrichment";
 import {
   walkTimeMinutes,
@@ -164,6 +164,30 @@ export async function POST(request: Request) {
       });
     }
 
+    // Drinks-night bar filter — same predicate composeDrinks uses on
+    // both stop pools during /api/generate, so a swap on a Drinks
+    // itinerary can't return a venue the original composition would
+    // have rejected (a dessert shop tagged ["closer"], a restaurant
+    // tagged ["main","closer"], etc.). pickBestForRole's role gate
+    // alone is too permissive here: STOP_1_POOL = {opener, closer},
+    // and a restaurant with stop_roles=["main","closer"] passes that
+    // gate even though it's a Main, not a bar. isBarEligible plugs
+    // the leak. Drinks itineraries never have a Main stop today, so
+    // stopToReplace.role is always opener or closer — but we apply
+    // the gate symmetrically so a future composeDrinks shape change
+    // doesn't silently introduce non-bar swaps.
+    const drinksPool =
+      inputs.vibe === "drinks_led"
+        ? pre.venues.filter(isBarEligible)
+        : pre.venues;
+    if (drinksPool.length === 0) {
+      return respondComposeFailure("proximity", "swap-stop", inputs, {
+        userId,
+        distinctId,
+        sessionId,
+      });
+    }
+
     // Anchor on Main for non-Main swaps. For swap-Main the anchor is
     // null — but neighborhood is already enforced via the pre-filter,
     // so the "anchor=null cascades inside scoring" behavior the old
@@ -193,7 +217,7 @@ export async function POST(request: Request) {
     const random = createSeededRandom(seed);
 
     const { best, scored } = pickBestForRole(
-      pre.venues,
+      drinksPool,
       stopToReplace.role,
       inputs,
       weather,

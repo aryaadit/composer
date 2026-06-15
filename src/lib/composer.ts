@@ -14,6 +14,11 @@ import { spendEstimate } from "@/config/budgets";
 import { ALGORITHM } from "@/config/algorithm";
 import { getStop1Hint } from "@/config/templates";
 import { ROLE_EXPANSION } from "@/config/generated/stop-roles";
+import {
+  DRINKING_CATEGORIES,
+  DRINK_VIBE_TAGS,
+  GOOGLE_BAR_TYPES,
+} from "@/config/vibes";
 import type { DayColumn, TimeWindow } from "@/lib/itinerary/time-blocks";
 import { walkTimeMinutes } from "@/lib/geo";
 import type { ZeroingStage } from "@/lib/itinerary/pre-filter";
@@ -173,23 +178,56 @@ function isStop1PoolEligible(v: Venue): boolean {
   );
 }
 
-/** Mirrors the Meal mainPool's inline check. Extracted so the Drinks
- *  bar filter can negate it without re-spelling the role-expansion
- *  walk. */
-function isMainEligibleVenue(v: Venue): boolean {
-  return v.stop_roles.some((r) =>
-    (ROLE_EXPANSION[r] ?? []).includes("main"),
-  );
+/** True iff the venue's google_types intersect GOOGLE_BAR_TYPES — the
+ *  "Google says this is a bar" signal used by the bar-eligibility
+ *  recovery path. */
+function hasGoogleBarSignal(v: Venue): boolean {
+  const types = v.google_types ?? [];
+  for (const t of types) {
+    if (GOOGLE_BAR_TYPES.has(t)) return true;
+  }
+  return false;
 }
 
-/** "Actual bar" signal for the Drinks path under the collapsed role
- *  model (no venue is tagged "drinks" venue-side anymore). A bar is
- *  stop1-pool-eligible AND not main-eligible — this excludes
- *  restaurants tagged ["main","closer"] (the Seoul Salon / Koreatown
- *  shape) so Drinks nights don't silently pair a bar with a dinner
- *  spot. */
-function isBarEligible(v: Venue): boolean {
-  return isStop1PoolEligible(v) && !isMainEligibleVenue(v);
+/** True iff the venue carries a drinks-forward vibe tag (drinks or
+ *  cocktail_forward). Used as the second gate in recovery so a venue
+ *  doesn't qualify on the Google signal alone — founders' curated
+ *  vibe tagging stays the deciding voice. */
+function hasDrinkVibe(v: Venue): boolean {
+  const tags = v.vibe_tags ?? [];
+  for (const t of tags) {
+    if (DRINK_VIBE_TAGS.has(t)) return true;
+  }
+  return false;
+}
+
+/** Canonical bar-eligibility predicate for the Drinks path. Single
+ *  source of truth — exported so /api/swap-stop (and future drinks-
+ *  aware routes) filter their candidate pools through the SAME gate
+ *  composeDrinks uses.
+ *
+ *  A venue is a bar if it sits in the stop1 pool AND either:
+ *    1. its category is one of the canonical drinking categories
+ *       ({bar, wine_bar, speakeasy, rooftop_bar}), OR
+ *    2. recovery — its google_types intersect GOOGLE_BAR_TYPES AND
+ *       it has a drinks-forward vibe tag. Catches food-categorized
+ *       venues that are genuinely bars (Pocha 32: category "korean",
+ *       google_types include "pub" + "bar", vibe_tags include "drinks").
+ *
+ *  The old shape — "stop1-eligible AND NOT main-eligible" — was wrong
+ *  in both directions. It admitted dessert shops and cafes (closer-
+ *  eligible, not main, no drinks at all) and rejected real bars that
+ *  also serve food (e.g. Zoo Sindang: category "bar" but stop_roles
+ *  include "main").
+ *
+ *  The stop1 gate stays load-bearing: it screens out main-only
+ *  restaurants that Google tags "bar" (e.g. miss KOREA BBQ:
+ *  stop_roles=["main"], google_types include "bar"), which is exactly
+ *  the leak the bar gate is meant to plug. */
+export function isBarEligible(v: Venue): boolean {
+  if (!isStop1PoolEligible(v)) return false;
+  if (DRINKING_CATEGORIES.has(v.category ?? "")) return true;
+  return hasGoogleBarSignal(v) && hasDrinkVibe(v);
 }
 
 /** Drinks-path analogue of `mainCouldFit`: loose upper bound on the
