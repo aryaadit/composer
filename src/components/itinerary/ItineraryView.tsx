@@ -281,11 +281,6 @@ export function ItineraryView({
                     onSelectSlot={(slot) =>
                       handleSelectSlot(stop.venue.id, slot)
                     }
-                    onSwap={
-                      wrappedOnSwapStop && swapFailure?.index !== i
-                        ? () => wrappedOnSwapStop(i)
-                        : undefined
-                    }
                   />
                 </div>
               )}

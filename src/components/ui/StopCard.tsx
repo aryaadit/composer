@@ -100,9 +100,12 @@ export function StopCard({
     !!bookingPlatform
   );
 
-  // When live availability shows a slot grid, Reserve + Swap render
-  // inside StopAvailabilitySection (next to "Available times" and "Show
-  // more times" respectively). Otherwise they live in this card's footer.
+  // When live availability shows a slot grid, the Reserve CTA renders
+  // inside StopAvailabilitySection (next to "Available times"). Swap
+  // and Swapped/Undo always live in THIS card's action row regardless
+  // of venue type — the split between Resy and walk-in was the source
+  // of the duplicate-control bug where Swapped/Undo + Swap appeared
+  // simultaneously on Resy venues during the undo window.
   const hasSlots = stop.availability?.status === "has_slots";
 
   // StopAvailability renders its own contextual CTA for has_slots,
@@ -129,11 +132,10 @@ export function StopCard({
   const showWalkInLabel =
     !isPast && !hasSlots && v.reservation_url === "Walk-in Only";
 
-  const showInlineSwap = !!onSwap && !hasSlots;
+  const showInlineSwap = !!onSwap;
   // When the post-swap window is active and there's no failure to
-  // surface instead, the right slot renders Swapped + Undo. We honor
-  // this even when showInlineSwap is false (hasSlots case) so the user
-  // never loses the undo affordance after a slot-grid swap.
+  // surface instead, the right slot renders Swapped + Undo IN PLACE
+  // of the Swap pill. Same slot, same row, every venue type.
   const showSwappedSlot = justSwapped && !swapFailure && !!onUndoSwap;
   const showActionsRow =
     showInlineReserve || showWalkInLabel || showInlineSwap || showSwappedSlot;
