@@ -13,6 +13,57 @@ const geminiModel = genAI.getGenerativeModel({
   systemInstruction: COMPOSER_SYSTEM_PROMPT,
 });
 
+/**
+ * Generic JSON-shaped Gemini call. Reuses the same SDK, API key, and
+ * model the composer copy path uses, but with a caller-supplied
+ * system prompt (so the response stays voice-correct for whatever
+ * task it serves) and no hardcoded fallback shape. Returns the parsed
+ * object on success or null on any failure (network, timeout, JSON
+ * parse, response shape mismatch) so callers can surface a domain-
+ * appropriate fallback rather than inheriting the itinerary copy
+ * fallback baked into generateCopy.
+ *
+ * Notes:
+ *   - thinkingBudget: 0 is load-bearing. Gemini 2.5 Flash defaults to
+ *     reasoning ON, which consumes the entire token budget before any
+ *     visible output. The SDK's GenerationConfig type doesn't yet
+ *     expose thinkingConfig so we cast through the missing field;
+ *     the REST API accepts it.
+ *   - The defensive `{...}` regex extract mirrors generateCopy's path
+ *     so a model that wraps JSON in prose despite responseMimeType
+ *     still parses.
+ */
+export async function callGeminiJSON<T>(
+  prompt: string,
+  opts: {
+    systemInstruction: string;
+    maxOutputTokens?: number;
+  },
+): Promise<T | null> {
+  try {
+    const model = genAI.getGenerativeModel({
+      model: GEMINI_MODEL,
+      systemInstruction: opts.systemInstruction,
+    });
+    const generationConfig = {
+      maxOutputTokens: opts.maxOutputTokens ?? GEMINI_MAX_TOKENS,
+      responseMimeType: "application/json",
+      thinkingConfig: { thinkingBudget: 0 },
+    } as GenerationConfig;
+    const result = await model.generateContent({
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      generationConfig,
+    });
+    const text = result.response.text();
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) return null;
+    return JSON.parse(jsonMatch[0]) as T;
+  } catch (error) {
+    console.error("[gemini] callGeminiJSON failed:", error);
+    return null;
+  }
+}
+
 interface GeneratedCopy {
   title: string;
   subtitle: string;

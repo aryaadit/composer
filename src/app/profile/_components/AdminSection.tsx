@@ -35,6 +35,7 @@ import {
 } from "./SyncResultPanel";
 import { ThresholdOverrideDialog } from "./ThresholdOverrideDialog";
 import { VenueLookup } from "./VenueLookup";
+import { AddVenuePanel } from "./AddVenuePanel";
 import { authFailedCopy, buttonLabels, sectionHeaders, stateExplanations } from "./syncCopy";
 
 // ─── Sync state machine ────────────────────────────────────────────────
@@ -335,6 +336,10 @@ export function AdminSection() {
             Single-venue resync
           </h3>
           <VenueLookup />
+        </div>
+
+        <div className="mt-6 w-full">
+          <AddVenuePanel />
         </div>
       </div>
     </section>
