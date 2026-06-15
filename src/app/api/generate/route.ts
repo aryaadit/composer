@@ -342,7 +342,7 @@ export async function POST(request: Request) {
     const enriched = await enrichWithAvailability(
       response,
       inputs.day,
-      2, // default party size — Phase 3a-3 will thread this from the client
+      ALGORITHM.composition.defaultPartySize,
       window,
       undefined
     );

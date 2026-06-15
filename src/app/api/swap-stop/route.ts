@@ -306,7 +306,7 @@ export async function POST(request: Request) {
     const enrichedFake = await enrichWithAvailability(
       fakeResponse,
       inputs.day,
-      2,
+      ALGORITHM.composition.defaultPartySize,
       { startTime: inputs.startTime, endTime: inputs.endTime },
       undefined
     );
