@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useEffect, useState } from "react";
+import { Fragment, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { motion } from "motion/react";
 import { ItineraryResponse } from "@/types";
@@ -69,6 +69,34 @@ interface ItineraryViewProps {
    *  StopCard so the page's SwapReasonModal can read its action-slot
    *  element for desktop-popover anchoring. */
   registerSwapAnchor?: (index: number, el: HTMLElement | null) => void;
+}
+
+/** Stable per-stop wrapper, keyed by INDEX at the call site (via the
+ *  surrounding Fragment), so it does NOT unmount when the inner
+ *  StopCard re-keys by venue.id on a swap. Floating-ui anchors the
+ *  desktop swap-reason popover to this element; if the anchor lived
+ *  inside the venue.id-keyed subtree (the previous attempt), the
+ *  swap-driven remount would detach it and getBoundingClientRect
+ *  would return all zeros — floating-ui then pins at (0, 0). The
+ *  wrapper carries no className so it doesn't change the visual
+ *  rhythm of the timeline; it's purely a positional anchor. */
+function StopSlot({
+  index,
+  registerSwapAnchor,
+  children,
+}: {
+  index: number;
+  registerSwapAnchor?: (index: number, el: HTMLElement | null) => void;
+  children: React.ReactNode;
+}) {
+  // Stable ref callback per slot. useCallback's identity only changes
+  // when index or registerSwapAnchor change — both stable for a given
+  // mounted slot — so React doesn't churn the ref between renders.
+  const setRef = useCallback(
+    (el: HTMLElement | null) => registerSwapAnchor?.(index, el),
+    [index, registerSwapAnchor],
+  );
+  return <div ref={setRef}>{children}</div>;
 }
 
 export function ItineraryView({
@@ -200,9 +228,19 @@ export function ItineraryView({
           tolerance and the rule renders on every itinerary surface. */}
       <div className="w-full max-w-lg mx-auto border-y border-border divide-y divide-border">
         {stops.map((stop, i) => (
-          <Fragment key={stop.venue.id}>
-            <div>
+          // Fragment is keyed by stop INDEX so the slot (and its
+          // StopSlot wrapper) stays mounted across swaps — even when
+          // the inner StopCard re-keys by venue.id. The previous
+          // `key={stop.venue.id}` here is what caused floating-ui to
+          // anchor to a detached DOM node after every swap.
+          <Fragment key={`stop-slot-${i}`}>
+            <StopSlot index={i} registerSwapAnchor={registerSwapAnchor}>
               <StopCard
+                // venue.id key preserved on the StopCard itself so the
+                // card body still remounts on swap — keeps the
+                // entrance animation and the slot-grid availability
+                // section fresh exactly as before.
+                key={stop.venue.id}
                 stop={stop}
                 index={i}
                 eyebrowLabel={getStopEyebrowLabel(stop, i, stops)}
@@ -224,7 +262,6 @@ export function ItineraryView({
                 onUndoSwap={onUndoSwap}
                 isPast={isPast}
                 highlighted={highlightedStopIndex === i}
-                registerSwapAnchor={registerSwapAnchor}
               />
               {!isPast && stop.availability && (
                 <div className="px-0 pb-6">
@@ -252,7 +289,7 @@ export function ItineraryView({
                   />
                 </div>
               )}
-            </div>
+            </StopSlot>
             {i < stops.length - 1 && walks[i] && (
               <WalkConnector
                 walkMinutes={walks[i].walk_minutes}

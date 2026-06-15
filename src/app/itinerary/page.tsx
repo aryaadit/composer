@@ -261,33 +261,19 @@ function ItineraryBody({
   // overwriting with the new context.
   const [swapReason, setSwapReason] = useState<SwapReasonContext | null>(null);
 
-  // Map of swap-anchor elements, keyed by stop index. Each StopCard
-  // registers its action-slot wrapper here on mount (and clears on
-  // unmount) so the desktop SwapReasonModal can position its popover
-  // against the right swap button after a swap completes. Mobile
-  // ignores the anchor and falls back to the bottom sheet.
-  //
-  // The ref is the durable index (lookup at any index, any time);
-  // `swapAnchorEl` below mirrors the slot for the *currently open*
-  // swap-reason so a state change re-renders SwapReasonModal with the
-  // live element. Reading from the ref directly in render would hand
-  // floating-ui the previous commit's wrapper, which is the SAME
-  // StopCard that's about to unmount when the swap re-keys it by
-  // venue.id — floating-ui would then measure a detached node and
-  // pin the popover to (0,0).
+  // Map of swap-anchor elements, keyed by stop index. The
+  // ItineraryView renders a StopSlot wrapper per index that registers
+  // here on mount and clears on unmount. Because the wrapper is keyed
+  // by INDEX (not venue.id) and sits outside the StopCard's keyed
+  // subtree, it stays mounted through a swap — the same DOM node
+  // backs the slot for the entire session, so floating-ui's
+  // measurement is always against a live element. Mobile ignores
+  // the anchor and falls back to the bottom sheet.
   const swapAnchorsRef = useRef<Map<number, HTMLElement | null>>(new Map());
   const [swapAnchorEl, setSwapAnchorEl] = useState<HTMLElement | null>(null);
-  // `activeAnchorIndexRef` shadows the open swap-reason's stop index so
-  // `registerSwapAnchor` (a stable callback, no deps) can decide
-  // whether to push a fresh element into state without re-binding the
-  // callback every time swapReason changes.
-  const activeAnchorIndexRef = useRef<number | null>(null);
   const registerSwapAnchor = useCallback(
     (i: number, el: HTMLElement | null) => {
       swapAnchorsRef.current.set(i, el);
-      if (activeAnchorIndexRef.current === i) {
-        setSwapAnchorEl(el);
-      }
     },
     [],
   );
@@ -357,24 +343,21 @@ function ItineraryBody({
     setSwapReason(null);
   }, [swapReason, trackEngagement]);
 
-  // Seed `swapAnchorEl` from the ref map whenever the open swap-reason
-  // changes. Runs in the effect phase — AFTER ref callbacks have fired
-  // for any remounted StopCard (the post-swap re-key happens during
-  // the same commit) — so the map.get(...) here reads the LIVE wrapper
-  // element, not the previous commit's about-to-detach wrapper. The
-  // matching `registerSwapAnchor` branch above covers the inverse
-  // race: a StopCard whose ref fires AFTER this effect runs (e.g.,
-  // the brand-new StopCard inserted by the same swap commit) still
-  // gets pushed into state without a second swapReason dependency.
+  // Set `swapAnchorEl` once when the swap-reason opens. The
+  // ItineraryView's StopSlot wrapper for `stopIndex` is keyed by
+  // index (not venue.id) so it persists across the swap that
+  // triggered this open — the map.get() below returns a stable, live
+  // DOM node, not a detached one. No two-channel race handling
+  // needed; the wrapper stays mounted for the modal's entire
+  // lifetime so a single lookup is sufficient.
   useEffect(() => {
     if (!swapReason) {
-      activeAnchorIndexRef.current = null;
       setSwapAnchorEl(null);
       return;
     }
-    const idx = swapReason.swapContext.stopIndex;
-    activeAnchorIndexRef.current = idx;
-    setSwapAnchorEl(swapAnchorsRef.current.get(idx) ?? null);
+    setSwapAnchorEl(
+      swapAnchorsRef.current.get(swapReason.swapContext.stopIndex) ?? null,
+    );
   }, [swapReason]);
 
   const {

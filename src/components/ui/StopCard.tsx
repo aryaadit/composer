@@ -1,6 +1,5 @@
 "use client";
 
-import { useCallback } from "react";
 import { motion } from "motion/react";
 import { ItineraryStop } from "@/types";
 import { ROLE_LABELS } from "@/config/roles";
@@ -49,13 +48,6 @@ interface StopCardProps {
    *  falls back to the role-driven label — same as the legacy
    *  behavior, kept so the prop can land before all callers migrate. */
   eyebrowLabel?: string;
-  /** Page-level swap-anchor registrar. Called once on mount (and once
-   *  on unmount with null) with the action-slot wrapper element, so
-   *  the page's SwapReasonModal can anchor its desktop popover to
-   *  this stop's swap button. Stable identity (useCallback at the
-   *  page) is expected. Optional — surfaces that don't open the
-   *  swap-reason modal (saved / share views) leave it undefined. */
-  registerSwapAnchor?: (index: number, el: HTMLElement | null) => void;
 }
 
 function SwapSkeleton() {
@@ -97,18 +89,7 @@ export function StopCard({
   isPast = false,
   highlighted = false,
   eyebrowLabel,
-  registerSwapAnchor,
 }: StopCardProps) {
-  // Stable callback ref — fires once on mount with the wrapper div,
-  // once on unmount with null. `index` and `registerSwapAnchor` are
-  // both stable for a given stop card, so the ref identity stays
-  // stable across re-renders too.
-  const swapAnchorRef = useCallback(
-    (el: HTMLElement | null) => {
-      registerSwapAnchor?.(index, el);
-    },
-    [index, registerSwapAnchor],
-  );
   const { trackEngagement } = useEngagement();
   const v = stop.venue;
   const activeNote = stop.curation_note;
@@ -297,46 +278,41 @@ export function StopCard({
                   Toast did. Pill heights match (min-h-[36px]) so the
                   slot stays the same vertical size across all three
                   states.
-                  The outer div with `swapAnchorRef` is the STABLE
-                  action-slot wrapper that persists across the
-                  Swap→Swapped→Swap transitions. The page's
-                  SwapReasonModal reads this element via the registrar
-                  to anchor its desktop popover. Classes and the
-                  ternary below are unchanged — adding the wrapper
-                  doesn't alter the swap-undo-slot contract. */}
-              <div ref={swapAnchorRef}>
-                {showSwappedSlot ? (
-                  <div
-                    role="status"
-                    aria-live="polite"
-                    className="inline-flex items-center gap-3 font-sans text-xs text-warm-gray"
+                  The desktop SwapReasonModal anchors to the OUTER
+                  StopSlot wrapper in ItineraryView (stable across
+                  swaps), not to anything in this card — so there's
+                  no ref to attach here. */}
+              {showSwappedSlot ? (
+                <div
+                  role="status"
+                  aria-live="polite"
+                  className="inline-flex items-center gap-3 font-sans text-xs text-warm-gray"
+                >
+                  <span>Swapped</span>
+                  <button
+                    type="button"
+                    onClick={onUndoSwap}
+                    className="inline-flex items-center justify-center min-h-[36px] px-3 rounded-full border border-burgundy/30 font-sans text-xs font-medium text-burgundy hover:border-burgundy hover:bg-burgundy/5 transition-colors"
                   >
-                    <span>Swapped</span>
-                    <button
-                      type="button"
-                      onClick={onUndoSwap}
-                      className="inline-flex items-center justify-center min-h-[36px] px-3 rounded-full border border-burgundy/30 font-sans text-xs font-medium text-burgundy hover:border-burgundy hover:bg-burgundy/5 transition-colors"
-                    >
-                      Undo
-                    </button>
-                  </div>
-                ) : (
-                  showInlineSwap && (
-                    // Audit item 9: bordered burgundy pill so Swap
-                    // reads as tappable. min-h-[36px] meets the >=36px
-                    // touch-target bar. Same treatment as the Undo
-                    // pill above so the slot's vertical size is
-                    // invariant.
-                    <button
-                      type="button"
-                      onClick={onSwap}
-                      className="inline-flex items-center justify-center min-h-[36px] px-3 rounded-full border border-burgundy/30 font-sans text-xs font-medium text-burgundy hover:border-burgundy hover:bg-burgundy/5 transition-colors"
-                    >
-                      Swap
-                    </button>
-                  )
-                )}
-              </div>
+                    Undo
+                  </button>
+                </div>
+              ) : (
+                showInlineSwap && (
+                  // Audit item 9: bordered burgundy pill so Swap
+                  // reads as tappable. min-h-[36px] meets the >=36px
+                  // touch-target bar. Same treatment as the Undo
+                  // pill above so the slot's vertical size is
+                  // invariant.
+                  <button
+                    type="button"
+                    onClick={onSwap}
+                    className="inline-flex items-center justify-center min-h-[36px] px-3 rounded-full border border-burgundy/30 font-sans text-xs font-medium text-burgundy hover:border-burgundy hover:bg-burgundy/5 transition-colors"
+                  >
+                    Swap
+                  </button>
+                )
+              )}
             </div>
           )}
 
