@@ -39,10 +39,6 @@ interface StopAvailabilityProps {
   startTime: string;
   selectedSlot: AvailabilitySlot | null;
   onSelectSlot: (slot: AvailabilitySlot | null) => void;
-  /** Curation Swap action — when the slot grid is showing, Swap renders
-   * here (under the times) so booking and curation actions are visually
-   * separated. When undefined, Swap is hidden. */
-  onSwap?: () => void;
 }
 
 const PLATFORM_NAMES: Record<string, string> = {
@@ -66,7 +62,6 @@ export function StopAvailabilitySection({
   startTime,
   selectedSlot,
   onSelectSlot,
-  onSwap,
 }: StopAvailabilityProps) {
   const { trackEngagement } = useEngagement();
   const { status, slots, bookingUrlBase } = availability;
@@ -196,7 +191,6 @@ export function StopAvailabilitySection({
       startTime={startTime}
       selectedSlot={selectedSlot}
       onSelectSlot={onSelectSlot}
-      onSwap={onSwap}
     />
   );
 }
@@ -215,7 +209,6 @@ function HasSlotsView({
   startTime,
   selectedSlot,
   onSelectSlot,
-  onSwap,
 }: {
   slots: AvailabilitySlot[];
   role: StopRole;
@@ -230,7 +223,6 @@ function HasSlotsView({
   startTime: string;
   selectedSlot: AvailabilitySlot | null;
   onSelectSlot: (slot: AvailabilitySlot | null) => void;
-  onSwap?: () => void;
 }) {
   const { trackEngagement } = useEngagement();
   const [expanded, setExpanded] = useState(false);
@@ -339,34 +331,16 @@ function HasSlotsView({
           />
         ))}
       </div>
-      {(hasMore || onSwap) && (
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            {hasMore && (
-              <button
-                type="button"
-                onClick={() => setExpanded(!expanded)}
-                className="font-sans text-xs text-burgundy hover:underline transition-colors"
-              >
-                {expanded
-                  ? "Show fewer times"
-                  : `Show more times (${deduped.length - recommended.length} more)`}
-              </button>
-            )}
-          </div>
-          {onSwap && (
-            // Audit item 9: same bordered burgundy pill as StopCard's
-            // Swap so the two surfaces stay consistent. min-h-[36px]
-            // meets the >=36px touch-target bar.
-            <button
-              type="button"
-              onClick={onSwap}
-              className="inline-flex items-center justify-center min-h-[36px] px-3 rounded-full border border-burgundy/30 font-sans text-xs font-medium text-burgundy hover:border-burgundy hover:bg-burgundy/5 transition-colors"
-            >
-              Swap
-            </button>
-          )}
-        </div>
+      {hasMore && (
+        <button
+          type="button"
+          onClick={() => setExpanded(!expanded)}
+          className="font-sans text-xs text-burgundy hover:underline transition-colors"
+        >
+          {expanded
+            ? "Show fewer times"
+            : `Show more times (${deduped.length - recommended.length} more)`}
+        </button>
       )}
       {bookingHref && (
         // Audit item 30: routed through Button primitive at pixel

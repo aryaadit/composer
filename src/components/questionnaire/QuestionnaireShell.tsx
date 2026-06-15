@@ -25,6 +25,11 @@ import {
   slideVariants,
 } from "@/lib/questionnaireReducer";
 import { STORAGE_KEYS } from "@/config/storage";
+import {
+  composeFailure,
+  isComposeFailure,
+  type ComposeFailure,
+} from "@/lib/itinerary/compose-failure";
 import { getRecentVenueIds } from "@/lib/exclusions";
 import { useAuth } from "@/components/providers/AuthProvider";
 import {
@@ -137,6 +142,12 @@ export function QuestionnaireShell() {
     [state.answers]
   );
 
+  // Pull the user id into a stable local so the useCallback dep is a
+  // primitive (`userId`) rather than the nested `user?.id` — the
+  // React Compiler can preserve manual memoization when the source
+  // dep matches its inferred dep at the same specificity.
+  const userId = user?.id;
+
   const submitAnswers = useCallback(
     async (body: GenerateRequestBody) => {
       dispatch({ type: "SET_LOADING" });
@@ -145,8 +156,8 @@ export function QuestionnaireShell() {
         JSON.stringify(body)
       );
 
-      const excludeVenueIds = user?.id
-        ? await getRecentVenueIds(user.id)
+      const excludeVenueIds = userId
+        ? await getRecentVenueIds(userId)
         : [];
 
       track(EVENTS.COMPOSE_SUBMITTED, {
@@ -157,13 +168,43 @@ export function QuestionnaireShell() {
         day_of_week: dayOfWeekFromISO(body.day),
       });
 
+      // Routes a failure to /itinerary via the dedicated failure
+      // sessionStorage key, and CLEARS the current itinerary so the
+      // destination page can't paint a stale plan from a prior
+      // compose. Used by both the non-OK branch (typed 422 or any
+      // other status) and the network-throw catch — both surfaces
+      // end at the same honest failure render.
+      const routeFailure = (failure: ComposeFailure) => {
+        sessionStorage.setItem(
+          STORAGE_KEYS.session.composeFailure,
+          JSON.stringify(failure),
+        );
+        sessionStorage.removeItem(STORAGE_KEYS.session.currentItinerary);
+        clearComposeAbandonedFlag();
+        clearComposeEntryToken();
+        router.push("/itinerary");
+      };
+
       try {
         const res = await fetch("/api/generate", {
           method: "POST",
           headers: { "Content-Type": "application/json", ...getAnalyticsHeaders() },
           body: JSON.stringify({ ...body, excludeVenueIds }),
         });
-        if (!res.ok) throw new Error("Generation failed");
+        if (!res.ok) {
+          // Prefer the typed 422 ComposeFailure body when present, so
+          // the destination page surfaces the registry-driven title +
+          // suggestion for the actual zeroing stage. Any other status
+          // (500, network-shape) degrades to the neutral "system"
+          // copy. Either way the stale itinerary is cleared.
+          let failure: ComposeFailure = composeFailure("system");
+          if (res.status === 422) {
+            const body = await res.json().catch(() => null);
+            if (isComposeFailure(body)) failure = body;
+          }
+          routeFailure(failure);
+          return;
+        }
         const data = await res.json();
         // Compose flow succeeded — clear the abandonment flag AND the
         // entry token before navigating so we don't fire
@@ -178,10 +219,10 @@ export function QuestionnaireShell() {
         );
         router.push("/itinerary");
       } catch {
-        router.push("/itinerary");
+        routeFailure(composeFailure("system"));
       }
     },
-    [router, user?.id]
+    [router, userId]
   );
 
   // Card selection only updates state — no auto-advance. Every step

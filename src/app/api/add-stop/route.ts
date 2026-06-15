@@ -70,11 +70,23 @@ export async function POST(request: Request) {
     }
 
     const mainStop = currentStops.find((s) => s.role === "main");
-    if (!mainStop) {
-      return NextResponse.json(
-        { error: "No main stop to anchor extension" },
-        { status: 400 }
-      );
+    // Drinks itineraries compose [opener-bar, closer-bar] with no Main,
+    // so the anchor logic below has nothing to pivot off. The
+    // affordance is hidden on the client for Drinks (see
+    // /app/itinerary/page.tsx), but a stale tab or an external POST can
+    // still land here — degrade to a typed 422 ComposeFailure instead
+    // of a raw 400 so the UI renders the failure block cleanly. The
+    // explicit drinks_led check is defensive: !mainStop alone catches
+    // every drinks_led shape today, but naming the case keeps a future
+    // composer change (e.g. drinks_led + a Main) from silently falling
+    // through to the "no anchor" branch. Third-stop support for
+    // Drinks is a separate post-launch scope decision.
+    if (inputs.vibe === "drinks_led" || !mainStop) {
+      return respondComposeFailure("system", "add-stop", inputs, {
+        userId: null,
+        distinctId,
+        sessionId,
+      });
     }
 
     const [{ userId, drinks }, weather, venuesAll] = await Promise.all([

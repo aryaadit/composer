@@ -88,15 +88,21 @@ describe("StopCard — Swap / Undo share one action slot", () => {
     );
   });
 
-  it("showActionsRow renders whenever swapSlot is showing (hasSlots case keeps Undo visible)", async () => {
+  it("showActionsRow renders whenever swapSlot is showing (covers every venue type)", async () => {
     const { stopCard } = await readSources();
-    // The actions row is gated by showActionsRow. When hasSlots is
-    // true the Swap pill lives in StopAvailability, but justSwapped
-    // can still fire after a slot-grid swap; force-rendering the row
-    // for showSwappedSlot keeps the undo affordance reachable.
+    // The actions row is gated by showActionsRow. Both showInlineSwap
+    // and showSwappedSlot route through this gate, so a Resy venue
+    // (hasSlots=true) and a walk-in venue (hasSlots=false) reach the
+    // same action row — the audit's duplicate-control bug (Swap in
+    // StopAvailability + Swapped/Undo in StopCard) is gone.
     expect(stopCard).toMatch(
       /const showActionsRow =[\s\S]*?showSwappedSlot/,
     );
+    // showInlineSwap is no longer gated by !hasSlots — Swap renders
+    // in the action row whenever onSwap is provided, regardless of
+    // whether StopAvailability has a slot grid below.
+    expect(stopCard).toMatch(/const showInlineSwap = !!onSwap;/);
+    expect(stopCard).not.toMatch(/!!onSwap && !hasSlots/);
   });
 
   it("Undo click calls onUndoSwap — restore closure on useSwapStop reverts the prior venue", async () => {

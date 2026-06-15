@@ -116,6 +116,32 @@ function ItineraryContent() {
   useEffect(() => {
     async function load() {
       try {
+        // Pending compose failure from a failed /api/generate submit
+        // on /compose. Read and CONSUME this key first, before any
+        // other hydration branch, so a 422 in the questionnaire
+        // can't fall through to a stale itinerary still sitting in
+        // sessionStorage from a prior compose. Consuming the entry
+        // also prevents a back-button revisit from re-firing the
+        // failure surface forever — once shown, it's spent.
+        const pendingFailure = sessionStorage.getItem(
+          STORAGE_KEYS.session.composeFailure,
+        );
+        if (pendingFailure) {
+          sessionStorage.removeItem(STORAGE_KEYS.session.composeFailure);
+          try {
+            const parsed = JSON.parse(pendingFailure) as unknown;
+            if (isComposeFailure(parsed)) {
+              setComposeFailureState(parsed);
+              setLoading(false);
+              return;
+            }
+          } catch {
+            // Malformed payload — fall through to the standard
+            // hydration. The next branch will either find an
+            // itinerary or surface the "no plan loaded" error.
+          }
+        }
+
         const paramsInputs = decodeParamsToInputs(searchParams);
         if (paramsInputs) {
           const data = await fetchItinerary(paramsInputs);
@@ -235,12 +261,16 @@ function ItineraryBody({
   // overwriting with the new context.
   const [swapReason, setSwapReason] = useState<SwapReasonContext | null>(null);
 
-  // Map of swap-anchor elements, keyed by stop index. Each StopCard
-  // registers its action-slot wrapper here on mount (and clears on
-  // unmount) so the desktop SwapReasonModal can position its popover
-  // against the right swap button after a swap completes. Mobile
-  // ignores the anchor and falls back to the bottom sheet.
+  // Map of swap-anchor elements, keyed by stop index. The
+  // ItineraryView renders a StopSlot wrapper per index that registers
+  // here on mount and clears on unmount. Because the wrapper is keyed
+  // by INDEX (not venue.id) and sits outside the StopCard's keyed
+  // subtree, it stays mounted through a swap — the same DOM node
+  // backs the slot for the entire session, so floating-ui's
+  // measurement is always against a live element. Mobile ignores
+  // the anchor and falls back to the bottom sheet.
   const swapAnchorsRef = useRef<Map<number, HTMLElement | null>>(new Map());
+  const [swapAnchorEl, setSwapAnchorEl] = useState<HTMLElement | null>(null);
   const registerSwapAnchor = useCallback(
     (i: number, el: HTMLElement | null) => {
       swapAnchorsRef.current.set(i, el);
@@ -312,6 +342,23 @@ function ItineraryBody({
     );
     setSwapReason(null);
   }, [swapReason, trackEngagement]);
+
+  // Set `swapAnchorEl` once when the swap-reason opens. The
+  // ItineraryView's StopSlot wrapper for `stopIndex` is keyed by
+  // index (not venue.id) so it persists across the swap that
+  // triggered this open — the map.get() below returns a stable, live
+  // DOM node, not a detached one. No two-channel race handling
+  // needed; the wrapper stays mounted for the modal's entire
+  // lifetime so a single lookup is sufficient.
+  useEffect(() => {
+    if (!swapReason) {
+      setSwapAnchorEl(null);
+      return;
+    }
+    setSwapAnchorEl(
+      swapAnchorsRef.current.get(swapReason.swapContext.stopIndex) ?? null,
+    );
+  }, [swapReason]);
 
   const {
     handleSwap,
@@ -458,7 +505,15 @@ function ItineraryBody({
           date={itinerary.inputs.day}
           partySize={2}
           startTime={itinerary.inputs.startTime}
-          onAddStop={handleAddStop}
+          // Hide "Add another stop" on Drinks nights — composeDrinks
+          // returns two bars with no Main, and add-stop's anchor logic
+          // assumes a Main exists. The server backstop in
+          // /api/add-stop/route.ts returns a typed ComposeFailure if
+          // a stale client POSTs anyway. Third-stop support for Drinks
+          // is a post-launch decision.
+          onAddStop={
+            itinerary.inputs.vibe === "drinks_led" ? undefined : handleAddStop
+          }
           isAddingStop={addingStop}
           addStopFailure={addStopFailure}
           onSwapStop={handleSwap}
@@ -479,7 +534,7 @@ function ItineraryBody({
         swappedFromVenueName={swapReason?.swapContext.originalVenue.name ?? ""}
         onSubmit={handleReasonSubmit}
         onSkip={handleReasonSkip}
-        anchorEl={swapReason ? (swapAnchorsRef.current.get(swapReason.swapContext.stopIndex) ?? null) : null}
+        anchorEl={swapAnchorEl}
       />
     </main>
   );

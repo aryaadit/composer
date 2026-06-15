@@ -39,8 +39,6 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
-    // Reid's prototype — reference material, not part of our app.
-    "reids_claude/**",
     // Standalone scripts — not app code, different lint rules apply.
     "scripts/**",
   ]),

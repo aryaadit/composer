@@ -1,20 +1,21 @@
 "use client";
 
 // Post-swap reason capture. Appears AFTER a swap completes (the new
-// venue is already rendered, the inline Swapped/Undo affordance may
-// still be visible on the swapped StopCard — see audit item 19).
-// Skippable: Esc, backdrop / outside-click, X button, and explicit
-// "Skip" link all dismiss as skip. Submit captures a categorical
-// reason + optional free-text "Other" detail.
+// venue is already rendered, the inline Swapped/Undo affordance is
+// still visible on the swapped StopCard's action row). Skippable:
+// Esc, backdrop / outside-click, X button, and explicit "Skip" link
+// all dismiss as skip. Submit captures a categorical reason + optional
+// free-text "Other" detail.
 //
-// Two presentations, branched on viewport + anchor availability:
-//   - MOBILE (or no anchor): bottom-sheet over a full-page backdrop
-//     with body scroll lock. This is the historical default, unchanged.
-//   - DESKTOP (Tailwind md, viewport ≥ 768px) + anchor element from the
-//     page: a popover positioned via @floating-ui/react, anchored to
-//     the swap action-slot wrapper inside the corresponding StopCard.
-//     No backdrop, no scroll lock — the itinerary stays interactive
-//     behind the popover. Outside-click and the existing Esc handler
+// Two presentations:
+//   - MOBILE (viewport < md): bottom sheet over a full-page backdrop
+//     with body scroll lock.
+//   - DESKTOP (viewport >= md, anchor present): popover via
+//     @floating-ui/react, anchored to the stable per-stop StopSlot
+//     wrapper in ItineraryView (keyed by INDEX, outside StopCard's
+//     venue.id-keyed subtree, so it survives swaps). No backdrop,
+//     no scroll lock — the itinerary stays interactive behind the
+//     popover. Outside-click and the window-level Esc handler
 //     dismiss as skip.
 //
 // AnimatePresence drives enter/exit for both branches.
@@ -59,12 +60,12 @@ interface SwapReasonModalProps {
   swappedFromVenueName: string;
   onSubmit: (reason: string, otherText: string | null) => void;
   onSkip: () => void;
-  /** When provided AND the viewport is ≥ Tailwind md (768px), the
+  /** When provided AND the viewport is >= Tailwind md (768px), the
    *  modal renders as a popover anchored to this element instead of
-   *  a centered/bottom-sheet dialog. The page owns a ref map keyed by
-   *  stop index and supplies the active stop's swap action-slot
-   *  wrapper here; if null or undefined, the mobile sheet renders
-   *  even on desktop. */
+   *  the bottom sheet. The page owns a ref map keyed by stop index
+   *  and supplies the active stop's StopSlot wrapper here; if null
+   *  or undefined (mobile, or the one-frame anchor-seed gap on
+   *  desktop), the bottom sheet renders. */
   anchorEl?: HTMLElement | null;
 }
 
@@ -165,7 +166,7 @@ export function SwapReasonModal({
             role="dialog"
             aria-modal="true"
             aria-label={`Why did you swap ${swappedFromVenueName}?`}
-            className="fixed inset-x-0 bottom-0 z-50 bg-cream rounded-t-2xl shadow-xl max-h-[90vh] overflow-y-auto md:inset-auto md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:max-w-md md:w-full md:rounded-2xl md:max-h-[85vh]"
+            className="fixed inset-x-0 bottom-0 z-50 bg-cream rounded-t-2xl shadow-xl max-h-[90vh] overflow-y-auto"
             initial={{ y: "100%", opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: "100%", opacity: 0 }}
@@ -210,15 +211,48 @@ function DesktopPopover({
   onSubmit: (reason: string, otherText: string | null) => void;
   onSkip: () => void;
 }) {
+  // Sanity guard — if a future regression hands us a zero-rect
+  // anchor, floating-ui silently pins the popover to (0,0). The
+  // stable-anchor architecture (StopSlot keyed by index, outside
+  // StopCard's venue.id-keyed subtree) should make this impossible,
+  // so a hit here means the contract broke. Loud log, no swallow.
+  useEffect(() => {
+    const rect = anchorEl.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) {
+      console.error(
+        "[SwapReasonModal] swap-anchor element has a zero-sized rect — popover will pin to (0,0). This means the stable-per-stop anchor contract regressed; verify the StopSlot wrapper in ItineraryView is keyed by INDEX and sits outside the venue.id-keyed subtree.",
+        { anchorEl, rect },
+      );
+    }
+  }, [anchorEl]);
+
   const { refs, floatingStyles, context } = useFloating({
     open: true,
     onOpenChange: (next) => {
       if (!next) onSkip();
     },
-    placement: "bottom-end",
-    middleware: [offset(8), flip(), shift({ padding: 8 })],
+    // Float to the right of the swapped card on desktop. right-start
+    // aligns the popover's top edge with the anchor's top edge so it
+    // reads as attached to the swapped stop. offset(16) pushes it
+    // clear of the card's right border; flip() relocates to the left
+    // when the right side overflows the viewport; shift() keeps it
+    // inside the viewport on narrow desktop sizes (with 8px padding
+    // from the edge).
+    placement: "right-start",
+    middleware: [offset(16), flip(), shift({ padding: 8 })],
     whileElementsMounted: autoUpdate,
     elements: { reference: anchorEl },
+    // CRITICAL: positioning via top/left, NOT transform. The default
+    // (transform: true) returns floatingStyles with
+    // `transform: translate3d(x, y, 0)` — but motion.div ALSO writes
+    // the transform property to animate `scale`. Motion's transform
+    // clobbers floating-ui's transform, and once motion's scale
+    // settles at 1 it writes `transform: none`, leaving the popover
+    // at the unmodified base (top: 0, left: 0 — the corner pin).
+    // Switching to layout positioning means floatingStyles use
+    // top/left and motion is free to own transform for its scale
+    // animation without conflict.
+    transform: false,
   });
 
   // Outside-click dismisses (→ onSkip via onOpenChange) without a
@@ -283,7 +317,7 @@ function SwapReasonContent({
     <>
       {/* Sticky header — grabber + close. */}
       <div className="sticky top-0 z-10 bg-cream rounded-t-2xl pt-3 pb-2 px-6 flex items-center justify-between">
-        <div className="mx-auto h-1 w-10 rounded-full bg-border md:hidden" />
+        <div className="mx-auto h-1 w-10 rounded-full bg-border" />
         <button
           type="button"
           onClick={onSkip}

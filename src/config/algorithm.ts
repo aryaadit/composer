@@ -244,6 +244,17 @@ export const ALGORITHM = {
     stopDefaultCount: 2,
 
     /**
+     * Default party size used by /api/generate and /api/swap-stop when
+     * enriching Resy availability. The client doesn't collect party
+     * size yet — when the questionnaire grows that step, the route
+     * handlers should prefer the user's pick and only fall back to
+     * this constant. Kept here so the literal doesn't get duplicated
+     * across route handlers (the same value is also passed into
+     * Resy's URL builders downstream).
+     */
+    defaultPartySize: 2,
+
+    /**
      * Average duration per role (minutes), used by planStopMix() to
      * decide how many stops fit in the user's time window.
      *

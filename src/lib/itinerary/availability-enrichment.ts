@@ -130,6 +130,33 @@ function buildAvailability(
   };
 }
 
+/**
+ * **Currently inert in production.** Both live callers of
+ * `enrichWithAvailability` pass `candidatePool = undefined`, so the
+ * `candidatePool` branch in the enrichment loop never reaches this
+ * function. The two callers do so for different reasons:
+ *
+ *   - `/api/generate` (src/app/api/generate/route.ts): not yet wired.
+ *     We plan to thread a candidate pool here so a Main with no slots
+ *     in the user's window can auto-swap to a same-role venue with
+ *     real availability.
+ *   - `/api/swap-stop` (src/app/api/swap-stop/route.ts): intentional.
+ *     The route is already inside a user-initiated swap; passing a
+ *     candidate pool here would let enrichment recursively swap the
+ *     swap, which is not a behavior we want.
+ *
+ * **When wiring generate, do NOT reuse this function's local candidate
+ * filter as-is.** The current shape — `same stop_role AND within
+ * SWAP_RADIUS_KM of the original venue` — was written before the
+ * collapsed-role / shared-role-eligibility regime and ignores budget
+ * tier, vibe, neighborhood, and proximity to the OTHER stops in the
+ * itinerary. The right source of candidates is whatever ranking
+ * composition itself uses (the shared pre-filter stack +
+ * pickBestForRole's scored output), narrowed to Resy-platform venues
+ * with a known venue id + slug. A drop-in `candidatePool` from the
+ * route that bypasses scoring will silently produce a Main that the
+ * /api/generate strict filters would have rejected.
+ */
 async function attemptSwap(
   originalVenue: Venue,
   stopRole: string,
@@ -324,6 +351,10 @@ export async function enrichWithAvailability(
         availability.status === "no_slots_in_block" &&
         candidatePool
       ) {
+        // Inert in production today — both callers pass undefined.
+        // See attemptSwap's docblock for the why and for the warning
+        // about how to wire generate's candidatePool when we close
+        // that gap.
         const swapResult = await attemptSwap(
           venue,
           stop.role,

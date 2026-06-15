@@ -15,6 +15,21 @@
 export const VENUE_SHEET_TAB = "NYC Venues";
 
 /**
+ * Staging tab the admin "Add venue" feature writes new venue rows to.
+ * The live `NYC Venues` tab is never written from the app — every new
+ * venue lands here first for human review (curation_note voice check,
+ * neighborhood + vibe sanity, dedupe), then the operator copies the
+ * approved rows over to `NYC Venues` and runs a normal sync-venues
+ * import. Keeps the "founders own taste curation" boundary intact.
+ *
+ * Renaming this tab in the spreadsheet without updating the constant
+ * breaks the add-venue apply path; the route surfaces a typed
+ * "review_tab_missing" failure with the expected name when the live
+ * tab list doesn't include it.
+ */
+export const ADD_VENUE_REVIEW_TAB = "NYC New Venues Review";
+
+/**
  * Header row range within VENUE_SHEET_TAB. Headers are read from row 2
  * (row 1 is section dividers in the curator's working layout).
  *
