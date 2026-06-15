@@ -36,9 +36,14 @@ import { NextResponse } from "next/server";
 import { NEIGHBORHOOD_GROUPS } from "@/config/generated/neighborhoods";
 import { getServerSupabase } from "@/lib/supabase/server";
 import { getServiceSupabase } from "@/lib/supabase";
-import { fetchPlaceDetails, type PlaceData } from "@/lib/google-places";
+import {
+  fetchPlaceDetails,
+  textSearchPlaces,
+  type PlaceData,
+} from "@/lib/google-places";
 import { callGeminiJSON } from "@/lib/claude";
 import {
+  extractMapsContext,
   extractPlaceIdFromInput,
   placesToRow,
   resolveMapsShortlink,
@@ -263,27 +268,82 @@ async function handlePreview(rawInput: unknown): Promise<NextResponse> {
     });
   }
 
-  // Resolve to a place_id. The input may be a bare ID, a long Maps
-  // URL embedding the ID, or a maps.app.goo.gl shortlink that
-  // redirects to one. resolveMapsShortlink follows one redirect so
-  // the operator can paste either form.
-  let placeId = extractPlaceIdFromInput(rawInput);
-  if (!placeId && /^https:\/\/maps\.app\.goo\.gl\//.test(rawInput.trim())) {
-    const resolved = await resolveMapsShortlink(rawInput.trim());
+  // Resolve to a ChIJ-form place_id via this chain:
+  //   (a) extract directly from the input (bare id, ?q=place_id:ChIJ...,
+  //       ?place_id=ChIJ...)
+  //   (b) if the input is a maps.app.goo.gl shortlink, follow one
+  //       redirect to the underlying URL and retry the extractor
+  //   (c) if still no ChIJ id, fall back to Places Text Search using
+  //       the URL's name segment + a 150m locationBias around its
+  //       pin coordinates (!3d/!4d, fall back to @lat,lng). Sanity
+  //       guard: refuse the top candidate when it's >250m from the
+  //       URL coords, because the same-name venue across town is the
+  //       most common Text Search failure mode.
+  //
+  // Why the fallback exists: a standard Maps share link (and every
+  // maps.app.goo.gl shortlink) carries a `!1s0x...:0x...` hex feature
+  // ID and a `/g/...` MID, neither of which Places v1 accepts as a
+  // place_id. The old code used to feed the hex to `places/<id>` and
+  // got back null silently.
+  const trimmedInput = rawInput.trim();
+  let placeId = extractPlaceIdFromInput(trimmedInput);
+  let resolvedUrl = trimmedInput;
+  if (!placeId && /^https:\/\/maps\.app\.goo\.gl\//.test(trimmedInput)) {
+    const resolved = await resolveMapsShortlink(trimmedInput);
     if (resolved) {
+      resolvedUrl = resolved;
       placeId = extractPlaceIdFromInput(resolved);
     }
   }
   if (!placeId) {
-    return jsonResponse({
-      ok: false,
-      kind: "preview_failed",
-      reason: "unresolved_place_id",
-      message:
-        "Could not extract a place_id from that input. Paste either a " +
-        "Google Maps link (with place_id=, !1s, or /place/.../<id>) or " +
-        "a bare place_id (starts with ChIJ, GhIJ, etc.).",
+    const ctx = extractMapsContext(resolvedUrl);
+    if (!ctx.name || ctx.lat == null || ctx.lng == null) {
+      return jsonResponse({
+        ok: false,
+        kind: "preview_failed",
+        reason: "unresolved_place_id",
+        message:
+          "No ChIJ place_id, name, or coordinates could be extracted from " +
+          "that input. Paste a full Google Maps link (the URL must reach " +
+          'a place page, e.g. ".../maps/place/Name/@lat,lng/data=!3d...!4d...").',
+      });
+    }
+    const candidates = await textSearchPlaces({
+      textQuery: ctx.name,
+      locationBias: {
+        latitude: ctx.lat,
+        longitude: ctx.lng,
+        radiusMeters: 150,
+      },
     });
+    if (candidates.length === 0) {
+      return jsonResponse({
+        ok: false,
+        kind: "preview_failed",
+        reason: "unresolved_place_id",
+        message:
+          `Text Search returned no candidates for "${ctx.name}" within 150m ` +
+          "of the URL coordinates. The venue may have been delisted from " +
+          "Google. Confirm it still appears in Maps before re-trying.",
+      });
+    }
+    const top = candidates[0];
+    const distanceMeters =
+      haversineKm(ctx.lat, ctx.lng, top.location.latitude, top.location.longitude) *
+      1000;
+    if (distanceMeters > 250) {
+      return jsonResponse({
+        ok: false,
+        kind: "preview_failed",
+        reason: "unresolved_place_id",
+        message:
+          `Text Search returned "${top.displayName.text}" but it is ` +
+          `${Math.round(distanceMeters)}m from the URL coordinates. ` +
+          "Refusing to use a likely-wrong place. Open the link in Maps " +
+          "and confirm the venue, or paste a place_id directly.",
+      });
+    }
+    placeId = top.id;
   }
 
   // Sheet-first dedup. The DB lags the sheet (a venue lives in NYC
@@ -370,8 +430,12 @@ async function handlePreview(rawInput: unknown): Promise<NextResponse> {
     });
   }
 
-  // Fetch Google Places details.
-  const place = await fetchPlaceDetails(placeId);
+  // Fetch Google Places details, INCLUDING reviews. Review text is
+  // used as drafter prompt context only (see draftEditorialFields)
+  // and is never persisted to the sheet, DB, or response. The
+  // operator sees the canonical PlaceData via the preview row but
+  // never the raw review strings.
+  const place = await fetchPlaceDetails(placeId, { withReviews: true });
   if (!place) {
     return jsonResponse({
       ok: false,
@@ -427,7 +491,9 @@ async function handlePreview(rawInput: unknown): Promise<NextResponse> {
       name: placeName,
       formatted_address: String(place.formattedAddress ?? ""),
       google_place_id: placeId,
-      google_maps_uri: String(place.googleMapsUri ?? ""),
+      // Mirror the maps_url column the row writes: the canonical
+      // place_id form, not the share-link shape Places returns.
+      google_maps_uri: `https://www.google.com/maps/place/?q=place_id:${placeId}`,
     },
   });
 }
@@ -690,7 +756,54 @@ Voice rules (NON-NEGOTIABLE):
 - curation_note: 1-2 sentences, observational, no clichés.
 - signature_order: a short phrase or dish name. Lowercase except proper nouns. Optional.
 
+Review snippets (SIGNAL ONLY):
+- When the prompt includes user-review snippets, treat them as evidence about vibe, occasion, what the place is known for, and which dish to flag as signature_order.
+- DO NOT quote or paraphrase review wording. The note must be original prose in Composer's voice.
+- Reviews are noisy: weight repeat signals (multiple reviews mentioning the same thing) over single-reviewer claims. Ignore complaints about service / pricing unless they reshape what the place IS.
+
 You will receive Google Places facts and a list of allowed slugs for each taxonomy field. Pick ONLY from the allowed list per field. If unsure, leave the field blank. Return STRICT JSON with these keys (any may be omitted): neighborhood, category, vibe_tags, occasion_tags, stop_roles, duration_hours, reservation_difficulty, reservation_platform, reservation_url, resy_slug, happy_hour, quality_score, awards, curation_note, signature_order.`;
+
+const REVIEW_SNIPPET_COUNT = 5;
+const REVIEW_SNIPPET_MAX_CHARS = 300;
+
+interface ReviewLike {
+  text?: { text?: unknown } | unknown;
+  rating?: unknown;
+}
+
+/**
+ * Extract up to REVIEW_SNIPPET_COUNT review text snippets from the
+ * Places response, truncating each to REVIEW_SNIPPET_MAX_CHARS.
+ * Returns an empty array when reviews are absent (the default for
+ * fetchPlaceDetails without withReviews, or for venues with zero
+ * reviews). Pure transformation; nothing is persisted by this
+ * function or its callers beyond the lifetime of the request.
+ */
+function extractReviewSnippets(place: PlaceData): string[] {
+  const reviews = place.reviews;
+  if (!Array.isArray(reviews)) return [];
+  const out: string[] = [];
+  for (const rev of reviews as ReviewLike[]) {
+    if (out.length >= REVIEW_SNIPPET_COUNT) break;
+    const textBlock = rev.text;
+    const text =
+      typeof textBlock === "object" &&
+      textBlock !== null &&
+      typeof (textBlock as { text?: unknown }).text === "string"
+        ? (textBlock as { text: string }).text
+        : typeof textBlock === "string"
+          ? textBlock
+          : "";
+    const trimmed = text.trim();
+    if (!trimmed) continue;
+    out.push(
+      trimmed.length > REVIEW_SNIPPET_MAX_CHARS
+        ? `${trimmed.slice(0, REVIEW_SNIPPET_MAX_CHARS - 1).trimEnd()}…`
+        : trimmed,
+    );
+  }
+  return out;
+}
 
 function vocabLine(
   label: string,
@@ -714,6 +827,11 @@ function buildDrafterPrompt(
   const types = Array.isArray(place.types)
     ? (place.types as unknown[]).filter((t): t is string => typeof t === "string")
     : [];
+  const reviewSnippets = extractReviewSnippets(place);
+  const reviewBlock =
+    reviewSnippets.length === 0
+      ? "(no reviews available)"
+      : reviewSnippets.map((s, i) => `  [${i + 1}] ${s}`).join("\n");
   return [
     `Venue: ${displayName ?? "(unknown)"}`,
     `Address: ${String(place.formattedAddress ?? "")}`,
@@ -722,6 +840,9 @@ function buildDrafterPrompt(
     `Editorial summary (Google): ${summary || "n/a"}`,
     `Schedule (parsed): ${JSON.stringify(deterministic.schedule)}`,
     `Pre-computed time_blocks: ${deterministic.timeBlocks.join(",") || "(none)"}`,
+    "",
+    `Top reviews (signal only — do NOT quote, paraphrase, or repeat phrases):`,
+    reviewBlock,
     "",
     "Allowed values per field (from the Master Reference tab):",
     vocabLine("neighborhood", vocab, "neighborhood"),

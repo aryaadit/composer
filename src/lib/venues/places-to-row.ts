@@ -50,38 +50,102 @@ export function mapPriceLevel(priceLevel: unknown): 1 | 2 | 3 | 4 | null {
 // ─── Maps URL / Place ID extraction ──────────────────────────────
 
 /**
- * Pull a Google Places place_id out of common Maps URL shapes.
- * Accepted inputs:
- *   - A bare place_id starting with "ChIJ" or "GhIJ" / similar prefix
- *   - A URL containing `place_id=...` (canonical form)
- *   - A URL containing `!1s<hex>:<hex>` (Maps embedded form)
- * Returns null when no place_id is recognizable. Shortlinks
- * (https://maps.app.goo.gl/...) need a redirect follow, handled by
- * resolveMapsShortlink below.
+ * True if `s` matches the Places API v1 place_id shape: a base64-ish
+ * string of letters / digits / `_` / `-`, no colons, ~27+ chars.
+ * Place_ids never contain colons; the `0x...:0x...` shape in Maps
+ * URLs is a hex feature ID (a `!1s` payload), not a place_id, and
+ * feeding it to /v1/places/<id> returns nothing. This predicate
+ * rejects that shape by virtue of disallowing the colon.
+ */
+function looksLikeChIJ(s: string): boolean {
+  return /^[A-Za-z][A-Za-z0-9_-]{22,}$/.test(s);
+}
+
+/**
+ * Pull a Places API v1 place_id (ChIJ-form) out of an input string.
+ * Accepted shapes:
+ *   - A bare place_id (operator pasted just the ID)
+ *   - `?q=place_id:ChIJ...` (canonical Maps URL form)
+ *   - `?place_id=ChIJ...` or `&place_id=ChIJ...` (query param form)
+ *
+ * Explicitly NOT accepted:
+ *   - `!1s0x...:0x...` (hex feature ID, not a place_id)
+ *   - `/g/...` (Knowledge Graph MID, not a place_id)
+ *   - `/maps/place/<NAME>/<id>` trailing segments (often a CID or MID)
+ *
+ * Returns null when the input has no ChIJ-form id. The route handles
+ * the null case by extracting name + coords (see extractMapsContext)
+ * and falling back to Places Text Search.
  */
 export function extractPlaceIdFromInput(input: string): string | null {
   const trimmed = input.trim();
   if (!trimmed) return null;
 
-  // Bare place_id — the operator pasted just the ID.
-  if (/^[A-Za-z]{2,4}[A-Za-z0-9_-]{20,}$/.test(trimmed)) {
-    return trimmed;
+  // Bare place_id.
+  if (looksLikeChIJ(trimmed)) return trimmed;
+
+  // ?q=place_id:ChIJ... — the documented canonical form.
+  const qPrefixedMatch = trimmed.match(/[?&]q=place_id:([A-Za-z0-9_-]+)/);
+  if (qPrefixedMatch && looksLikeChIJ(qPrefixedMatch[1])) {
+    return qPrefixedMatch[1];
   }
 
-  // ?place_id=XXX or &place_id=XXX
+  // ?place_id=ChIJ... — older form.
   const queryMatch = trimmed.match(/[?&]place_id=([A-Za-z0-9_-]+)/);
-  if (queryMatch) return queryMatch[1];
-
-  // !1s<hex>:<hex> — embedded form. The full place_id is the entire
-  // <hex>:<hex> chunk, including the colon and both halves.
-  const embedMatch = trimmed.match(/!1s([0-9a-fx]+:[0-9a-fx]+)/i);
-  if (embedMatch) return embedMatch[1];
-
-  // /place/.../<place_id> — rarely emitted, defensive.
-  const pathMatch = trimmed.match(/\/place\/[^/]+\/([A-Za-z0-9_-]+)$/);
-  if (pathMatch && pathMatch[1].length >= 24) return pathMatch[1];
+  if (queryMatch && looksLikeChIJ(queryMatch[1])) {
+    return queryMatch[1];
+  }
 
   return null;
+}
+
+/**
+ * Context useful for Places Text Search when the URL has no ChIJ
+ * place_id (the common case for /maps.app.goo.gl/ shortlinks once
+ * they resolve). Returns whatever the URL exposes:
+ *   - name from the `/maps/place/<NAME>/` segment, URL-decoded
+ *   - lat/lng from `!3d<lat>!4d<lng>` (the precise pin coords) when
+ *     present, otherwise from `@<lat>,<lng>` (viewport center).
+ * Fields are independently null when the URL doesn't expose them;
+ * the caller is responsible for handling partial context.
+ */
+export function extractMapsContext(input: string): {
+  name: string | null;
+  lat: number | null;
+  lng: number | null;
+} {
+  const trimmed = input.trim();
+
+  let name: string | null = null;
+  const nameMatch = trimmed.match(/\/maps\/place\/([^/]+)\//);
+  if (nameMatch) {
+    try {
+      name = decodeURIComponent(nameMatch[1]).replace(/\+/g, " ");
+    } catch {
+      // URL-decode failed (malformed percent-encoding). Treat as
+      // no-name; Text Search needs a query, so the route will
+      // surface unresolved_place_id.
+      name = null;
+    }
+  }
+
+  let lat: number | null = null;
+  let lng: number | null = null;
+  // Prefer !3d/!4d (the pin coords) over @lat,lng (the viewport
+  // center), which can be off by hundreds of meters.
+  const dataMatch = trimmed.match(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/);
+  if (dataMatch) {
+    lat = Number.parseFloat(dataMatch[1]);
+    lng = Number.parseFloat(dataMatch[2]);
+  } else {
+    const atMatch = trimmed.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
+    if (atMatch) {
+      lat = Number.parseFloat(atMatch[1]);
+      lng = Number.parseFloat(atMatch[2]);
+    }
+  }
+
+  return { name, lat, lng };
 }
 
 /**
@@ -180,6 +244,25 @@ function toFloatHour(point: PlacesTimePoint): number | null {
   if (typeof point.hour !== "number") return null;
   const minute = typeof point.minute === "number" ? point.minute : 0;
   return point.hour + minute / 60;
+}
+
+/**
+ * Pull the verbose weekday hours strings Places returns under
+ * regularOpeningHours.weekdayDescriptions and join them with "; ".
+ * Falls back to an empty string when the field is absent (some
+ * venues have no published hours), letting the operator fill it in
+ * during sheet review. Currently the only consumer is the
+ * deterministic mapping below; if a future caller needs the array
+ * shape itself, lift this out.
+ */
+export function extractWeekdayDescriptions(place: PlaceData): string {
+  const hours = place.regularOpeningHours;
+  if (!hours || typeof hours !== "object") return "";
+  const arr = (hours as { weekdayDescriptions?: unknown }).weekdayDescriptions;
+  if (!Array.isArray(arr)) return "";
+  return arr
+    .filter((s): s is string => typeof s === "string" && s.length > 0)
+    .join("; ");
 }
 
 // ─── Schedule -> hours text ──────────────────────────────────────
@@ -324,9 +407,15 @@ export function placesToRow(
   if (typeof loc?.latitude === "number") fields["latitude"] = String(loc.latitude);
   if (typeof loc?.longitude === "number") fields["longitude"] = String(loc.longitude);
   fields["google_place_id"] = opts.placeId;
-  if (typeof place.googleMapsUri === "string") {
-    fields["maps_url"] = place.googleMapsUri;
-  }
+  // maps_url is constructed deterministically from the place_id so
+  // every new row matches the canonical form every existing NYC
+  // Venues row uses ("https://www.google.com/maps/place/?q=place_id:
+  // ChIJ..."). The googleMapsUri Places returns is the share-link
+  // shape (maps.google.com/?cid=... with tracking params) which
+  // makes diffing the catalog noisy and doesn't reopen at the same
+  // pin in some clients. The constructed form is the documented
+  // canonical Maps URL for place_id lookups.
+  fields["maps_url"] = `https://www.google.com/maps/place/?q=place_id:${opts.placeId}`;
   if (typeof place.nationalPhoneNumber === "string") {
     fields["google_phone"] = place.nationalPhoneNumber;
   }
@@ -364,7 +453,14 @@ export function placesToRow(
     fields[DAY_COLUMN_BY_KEY[day]] = dayBlocks[day].join(",");
   }
   fields["time_blocks"] = timeBlocks.join(",");
-  fields["hours"] = scheduleToHoursText(schedule);
+  // Verbose Google-form hours string, joined by "; " across days, e.g.
+  // "Monday: 4:00 - 10:00 PM; Tuesday: 4:00 - 10:00 PM; ...". This is
+  // straight from Places API regularOpeningHours.weekdayDescriptions
+  // and matches the format every existing NYC Venues row uses, so the
+  // catalog stays diff-free across imports. The numeric open_/close_
+  // columns below come from the period extraction and remain accurate
+  // for downstream filters; only the human-readable column changes.
+  fields["hours"] = extractWeekdayDescriptions(place);
   const numeric = numericHoursColumns(schedule);
   for (const [k, v] of Object.entries(numeric)) {
     fields[k] = v;

@@ -7,8 +7,10 @@ import {
   type Schedule,
 } from "@/lib/venues/hours-to-blocks";
 import {
+  extractMapsContext,
   extractPlaceIdFromInput,
   extractSchedule,
+  extractWeekdayDescriptions,
   mapPriceLevel,
   placesToRow,
   scheduleToHoursText,
@@ -39,27 +41,58 @@ describe("PRICE_LEVEL_MAP — Places enum to composer price_tier", () => {
   });
 });
 
-describe("extractPlaceIdFromInput — Maps URL / place_id parsing", () => {
+describe("extractPlaceIdFromInput — ChIJ-shape only (post-fix-C)", () => {
   it("returns a bare place_id unchanged", () => {
     expect(extractPlaceIdFromInput("ChIJN1t_tDeuEmsRUsoyG83frY4")).toBe(
       "ChIJN1t_tDeuEmsRUsoyG83frY4",
     );
   });
 
-  it("extracts the place_id from a ?place_id=… URL", () => {
+  it("extracts the place_id from the canonical ?q=place_id:ChIJ... form", () => {
     expect(
       extractPlaceIdFromInput(
-        "https://www.google.com/maps/place/?q=place_id:ChIJN1t&place_id=ChIJN1t_tDeuEmsRUsoyG83frY4",
+        "https://www.google.com/maps/place/?q=place_id:ChIJN1t_tDeuEmsRUsoyG83frY4",
       ),
     ).toBe("ChIJN1t_tDeuEmsRUsoyG83frY4");
   });
 
-  it("extracts the embedded !1s<hex>:<hex> form", () => {
+  it("extracts the place_id from the older ?place_id=ChIJ... query param form", () => {
+    expect(
+      extractPlaceIdFromInput(
+        "https://maps.google.com/?cid=999&place_id=ChIJN1t_tDeuEmsRUsoyG83frY4",
+      ),
+    ).toBe("ChIJN1t_tDeuEmsRUsoyG83frY4");
+  });
+
+  it("explicitly REJECTS the !1s<hex>:<hex> feature ID — that is not a place_id", () => {
+    // Pre-fix-C the extractor returned this hex shape and the route
+    // fed it to Places, getting null. Now we return null so the
+    // route falls through to Text Search using the URL's name +
+    // coords as the resolver.
     expect(
       extractPlaceIdFromInput(
         "https://www.google.com/maps/place/Spot/@40.7,-74.0,15z/data=!4m6!3m5!1s0x89c259a9b3117469:0xd134e199a405a163!8m2!3d40.7!4d-74.0",
       ),
-    ).toBe("0x89c259a9b3117469:0xd134e199a405a163");
+    ).toBeNull();
+  });
+
+  it("explicitly REJECTS /g/ Knowledge Graph MIDs", () => {
+    expect(
+      extractPlaceIdFromInput(
+        "https://www.google.com/maps/place/Spot/g/11h1z9xn3",
+      ),
+    ).toBeNull();
+  });
+
+  it("does not pick up a short malformed value embedded as q=place_id:", () => {
+    // Sanity guard: looksLikeChIJ requires >=23 chars. A truncated
+    // value like "ChIJN1t" (7 chars) must NOT be accepted, even if
+    // it's wrapped in the canonical q=place_id: syntax.
+    expect(
+      extractPlaceIdFromInput(
+        "https://www.google.com/maps/place/?q=place_id:ChIJN1t",
+      ),
+    ).toBeNull();
   });
 
   it("returns null for inputs with no recognizable shape", () => {
@@ -69,6 +102,49 @@ describe("extractPlaceIdFromInput — Maps URL / place_id parsing", () => {
     // Shortlink: the parser alone can't resolve these, the route
     // calls resolveMapsShortlink to follow the redirect first.
     expect(extractPlaceIdFromInput("https://maps.app.goo.gl/AbCdEf")).toBeNull();
+  });
+});
+
+describe("extractMapsContext — Text Search fallback input", () => {
+  it("pulls name + lat/lng from !3d/!4d pin coords (preferred over @lat,lng)", () => {
+    const url =
+      "https://www.google.com/maps/place/Le+Bernardin/@40.7616,-73.9819,15z/data=!4m6!3m5!1s0x89c258f7d09f2c43:0xabc!8m2!3d40.7615200!4d-73.9817100";
+    expect(extractMapsContext(url)).toEqual({
+      name: "Le Bernardin",
+      // !3d/!4d wins over the @-form viewport coords.
+      lat: 40.7615200,
+      lng: -73.9817100,
+    });
+  });
+
+  it("falls back to @lat,lng when !3d/!4d is missing", () => {
+    const url =
+      "https://www.google.com/maps/place/Joe%27s+Pizza/@40.7305,-74.0027,17z/";
+    expect(extractMapsContext(url)).toEqual({
+      name: "Joe's Pizza",
+      lat: 40.7305,
+      lng: -74.0027,
+    });
+  });
+
+  it("URL-decodes the name segment (encoded spaces, apostrophes)", () => {
+    const url =
+      "https://www.google.com/maps/place/Caf%C3%A9+M%C3%A9xico/@40.0,-73.0,15z/";
+    expect(extractMapsContext(url).name).toBe("Café México");
+  });
+
+  it("treats + as a space in the name segment", () => {
+    const url =
+      "https://www.google.com/maps/place/Lower+East+Side+Bar/@40.0,-73.0,15z/";
+    expect(extractMapsContext(url).name).toBe("Lower East Side Bar");
+  });
+
+  it("returns nulls for fields the URL doesn't expose", () => {
+    expect(extractMapsContext("https://example.com/")).toEqual({
+      name: null,
+      lat: null,
+      lng: null,
+    });
   });
 });
 
@@ -174,7 +250,43 @@ describe("extractSchedule — Places periods to internal Schedule", () => {
   });
 });
 
-describe("scheduleToHoursText", () => {
+describe("extractWeekdayDescriptions — verbose Google-form hours (FIX B)", () => {
+  it("joins regularOpeningHours.weekdayDescriptions with '; '", () => {
+    // Matches the verbose Places form: "Monday: 4:00 - 10:00 PM"
+    // strings exactly as Google emits them, joined by "; ". This is
+    // the format every existing NYC Venues row uses, so newly
+    // staged rows diff cleanly against the live catalog.
+    const place = {
+      regularOpeningHours: {
+        weekdayDescriptions: [
+          "Monday: 4:00 - 10:00 PM",
+          "Tuesday: 4:00 - 10:00 PM",
+          "Wednesday: 4:00 - 10:00 PM",
+        ],
+      },
+    };
+    expect(extractWeekdayDescriptions(place)).toBe(
+      "Monday: 4:00 - 10:00 PM; Tuesday: 4:00 - 10:00 PM; Wednesday: 4:00 - 10:00 PM",
+    );
+  });
+
+  it("returns empty string when regularOpeningHours or weekdayDescriptions is absent", () => {
+    expect(extractWeekdayDescriptions({})).toBe("");
+    expect(extractWeekdayDescriptions({ regularOpeningHours: null })).toBe("");
+    expect(extractWeekdayDescriptions({ regularOpeningHours: { periods: [] } })).toBe("");
+  });
+
+  it("drops non-string and empty entries", () => {
+    const place = {
+      regularOpeningHours: {
+        weekdayDescriptions: ["Monday: open", "", null, 5, "Tuesday: closed"],
+      },
+    };
+    expect(extractWeekdayDescriptions(place)).toBe("Monday: open; Tuesday: closed");
+  });
+});
+
+describe("scheduleToHoursText (legacy compact formatter, still exported)", () => {
   it("renders Mon-Sun order with multiple intervals comma-joined", () => {
     const sched: Schedule = {
       mon: [[17.0, 22.0]],
@@ -196,6 +308,9 @@ describe("placesToRow — deterministic field mapping", () => {
       displayName: { text: "Test Bar" },
       formattedAddress: "1 Test St, New York",
       location: { latitude: 40.7, longitude: -74.0 },
+      // Pre-fix-A the row used googleMapsUri verbatim. Post-fix-A
+      // maps_url is constructed from place_id, so whatever Places
+      // returns here is irrelevant — the test below pins that.
       googleMapsUri: "https://maps.google.com/?cid=1",
       nationalPhoneNumber: "(212) 555-0100",
       rating: 4.6,
@@ -208,6 +323,10 @@ describe("placesToRow — deterministic field mapping", () => {
       goodForChildren: undefined,
       accessibilityOptions: { wheelchairAccessibleEntrance: true },
       regularOpeningHours: {
+        weekdayDescriptions: [
+          "Monday: 6:00 - 10:00 PM",
+          "Tuesday: 6:00 - 10:00 PM",
+        ],
         periods: [
           {
             open: { day: 5, hour: 18, minute: 0 },
@@ -227,13 +346,24 @@ describe("placesToRow — deterministic field mapping", () => {
     expect(fields.latitude).toBe("40.7");
     expect(fields.longitude).toBe("-74");
     expect(fields.google_place_id).toBe("ChIJTEST");
-    expect(fields.maps_url).toBe("https://maps.google.com/?cid=1");
+    // FIX A: maps_url is the canonical place_id form, NOT the
+    // googleMapsUri Places returned (maps.google.com/?cid=...).
+    expect(fields.maps_url).toBe(
+      "https://www.google.com/maps/place/?q=place_id:ChIJTEST",
+    );
     expect(fields.google_phone).toBe("(212) 555-0100");
     expect(fields.google_rating).toBe("4.6");
     expect(fields.google_review_count).toBe("1234");
     expect(fields.google_types).toBe("bar,establishment");
     expect(fields.business_status).toBe("OPERATIONAL");
     expect(fields.price_tier).toBe("3");
+
+    // FIX B: hours come from weekdayDescriptions joined by "; ",
+    // matching the verbose Places form every existing NYC Venues
+    // row uses.
+    expect(fields.hours).toBe(
+      "Monday: 6:00 - 10:00 PM; Tuesday: 6:00 - 10:00 PM",
+    );
 
     // Amenities: yes/no/blank
     expect(fields.outdoor_seating).toBe("yes");
