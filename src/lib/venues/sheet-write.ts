@@ -402,6 +402,163 @@ export async function readReviewTabPlaceIdMap(): Promise<
   return map;
 }
 
+// ─── venue_id picker ─────────────────────────────────────────────
+//
+// Composer's venue_id convention is "v" + 4-digit zero-padded
+// integer ("v0042"). We assign new ids monotonically from the
+// highest currently-in-use number across BOTH the live NYC Venues
+// tab and the NYC New Venues Review staging tab — gaps are never
+// reused (deleted rows leave permanent holes in the number space,
+// which is the right trade-off because reusing an id is a
+// confusing identity change).
+//
+// The picker is split into a pure helper and a Sheets-bound
+// orchestrator so the pure function can be unit-tested without
+// faking the Sheets API.
+
+const VENUE_ID_RE = /^v(\d+)$/;
+const VENUE_ID_PAD = 4;
+/** Sanity cap so a corrupted input that somehow contains every
+ *  vNNNN up to MAX_SAFE_INTEGER doesn't infinite-loop the picker.
+ *  The live catalog is ~1300 venues today; 100k is ~75x headroom. */
+const VENUE_ID_HARD_LIMIT = 100_000;
+
+function formatVenueId(n: number): string {
+  return `v${String(n).padStart(VENUE_ID_PAD, "0")}`;
+}
+
+/**
+ * Pure: given the union of existing venue_ids across BOTH tabs,
+ * return the next vNNNN that isn't already used. Monotonic — never
+ * re-uses a gap. Non-conforming ids (anything not matching
+ * /^v(\\d+)$/) are ignored for the max computation but still block
+ * a candidate that happens to collide with them as a string
+ * (impossible by construction today, since the candidate is always
+ * vNNNN-shaped).
+ *
+ * Exported only for unit tests; runtime callers should use
+ * computeNextVenueId, which gathers the existing set itself.
+ */
+export function nextVenueIdFromExisting(
+  existingIds: ReadonlySet<string>,
+): string {
+  let max = 0;
+  for (const id of existingIds) {
+    const m = id.match(VENUE_ID_RE);
+    if (!m) continue;
+    const n = Number.parseInt(m[1], 10);
+    if (Number.isFinite(n) && n > max) max = n;
+  }
+  let candidate = max + 1;
+  // Skip any vNNNN that's already present (e.g. operator inserted
+  // v0050 ahead of schedule while max was at 47 — the next id is
+  // v0051, not v0048).
+  while (existingIds.has(formatVenueId(candidate))) {
+    candidate++;
+    if (candidate > VENUE_ID_HARD_LIMIT) {
+      throw new Error(
+        `venue_id space exhausted past v${VENUE_ID_HARD_LIMIT}`,
+      );
+    }
+  }
+  return formatVenueId(candidate);
+}
+
+/**
+ * Pull every non-empty value from the venue_id column of the live
+ * NYC Venues tab as a Set<string>. Unlike readNycVenuesPlaceIdMap
+ * this does NOT skip rows without a google_place_id, because some
+ * historical venues entered the catalog before the place_id backfill
+ * and we still need their ids in the max computation.
+ */
+export async function readNycVenuesVenueIds(): Promise<Set<string>> {
+  const sheets = writeSheetsClient();
+  const spreadsheetId = getSheetId();
+  const [headerRes, dataRes] = await Promise.all([
+    sheets.spreadsheets.values.get({
+      spreadsheetId,
+      range: `${VENUE_SHEET_TAB}!${VENUE_SHEET_HEADER_RANGE}`,
+    }),
+    sheets.spreadsheets.values.get({
+      spreadsheetId,
+      range: `${VENUE_SHEET_TAB}!${VENUE_SHEET_DATA_RANGE}`,
+    }),
+  ]);
+  const headers = ((headerRes.data.values ?? [[]])[0] ?? []).map((c) =>
+    String(c).trim().toLowerCase(),
+  );
+  const venueIdCol = headers.indexOf("venue_id");
+  const out = new Set<string>();
+  if (venueIdCol === -1) return out;
+  for (const row of dataRes.data.values ?? []) {
+    const id = String(row[venueIdCol] ?? "").trim();
+    if (id) out.add(id);
+  }
+  return out;
+}
+
+/**
+ * Same shape for the review tab. Throws ReviewTabMissingError when
+ * the tab itself doesn't exist; the caller (computeNextVenueId)
+ * treats that as "no staged ids" rather than a hard failure.
+ */
+export async function readReviewTabVenueIds(): Promise<Set<string>> {
+  const sheets = writeSheetsClient();
+  const spreadsheetId = getSheetId();
+  let values: string[][];
+  try {
+    const res = await sheets.spreadsheets.values.get({
+      spreadsheetId,
+      range: `${ADD_VENUE_REVIEW_TAB}!A:CD`,
+    });
+    values = (res.data.values ?? []).map((r) => r.map((c) => String(c)));
+  } catch (err) {
+    const status = (err as { code?: number }).code;
+    const message = (err as Error).message ?? "";
+    if (status === 400 && /unable to parse range/i.test(message)) {
+      throw new ReviewTabMissingError();
+    }
+    throw err;
+  }
+  const out = new Set<string>();
+  if (values.length === 0) return out;
+  const headers = (values[0] ?? []).map((c) => c.trim().toLowerCase());
+  const venueIdCol = headers.indexOf("venue_id");
+  if (venueIdCol === -1) return out;
+  for (let i = 1; i < values.length; i++) {
+    const id = (values[i][venueIdCol] ?? "").trim();
+    if (id) out.add(id);
+  }
+  return out;
+}
+
+/**
+ * Compute the next available venue_id by unioning the venue_id
+ * column across BOTH tabs and feeding the result through the pure
+ * picker. A missing review tab is non-fatal (treated as an empty
+ * staged-id set). Any OTHER read failure propagates so the route
+ * handler can surface the typed "could not compute venue_id" flag
+ * rather than proposing a low id that could collide with an
+ * existing row.
+ */
+export async function computeNextVenueId(): Promise<string> {
+  const catalog = await readNycVenuesVenueIds();
+  let review: Set<string>;
+  try {
+    review = await readReviewTabVenueIds();
+  } catch (err) {
+    if (err instanceof ReviewTabMissingError) {
+      review = new Set();
+    } else {
+      throw err;
+    }
+  }
+  // Single union set so the picker's collision check covers ids
+  // from either source. Set construction dedups automatically.
+  const existing = new Set<string>([...catalog, ...review]);
+  return nextVenueIdFromExisting(existing);
+}
+
 // ─── Master Reference vocab ──────────────────────────────────────
 
 /**

@@ -59,6 +59,7 @@ import {
   SheetWriteFailedError,
   SheetWriteForbiddenError,
   appendReviewTabRow,
+  computeNextVenueId,
   readCanonicalHeaders,
   readMasterReferenceVocab,
   readNycVenuesPlaceIdMap,
@@ -116,10 +117,17 @@ interface PreviewSuccess {
   /** Lowercase header-keyed row. The apply action expects this same
    *  shape back. */
   row: Record<string, string>;
+  /** Proposed venue_id at staging time (highest v{NNNN} across both
+   *  tabs + 1, monotonic). Null when the read failed; the UI then
+   *  surfaces the typed `id_compute_error` flag instead. */
+  proposed_venue_id: string | null;
   flags: {
     dropped: Array<{ field: string; value: string; reason: string }>;
     low_confidence: string[];
     neighborhood_candidates: Array<{ slug: string; label: string; km: number }>;
+    /** Human-readable explanation when proposed_venue_id is null
+     *  (sheet read failure). Null when the id was computed. */
+    id_compute_error: string | null;
   };
   place_summary: {
     name: string;
@@ -153,6 +161,11 @@ interface ApplySuccessResponse {
   sheet_tab: string;
   row_number: number;
   spreadsheet_url: string | null;
+  /** venue_id that was actually written into the appended row. Empty
+   *  string when the apply-time recomputation failed and the column
+   *  was left blank — in that case the operator assigns the id at
+   *  promotion time. */
+  venue_id_written: string;
 }
 
 interface ApplyFailedResponse {
@@ -463,10 +476,25 @@ async function handlePreview(rawInput: unknown): Promise<NextResponse> {
   const row: Record<string, string> = { ...deterministic.fields };
   applyDraftedToRow(row, cleaned);
   row["original_neighborhood"] = row["neighborhood"] ?? "";
-  // venue_id is operator-typed in the sheet review step; left blank
-  // here so the founder picks the slug. Same for notes.
-  row["venue_id"] = "";
   row["notes"] = "";
+
+  // Propose a venue_id by scanning the union of both tabs and
+  // picking the next monotonic vNNNN. Apply will recompute against
+  // the same union immediately before append so two simultaneous
+  // applies can't land the same id (narrow race window). On read
+  // failure we leave the column blank and surface a typed flag —
+  // proposing a bogus low id would collide silently with an
+  // existing row at promotion time.
+  let proposed_venue_id: string | null = null;
+  let id_compute_error: string | null = null;
+  try {
+    proposed_venue_id = await computeNextVenueId();
+  } catch (err) {
+    console.error("[add-venue] computeNextVenueId failed at preview:", err);
+    id_compute_error =
+      "Could not compute venue_id — assign at promotion.";
+  }
+  row["venue_id"] = proposed_venue_id ?? "";
 
   // Low-confidence flags: any taxonomy field that came back blank
   // after validation, plus quality_score if Gemini left it blank.
@@ -486,7 +514,13 @@ async function handlePreview(rawInput: unknown): Promise<NextResponse> {
     ok: true,
     kind: "preview",
     row,
-    flags: { dropped, low_confidence, neighborhood_candidates },
+    proposed_venue_id,
+    flags: {
+      dropped,
+      low_confidence,
+      neighborhood_candidates,
+      id_compute_error,
+    },
     place_summary: {
       name: placeName,
       formatted_address: String(place.formattedAddress ?? ""),
@@ -644,7 +678,26 @@ async function handleApply(
     });
   }
 
+  // Recompute the venue_id IMMEDIATELY before append. Recomputing
+  // here (vs trusting the value preview proposed) narrows the
+  // race window where two simultaneous applies could land on the
+  // same id — both reads run against the live sheet state.
+  // Failure mode: leave column A blank and surface the empty
+  // venue_id_written on the response; the operator assigns at
+  // promotion. Never propose a low id under failure, that would
+  // collide silently with an existing row.
+  let venue_id_written = "";
+  try {
+    venue_id_written = await computeNextVenueId();
+    row["venue_id"] = venue_id_written;
+  } catch (err) {
+    console.error("[add-venue] computeNextVenueId failed at apply:", err);
+    row["venue_id"] = "";
+  }
+
   // Project the lowercase row map onto the canonical header order.
+  // venue_id is column A in NYC Venues, so the venue_id we just
+  // computed lands at position 0 of the appended cells array.
   const cells = canonicalHeaders.map((h) => row[h.trim().toLowerCase()] ?? "");
 
   try {
@@ -658,6 +711,7 @@ async function handleApply(
       sheet_tab: ADD_VENUE_REVIEW_TAB,
       row_number: rowNumber,
       spreadsheet_url: spreadsheetUrl,
+      venue_id_written,
     });
   } catch (err) {
     if (err instanceof SheetWriteForbiddenError) {

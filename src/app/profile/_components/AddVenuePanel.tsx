@@ -52,10 +52,12 @@ interface PreviewSuccess {
   ok: true;
   kind: "preview";
   row: Record<string, string>;
+  proposed_venue_id: string | null;
   flags: {
     dropped: Array<{ field: string; value: string; reason: string }>;
     low_confidence: string[];
     neighborhood_candidates: Array<{ slug: string; label: string; km: number }>;
+    id_compute_error: string | null;
   };
   place_summary: {
     name: string;
@@ -78,6 +80,7 @@ interface ApplySuccess {
   sheet_tab: string;
   row_number: number;
   spreadsheet_url: string | null;
+  venue_id_written: string;
 }
 
 interface ApplyFailed {
@@ -456,7 +459,7 @@ function PreviewBlock({
   onApply: () => void;
   onReset: () => void;
 }) {
-  const { row, flags, place_summary } = preview;
+  const { row, flags, place_summary, proposed_venue_id } = preview;
   return (
     <div className="space-y-4">
       <div className="border border-border rounded-md p-4 bg-cream-tint/30">
@@ -473,6 +476,11 @@ function PreviewBlock({
           {place_summary.google_place_id}
         </p>
       </div>
+
+      <ProposedVenueIdBlock
+        proposedVenueId={proposed_venue_id}
+        idComputeError={flags.id_compute_error}
+      />
 
       {flags.low_confidence.length > 0 && (
         <FlagBlock
@@ -645,6 +653,20 @@ function ApplySuccessBlock({
           Added to {data.sheet_tab}
         </h4>
         <p className="font-sans text-xs text-charcoal">
+          {data.venue_id_written ? (
+            <>
+              venue_id{" "}
+              <span className="font-mono text-burgundy">
+                {data.venue_id_written}
+              </span>{" "}
+              written.{" "}
+            </>
+          ) : (
+            <>
+              venue_id was left blank (could not compute at apply); assign at
+              promotion.{" "}
+            </>
+          )}
           Review and approve the row in the sheet, then run a normal venue
           sync to import it into the live catalog.
           {data.row_number > 0 && ` Row ${data.row_number}.`}
@@ -661,6 +683,47 @@ function ApplySuccessBlock({
         )}
       </div>
       <PrimaryButton label="Add another" onClick={onReset} />
+    </div>
+  );
+}
+
+/**
+ * Prominent line above the FACTS grid: "proposed venue_id: v1482"
+ * plus a helper note that it's correct at staging time and may
+ * need re-confirmation at promotion. When the route couldn't read
+ * the venue_id columns, surfaces the typed failure message instead.
+ */
+function ProposedVenueIdBlock({
+  proposedVenueId,
+  idComputeError,
+}: {
+  proposedVenueId: string | null;
+  idComputeError: string | null;
+}) {
+  if (proposedVenueId) {
+    return (
+      <div className="border border-burgundy/30 bg-burgundy-tint rounded-md p-3">
+        <p className="font-sans text-sm text-charcoal">
+          proposed venue_id:{" "}
+          <span className="font-mono text-burgundy">{proposedVenueId}</span>
+        </p>
+        <p className="font-sans text-[11px] text-warm-gray mt-1 leading-relaxed">
+          Correct as of staging. Re-confirm at promotion if this row sits in
+          the review tab for a while — other applies may have advanced the
+          counter in the meantime.
+        </p>
+      </div>
+    );
+  }
+  return (
+    <div className="border border-burgundy/30 bg-burgundy-tint rounded-md p-3">
+      <p className="font-sans text-sm text-burgundy font-medium">
+        Could not compute venue_id
+      </p>
+      <p className="font-sans text-[11px] text-warm-gray mt-1 leading-relaxed">
+        {idComputeError ?? "Reading the venue_id column failed."} Assign a
+        slug at promotion before importing.
+      </p>
     </div>
   );
 }
