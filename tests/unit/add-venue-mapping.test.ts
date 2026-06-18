@@ -10,10 +10,8 @@ import {
   extractMapsContext,
   extractPlaceIdFromInput,
   extractSchedule,
-  extractWeekdayDescriptions,
   mapPriceLevel,
   placesToRow,
-  scheduleToHoursText,
 } from "@/lib/venues/places-to-row";
 
 // Pure data-mapping contracts for the "Add venue" admin feature.
@@ -250,58 +248,6 @@ describe("extractSchedule — Places periods to internal Schedule", () => {
   });
 });
 
-describe("extractWeekdayDescriptions — verbose Google-form hours (FIX B)", () => {
-  it("joins regularOpeningHours.weekdayDescriptions with '; '", () => {
-    // Matches the verbose Places form: "Monday: 4:00 - 10:00 PM"
-    // strings exactly as Google emits them, joined by "; ". This is
-    // the format every existing NYC Venues row uses, so newly
-    // staged rows diff cleanly against the live catalog.
-    const place = {
-      regularOpeningHours: {
-        weekdayDescriptions: [
-          "Monday: 4:00 - 10:00 PM",
-          "Tuesday: 4:00 - 10:00 PM",
-          "Wednesday: 4:00 - 10:00 PM",
-        ],
-      },
-    };
-    expect(extractWeekdayDescriptions(place)).toBe(
-      "Monday: 4:00 - 10:00 PM; Tuesday: 4:00 - 10:00 PM; Wednesday: 4:00 - 10:00 PM",
-    );
-  });
-
-  it("returns empty string when regularOpeningHours or weekdayDescriptions is absent", () => {
-    expect(extractWeekdayDescriptions({})).toBe("");
-    expect(extractWeekdayDescriptions({ regularOpeningHours: null })).toBe("");
-    expect(extractWeekdayDescriptions({ regularOpeningHours: { periods: [] } })).toBe("");
-  });
-
-  it("drops non-string and empty entries", () => {
-    const place = {
-      regularOpeningHours: {
-        weekdayDescriptions: ["Monday: open", "", null, 5, "Tuesday: closed"],
-      },
-    };
-    expect(extractWeekdayDescriptions(place)).toBe("Monday: open; Tuesday: closed");
-  });
-});
-
-describe("scheduleToHoursText (legacy compact formatter, still exported)", () => {
-  it("renders Mon-Sun order with multiple intervals comma-joined", () => {
-    const sched: Schedule = {
-      mon: [[17.0, 22.0]],
-      sat: [[10.0, 15.0], [17.0, 22.0]],
-    };
-    expect(scheduleToHoursText(sched)).toBe(
-      "Mon 5p-10p; Sat 10a-3p, 5p-10p",
-    );
-  });
-
-  it("omits days with no intervals", () => {
-    expect(scheduleToHoursText({ wed: [[12.0, 14.0]] })).toBe("Wed 12p-2p");
-  });
-});
-
 describe("placesToRow — deterministic field mapping", () => {
   it("maps the identity + Google fields without touching editorial taxonomy", () => {
     const place = {
@@ -323,10 +269,10 @@ describe("placesToRow — deterministic field mapping", () => {
       goodForChildren: undefined,
       accessibilityOptions: { wheelchairAccessibleEntrance: true },
       regularOpeningHours: {
-        weekdayDescriptions: [
-          "Monday: 6:00 - 10:00 PM",
-          "Tuesday: 6:00 - 10:00 PM",
-        ],
+        // Friday 6 PM to Saturday 1:30 AM. extractSchedule folds the
+        // past-midnight close into the open day with hour+24, so the
+        // schedule shape is { fri: [[18, 25.5]] } — what JSON.stringify
+        // emits below.
         periods: [
           {
             open: { day: 5, hour: 18, minute: 0 },
@@ -358,12 +304,12 @@ describe("placesToRow — deterministic field mapping", () => {
     expect(fields.business_status).toBe("OPERATIONAL");
     expect(fields.price_tier).toBe("3");
 
-    // FIX B: hours come from weekdayDescriptions joined by "; ",
-    // matching the verbose Places form every existing NYC Venues
-    // row uses.
-    expect(fields.hours).toBe(
-      "Monday: 6:00 - 10:00 PM; Tuesday: 6:00 - 10:00 PM",
-    );
+    // hours column is the JSON-serialized schedule — the same shape
+    // src/lib/format/hours.ts::parseSchedule consumes for rendering
+    // and the same shape every live NYC Venues row holds after the
+    // JSON migration. Past-midnight close folds into the open day
+    // with hour+24 (25.5 = 1:30 AM next day).
+    expect(fields.hours).toBe('{"fri":[[18,25.5]]}');
 
     // Amenities: yes/no/blank
     expect(fields.outdoor_seating).toBe("yes");
