@@ -475,7 +475,6 @@ async function handlePreview(rawInput: unknown): Promise<NextResponse> {
   // Compose the row map.
   const row: Record<string, string> = { ...deterministic.fields };
   applyDraftedToRow(row, cleaned);
-  row["original_neighborhood"] = row["neighborhood"] ?? "";
   row["notes"] = "";
 
   // Propose a venue_id by scanning the union of both tabs and
@@ -1196,7 +1195,7 @@ function neighborhoodLabel(slug: string): string {
 
 function todayISO(): string {
   // Local NYC date, YYYY-MM-DD. Same shape the importer uses for
-  // last_verified / last_updated.
+  // last_verified.
   const d = new Date();
   return d.toISOString().slice(0, 10);
 }

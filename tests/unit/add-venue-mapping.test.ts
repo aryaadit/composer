@@ -320,11 +320,9 @@ describe("placesToRow — deterministic field mapping", () => {
     // Time blocks: Friday 6p-1:30a -> evening + late_night.
     expect(fields.fri_blocks).toBe("evening,late_night");
     expect(fields.time_blocks).toBe("evening,late_night");
-    expect(fields.split_hours).toBe("no");
 
     // Constants
     expect(fields.curated_by).toBe("adit");
-    expect(fields.content_tier).toBe("1");
     expect(fields.curation_boost).toBe("0");
     expect(fields.active).toBe("yes");
     expect(fields.enriched).toBe("yes");
@@ -338,7 +336,7 @@ describe("placesToRow — deterministic field mapping", () => {
     expect(fields.curation_note).toBeUndefined();
   });
 
-  it("split-day schedule sets split_hours to yes", () => {
+  it("split-day schedule unions blocks across both intervals", () => {
     const place = {
       regularOpeningHours: {
         periods: [
@@ -351,7 +349,6 @@ describe("placesToRow — deterministic field mapping", () => {
       placeId: "ChIJSPLIT",
       today: "2026-06-15",
     });
-    expect(fields.split_hours).toBe("yes");
     expect(fields.sat_blocks).toBe("morning,afternoon,evening");
   });
 

@@ -161,7 +161,6 @@ const FACT_FIELDS = [
   "kid_friendly",
   "wheelchair_accessible",
   "hours",
-  "split_hours",
   "last_verified",
   "enriched",
 ];

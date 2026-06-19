@@ -263,45 +263,6 @@ function yesNoOrBlank(v: unknown): string {
   return "";
 }
 
-// ─── Splits / numeric open_/close_ extraction ────────────────────
-
-/**
- * Numeric open_<day> / close_<day> columns track the start of the
- * earliest interval on each day. split_hours is "yes" when the
- * day has more than one interval (so the schedule has a mid-day
- * gap), "no" otherwise. Past-midnight closes follow the >24
- * convention from the rest of the codebase (25.5 = 1:30 AM).
- */
-interface NumericHoursRow {
-  [key: string]: string;
-}
-
-function numericHoursColumns(schedule: Schedule): NumericHoursRow {
-  const result: NumericHoursRow = {};
-  for (const day of DAY_ORDER) {
-    const intervals = schedule[day];
-    if (!intervals || intervals.length === 0) {
-      result[`open_${day}`] = "";
-      result[`close_${day}`] = "";
-      continue;
-    }
-    const [open, close] = intervals[0];
-    result[`open_${day}`] = formatNumeric(open);
-    result[`close_${day}`] = formatNumeric(close);
-  }
-  return result;
-}
-
-function formatNumeric(value: number): string {
-  // Keep the float compact: integer hours render as "18", fractional
-  // ones as "18.5". Matches the format hours.ts parses.
-  return Number.isInteger(value) ? String(value) : value.toFixed(2).replace(/\.?0+$/, "");
-}
-
-function hasSplitDay(schedule: Schedule): boolean {
-  return DAY_ORDER.some((d) => (schedule[d]?.length ?? 0) > 1);
-}
-
 // ─── Main mapping ────────────────────────────────────────────────
 
 export interface DeterministicRow {
@@ -324,8 +285,8 @@ export interface DeterministicRow {
 /**
  * Build the deterministic half of the new-venue row. Caller (the
  * route) supplies the constants that don't come from Places
- * (curated_by, content_tier, active, etc.) and the place id used as
- * the upstream identifier.
+ * (curated_by, active, etc.) and the place id used as the upstream
+ * identifier.
  */
 export function placesToRow(
   place: PlaceData,
@@ -384,7 +345,7 @@ export function placesToRow(
     a11y?.wheelchairAccessibleEntrance ?? a11y?.wheelchairAccessibleRestroom,
   );
 
-  // Schedule + blocks + hours text + numeric columns.
+  // Schedule + blocks + hours JSON.
   const schedule = extractSchedule(place);
   const dayBlocks = scheduleToDayBlocks(schedule);
   const timeBlocks = unionTimeBlocks(dayBlocks);
@@ -398,19 +359,11 @@ export function placesToRow(
   // Venues row stores after the JSON migration. Keys are day codes
   // (mon..sun), values are arrays of [open, close] intervals as
   // 24h decimal floats with past-midnight closes >24 (e.g. 25.5 =
-  // 1:30 AM next day). The numeric open_/close_ columns below stay
-  // accurate for downstream filters; this column is what the
-  // formatter renders.
+  // 1:30 AM next day).
   fields["hours"] = JSON.stringify(schedule);
-  const numeric = numericHoursColumns(schedule);
-  for (const [k, v] of Object.entries(numeric)) {
-    fields[k] = v;
-  }
-  fields["split_hours"] = hasSplitDay(schedule) ? "yes" : "no";
 
   // Constants.
   fields["curated_by"] = "adit";
-  fields["content_tier"] = "1";
   fields["curation_boost"] = "0";
   fields["active"] = "yes";
   fields["enriched"] = "yes";
