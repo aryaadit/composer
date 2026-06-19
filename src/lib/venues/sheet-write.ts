@@ -21,9 +21,11 @@
 //      A Viewer share will 403 on append even with full scope. This
 //      step is operator-side, not env-side.
 //   3. TAB: the staging tab named ADD_VENUE_REVIEW_TAB must exist.
-//      Header row (row 1) can be empty on first apply; ensureHeaders()
-//      will write the canonical header order taken from `NYC Venues`
-//      row 2.
+//      It mirrors the NYC Venues layout: row 1 is a band / section
+//      divider the operator sets up in the sheet, row 2 is the
+//      header row, row 3+ is data. The header row (row 2) can be
+//      empty on first apply; the apply path will write the canonical
+//      header order taken from `NYC Venues` row 2.
 //
 // If any of the three are wrong the append surfaces a typed
 // SheetWriteForbiddenError (for 403) or a SheetWriteFailedError (for
@@ -91,7 +93,7 @@ export class ReviewTabMissingError extends Error {
   constructor() {
     super(
       `The "${ADD_VENUE_REVIEW_TAB}" tab does not exist in the spreadsheet. ` +
-        "Create it (the row-1 headers will be auto-populated on first " +
+        "Create it (the row-2 headers will be auto-populated on first " +
         `append using the column order from "${VENUE_SHEET_TAB}" row 2).`,
     );
     this.name = "ReviewTabMissingError";
@@ -146,9 +148,11 @@ export async function readCanonicalHeaders(): Promise<string[]> {
 }
 
 /**
- * Read what's currently in row 1 of the staging tab. Returns an empty
- * array when the tab exists but row 1 is blank (the "first append"
- * case where ensureHeaders writes the canonical headers).
+ * Read what's currently in row 2 of the staging tab — the header
+ * row, mirroring the NYC Venues layout (row 1 = band, row 2 =
+ * headers, row 3+ = data). Returns an empty array when the tab
+ * exists but row 2 is blank (the "first apply" case where the apply
+ * path will write the canonical headers).
  *
  * Throws ReviewTabMissingError when the tab itself doesn't exist —
  * the route maps this to a typed response so the operator sees the
@@ -160,7 +164,7 @@ export async function readReviewTabHeaders(): Promise<string[]> {
   try {
     const res = await sheets.spreadsheets.values.get({
       spreadsheetId,
-      range: `${ADD_VENUE_REVIEW_TAB}!1:1`,
+      range: `${ADD_VENUE_REVIEW_TAB}!2:2`,
     });
     const row = (res.data.values ?? [[]])[0] ?? [];
     return row.map((c) => String(c));
@@ -178,8 +182,10 @@ export async function readReviewTabHeaders(): Promise<string[]> {
 }
 
 /**
- * Write the canonical NYC Venues headers into row 1 of the staging
+ * Write the canonical NYC Venues headers into row 2 of the staging
  * tab. Called only when readReviewTabHeaders() returned an empty row.
+ * Row 1 (the band / section-divider row) is operator-owned and is
+ * never touched by this function.
  */
 export async function writeReviewTabHeaders(
   headers: string[],
@@ -189,7 +195,7 @@ export async function writeReviewTabHeaders(
   try {
     await sheets.spreadsheets.values.update({
       spreadsheetId,
-      range: `${ADD_VENUE_REVIEW_TAB}!1:1`,
+      range: `${ADD_VENUE_REVIEW_TAB}!2:2`,
       valueInputOption: "RAW",
       requestBody: { values: [headers] },
     });
@@ -203,7 +209,7 @@ export async function writeReviewTabHeaders(
  * Returns the 1-indexed row number of the appended row (parsed from
  * the API's `updatedRange` like "NYC New Venues Review!A47:CD47").
  *
- * The cells array MUST be in the same column order as the row-1
+ * The cells array MUST be in the same column order as the row-2
  * headers — caller is responsible for ordering. We pass
  * `valueInputOption: "USER_ENTERED"` so operator-typed formulas
  * (rare in the staging tab but possible) are interpreted, matching
@@ -347,10 +353,12 @@ export async function readNycVenuesPlaceIdMap(): Promise<
 
 /**
  * Build a Map<google_place_id, {row_number, venue_id, name}> from
- * the NYC New Venues Review staging tab. Row 1 is the header row
- * (written on first apply by writeReviewTabHeaders); data starts at
- * row 2. The row_number is the 1-indexed sheet row so the UI can
- * tell the operator exactly where to look in the spreadsheet.
+ * the NYC New Venues Review staging tab. Layout mirrors NYC Venues:
+ * row 1 is a band / section divider (operator-owned, ignored here),
+ * row 2 is the header row (written on first apply by
+ * writeReviewTabHeaders), data starts at row 3. The row_number is
+ * the 1-indexed sheet row so the UI can tell the operator exactly
+ * where to look in the spreadsheet.
  *
  * Returns an empty Map (not an error) when the tab is empty or only
  * has headers — the "no staged submissions yet" case is normal.
@@ -379,17 +387,22 @@ export async function readReviewTabPlaceIdMap(): Promise<
   }
 
   const map = new Map<string, ReviewTabMatch>();
-  if (values.length === 0) return map;
+  // Need at least row 1 (band) + row 2 (headers) before any data
+  // row could exist. Anything shorter is "tab freshly created / not
+  // yet initialized" — return empty.
+  if (values.length < 2) return map;
 
-  const headers = (values[0] ?? []).map((c) => c.trim().toLowerCase());
+  // Row 1 (index 0) is the band; row 2 (index 1) holds the headers.
+  const headers = (values[1] ?? []).map((c) => c.trim().toLowerCase());
   const placeIdCol = headers.indexOf("google_place_id");
   const venueIdCol = headers.indexOf("venue_id");
   const nameCol = headers.indexOf("name");
   if (placeIdCol === -1) return map;
 
-  // Data starts at row 2 of the sheet (index 1 in `values`); the
-  // row_number we expose is 1-indexed and includes the header row.
-  for (let i = 1; i < values.length; i++) {
+  // Data starts at row 3 of the sheet (index 2 in `values`); the
+  // row_number we expose is 1-indexed and includes the band + header
+  // rows above it (so values index i corresponds to sheet row i + 1).
+  for (let i = 2; i < values.length; i++) {
     const row = values[i];
     const placeId = (row[placeIdCol] ?? "").trim();
     if (!placeId) continue;
@@ -498,9 +511,11 @@ export async function readNycVenuesVenueIds(): Promise<Set<string>> {
 }
 
 /**
- * Same shape for the review tab. Throws ReviewTabMissingError when
- * the tab itself doesn't exist; the caller (computeNextVenueId)
- * treats that as "no staged ids" rather than a hard failure.
+ * Same shape for the review tab. Mirrors the NYC Venues layout:
+ * row 1 is the band, row 2 is the header row, data starts at row 3.
+ * Throws ReviewTabMissingError when the tab itself doesn't exist;
+ * the caller (computeNextVenueId) treats that as "no staged ids"
+ * rather than a hard failure.
  */
 export async function readReviewTabVenueIds(): Promise<Set<string>> {
   const sheets = writeSheetsClient();
@@ -521,11 +536,15 @@ export async function readReviewTabVenueIds(): Promise<Set<string>> {
     throw err;
   }
   const out = new Set<string>();
-  if (values.length === 0) return out;
-  const headers = (values[0] ?? []).map((c) => c.trim().toLowerCase());
+  // Need at least row 1 (band) + row 2 (headers) before any data
+  // row could exist.
+  if (values.length < 2) return out;
+  // Row 1 (index 0) is the band; row 2 (index 1) holds the headers.
+  const headers = (values[1] ?? []).map((c) => c.trim().toLowerCase());
   const venueIdCol = headers.indexOf("venue_id");
   if (venueIdCol === -1) return out;
-  for (let i = 1; i < values.length; i++) {
+  // Data starts at row 3 of the sheet (index 2 in `values`).
+  for (let i = 2; i < values.length; i++) {
     const id = (values[i][venueIdCol] ?? "").trim();
     if (id) out.add(id);
   }

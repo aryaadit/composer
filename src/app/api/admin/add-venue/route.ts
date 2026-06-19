@@ -606,7 +606,7 @@ async function handleApply(
         kind: "review_tab_missing",
         message:
           `The "${ADD_VENUE_REVIEW_TAB}" tab does not exist. Create it in ` +
-          `the spreadsheet (the row-1 headers will be auto-populated from ` +
+          `the spreadsheet (the row-2 headers will be auto-populated from ` +
           `"${VENUE_SHEET_TAB}" row 2 on first apply).`,
       });
     }
