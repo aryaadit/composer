@@ -3,18 +3,23 @@
 Refresh Google Places data on the venue sheet.
 
 Writes Google-derived fields ONLY to the sheet:
-  - google_place_id (column AP)
-  - google_rating (AV)
-  - google_review_count (AW)
-  - google_types (AX)
-  - google_phone (AY)
-  - enriched (AZ)
-  - business_status (BA)
-  - last_verified (AI)
+  - google_rating
+  - google_review_count
+  - google_types
+  - google_phone
+  - business_status
+  - enriched
+  - last_verified
 
-Never touches curated columns. The 8 write targets above are hardcoded
-in WRITE_WHITELIST; any attempt to write to a column outside that set
-fails fast.
+Never touches curated columns. The list above (WRITE_COLUMNS) is the
+canonical write set; column positions are resolved at startup by
+reading row 2 of the NYC Venues tab and mapping each header name to
+its A1 letter (`col_for[name] -> "AP"`), so the script stays correct
+across sheet column reorders.
+
+google_place_id is tracked in the diff (and snapshot) but never
+overwritten — place_id is identity and any discrepancy is operator-
+review material.
 
 Usage:
   python3 scripts/refresh_google_places_data.py             # dry-run (default)
@@ -62,24 +67,25 @@ if not API_KEY:
 if not SHEET_ID:
     raise SystemExit("GOOGLE_SHEET_ID not set in .env.local.")
 
-# ── write whitelist ──────────────────────────────────────────────────────
-# 8 columns this script is allowed to write. Anything else → hard reject.
-# Column letters verified against the live sheet's row-2 headers.
-WRITE_WHITELIST: dict[str, str] = {
-    "AP": "google_place_id",
-    "AI": "last_verified",
-    "AV": "google_rating",
-    "AW": "google_review_count",
-    "AX": "google_types",
-    "AY": "google_phone",
-    "AZ": "enriched",
-    "BA": "business_status",
-}
+# ── write columns ────────────────────────────────────────────────────────
+# Header NAMES this script is allowed to write. Sheet-column addressing
+# is resolved at startup via `col_for[name] -> A1 letter`, so the
+# script stays correct across NYC Venues reorders. google_place_id is
+# tracked in the diff (see MATERIAL_COLS) but intentionally not
+# rewritten — place_id is identity and any change is operator-review
+# material, not auto-overwrite.
+WRITE_COLUMNS = [
+    "google_rating",
+    "google_review_count",
+    "google_types",
+    "google_phone",
+    "enriched",
+    "business_status",
+    "last_verified",
+]
 
-# Columns we read for the venue identity / filter
-READ_VENUE_ID_COL = "A"      # venue_id
-READ_NAME_COL = "B"           # name (display only — never written)
-READ_ACTIVE_COL = "AE"        # active (filter; never written by this script)
+# Identity + filter columns. Read every run; never written by this script.
+READ_COLUMNS = ["venue_id", "name", "active", "google_place_id"]
 
 # Material-change columns — these drive the "Would change" diff summary.
 # last_verified and enriched are bookkeeping and always rewritten.
@@ -117,20 +123,16 @@ SNAPSHOT_DIR = ROOT / "scripts" / "snapshots"
 
 
 # ── helpers ──────────────────────────────────────────────────────────────
-def col_to_idx(letter: str) -> int:
-    n = 0
-    for ch in letter:
-        n = n * 26 + (ord(ch) - ord("A") + 1)
-    return n - 1
-
-
-def write_cell(col: str, row: int, value: str) -> dict:
-    """Build one batchUpdate data block. Hard-reject if col not whitelisted."""
-    if col not in WRITE_WHITELIST:
-        raise RuntimeError(
-            f"REFUSED: attempt to write to column {col} (not in WRITE_WHITELIST)"
-        )
-    return {"range": f"NYC Venues!{col}{row}", "values": [[value]]}
+def col_letter(idx0: int) -> str:
+    """0-based column index → A1 letter (0→A, 25→Z, 26→AA, ...).
+    Used to address single cells by header-derived position so the
+    write path stays correct across sheet column reorders."""
+    s = ""
+    n = idx0 + 1
+    while n > 0:
+        n, r = divmod(n - 1, 26)
+        s = chr(65 + r) + s
+    return s
 
 
 def normalize_for_compare(field: str, value: Any) -> str:
@@ -179,83 +181,97 @@ def get_sheets():
     return build("sheets", "v4", credentials=creds).spreadsheets()
 
 
-def verify_column_whitelist(sheets) -> None:
-    """Halt if the hardcoded letters don't match the sheet's row-2 headers.
-    Defends against silent column drift if a future curator reorders the sheet."""
+def build_col_for(sheets) -> dict[str, str]:
+    """Read NYC Venues row 2 (headers) and return {header_name: A1_letter}.
+    Headers are lowercased + stripped to match the catalog's snake_case
+    convention used everywhere else (sheet.ts, scrape_resy_v2.py). Empty
+    header cells are skipped. Replaces the pre-2026-06-19 hardcoded
+    letter map and its verify_column_whitelist guard."""
     hdr = (
         sheets.values()
         .get(spreadsheetId=SHEET_ID, range="NYC Venues!A2:CD2")
         .execute()
     )
-    headers = hdr.get("values", [[]])[0]
-    mismatches: list[str] = []
-    for col, expected in WRITE_WHITELIST.items():
-        idx = col_to_idx(col)
-        actual = headers[idx] if idx < len(headers) else "<out-of-range>"
-        if actual != expected:
-            mismatches.append(f"  {col}: expected {expected!r}, got {actual!r}")
-    if mismatches:
-        print("❌ HALT — sheet column whitelist no longer matches headers:")
-        for m in mismatches:
-            print(m)
+    raw = hdr.get("values", [[]])[0]
+    out: dict[str, str] = {}
+    for i, name in enumerate(raw):
+        key = str(name).strip().lower()
+        if key:
+            out[key] = col_letter(i)
+    return out
+
+
+def assert_required_columns(col_for: dict[str, str]) -> None:
+    """Halt if any required header (read identity/filter + write target)
+    is missing from row 2. Replaces verify_column_whitelist's letter-based
+    guard with a header-name check that doesn't care about position."""
+    required = READ_COLUMNS + WRITE_COLUMNS
+    missing = [c for c in required if c not in col_for]
+    if missing:
+        print("❌ HALT — required headers missing from NYC Venues row 2:", file=sys.stderr)
+        for m in missing:
+            print(f"  - {m}", file=sys.stderr)
         raise SystemExit(2)
 
 
-def load_sheet_state(sheets) -> list[dict]:
+def load_sheet_state(sheets, col_for: dict[str, str]) -> list[dict]:
     """Return list of dicts for every active row with a google_place_id.
 
     Each dict carries the venue_id, sheet row number, and current values of
-    all read columns. Order preserved by sheet row."""
-    # Read every column we care about, plus the identity/filter cols.
-    cols = [READ_VENUE_ID_COL, READ_NAME_COL, READ_ACTIVE_COL] + list(
-        WRITE_WHITELIST.keys()
-    )
-    ranges = [f"NYC Venues!{c}3:{c}" for c in cols]
+    all read columns. Order preserved by sheet row. Ranges are built from
+    `col_for[header_name]` so a sheet column reorder doesn't shift the
+    read targets."""
+    # Read every column we care about, by header NAME. The diff path
+    # needs old values for both the identity/filter columns and the
+    # WRITE_COLUMNS we're about to potentially overwrite. Dedup-preserve
+    # order: read columns first so identity lookups feel deterministic
+    # in any future debug print.
+    read_names: list[str] = []
+    for name in READ_COLUMNS + WRITE_COLUMNS:
+        if name not in read_names:
+            read_names.append(name)
+
+    ranges = [
+        f"NYC Venues!{col_for[name]}3:{col_for[name]}" for name in read_names
+    ]
     res = sheets.values().batchGet(spreadsheetId=SHEET_ID, ranges=ranges).execute()
 
-    by_col: dict[str, list[str]] = {}
-    for r in res.get("valueRanges", []):
-        # Extract col letter from range like "'NYC Venues'!AP3:AP1336"
-        rng = r.get("range", "")
-        col = rng.split("!")[1].split("3")[0].split(":")[0]
-        col = col.strip("'")
+    # Key results by header NAME via positional zip with the ranges we
+    # sent. batchGet preserves request order.
+    value_ranges = res.get("valueRanges", [])
+    by_name: dict[str, list[str]] = {}
+    for name, r in zip(read_names, value_ranges):
         values = [row[0].strip() if row else "" for row in r.get("values", [])]
-        by_col[col] = values
+        by_name[name] = values
 
-    # Align all columns to the longest list length (sheet row count from row 3 onward)
-    n_rows = max(len(v) for v in by_col.values()) if by_col else 0
-    for c in cols:
-        if c not in by_col:
-            by_col[c] = []
-        # Pad with empty strings if some columns were short (no trailing values)
-        while len(by_col[c]) < n_rows:
-            by_col[c].append("")
+    # Align all columns to the longest list length so per-row indexing
+    # doesn't IndexError when a trailing-empty column came back short.
+    n_rows = max((len(v) for v in by_name.values()), default=0)
+    for name in read_names:
+        col_values = by_name.get(name, [])
+        while len(col_values) < n_rows:
+            col_values.append("")
+        by_name[name] = col_values
 
     rows: list[dict] = []
     for i in range(n_rows):
         sheet_row = i + 3  # row 3 = first data row
-        venue_id = by_col[READ_VENUE_ID_COL][i]
-        name = by_col[READ_NAME_COL][i]
-        active = by_col[READ_ACTIVE_COL][i].lower()
-        if not venue_id or active != "yes":
+        venue_id_v = by_name["venue_id"][i]
+        venue_name = by_name["name"][i]
+        active = by_name["active"][i].lower()
+        if not venue_id_v or active != "yes":
             continue
-        gpid = by_col["AP"][i]
+        gpid = by_name["google_place_id"][i]
         if not gpid:
             continue
         rows.append(
             {
-                "venue_id": venue_id,
-                "name": name,
+                "venue_id": venue_id_v,
+                "name": venue_name,
                 "sheet_row": sheet_row,
                 "old": {
                     "google_place_id": gpid,
-                    "google_rating": by_col["AV"][i],
-                    "google_review_count": by_col["AW"][i],
-                    "google_types": by_col["AX"][i],
-                    "google_phone": by_col["AY"][i],
-                    "enriched": by_col["AZ"][i],
-                    "business_status": by_col["BA"][i],
-                    "last_verified": by_col["AI"][i],
+                    **{col: by_name[col][i] for col in WRITE_COLUMNS},
                 },
             }
         )
@@ -491,7 +507,11 @@ def write_snapshot(plan: list[dict]) -> Path:
     SNAPSHOT_DIR.mkdir(parents=True, exist_ok=True)
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
     path = SNAPSHOT_DIR / f"google_refresh_{timestamp}.csv"
-    cols = list(WRITE_WHITELIST.values())  # 8 fields
+    # google_place_id is included as a read-only diff column so a
+    # snapshot still records when Places returned a different id; the
+    # script no longer writes that field, but the historical change
+    # signal stays in the audit log.
+    cols = ["google_place_id"] + WRITE_COLUMNS
 
     with open(path, "w", newline="") as f:
         w = csv.writer(f)
@@ -527,12 +547,15 @@ def write_snapshot(plan: list[dict]) -> Path:
 APPLY_CHUNK_VENUES = 100
 
 
-def apply_writes(sheets, plan: list[dict]) -> dict:
-    """Build batchUpdate from the plan. Writes 8 cells per venue that had
-    a successful lookup. Skips venues with lookup_status != 'ok'.
+def apply_writes(sheets, plan: list[dict], col_for: dict[str, str]) -> dict:
+    """Build batchUpdate from the plan. Writes len(WRITE_COLUMNS) cells per
+    venue that had a successful lookup. Skips venues with
+    lookup_status != 'ok'.
 
     Chunked into APPLY_CHUNK_VENUES-sized batches to avoid the broken-pipe
-    failure mode when a single batchUpdate body grows too large."""
+    failure mode when a single batchUpdate body grows too large. Each
+    cell's A1 range is built from `col_for[name]` so a sheet column
+    reorder doesn't silently mis-target the writes."""
     ok_plans = [p for p in plan if p["lookup_status"] == "ok" and p["new"]]
     skipped_lookup = len(plan) - len(ok_plans)
 
@@ -547,8 +570,11 @@ def apply_writes(sheets, plan: list[dict]) -> dict:
         data_blocks: list[dict] = []
         for p in chunk:
             row = p["sheet_row"]
-            for col, field in WRITE_WHITELIST.items():
-                data_blocks.append(write_cell(col, row, p["new"][field]))
+            for name in WRITE_COLUMNS:
+                data_blocks.append({
+                    "range": f"NYC Venues!{col_for[name]}{row}",
+                    "values": [[p["new"][name]]],
+                })
 
         # Retry with exponential backoff on transient network failures.
         attempts = 0
@@ -605,12 +631,16 @@ def main() -> int:
     print("Connecting to Google Sheets...", file=sys.stderr)
     sheets = get_sheets()
 
-    print("Verifying column whitelist against sheet headers...", file=sys.stderr)
-    verify_column_whitelist(sheets)
-    print("  ✓ all 8 columns match", file=sys.stderr)
+    print("Reading sheet headers and resolving column positions...", file=sys.stderr)
+    col_for = build_col_for(sheets)
+    assert_required_columns(col_for)
+    print(
+        f"  ✓ all {len(READ_COLUMNS) + len(WRITE_COLUMNS)} required headers present",
+        file=sys.stderr,
+    )
 
     print("Loading sheet state (active venues with google_place_id)...", file=sys.stderr)
-    venues = load_sheet_state(sheets)
+    venues = load_sheet_state(sheets, col_for)
     total_active = len(venues)
     print(f"  {total_active} venues to refresh", file=sys.stderr)
 
@@ -637,7 +667,7 @@ def main() -> int:
     snapshot_path = write_snapshot(plan)
     print(f"Snapshot written: {snapshot_path.relative_to(ROOT)}")
 
-    res = apply_writes(sheets, plan)
+    res = apply_writes(sheets, plan, col_for)
     print(f"batchUpdate complete:")
     print(f"  chunks sent:       {res['chunks']}")
     print(f"  venues updated:    {res['venues']}")
