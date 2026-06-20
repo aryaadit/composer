@@ -170,7 +170,6 @@ export interface Venue {
   duration_hours: number | null;
   outdoor_seating: string | null;
   reservation_difficulty: number | null;
-  reservation_lead_days: number | null;
   reservation_url: string | null;
   maps_url: string | null;
 
@@ -189,10 +188,8 @@ export interface Venue {
   // Status
   active: boolean;
   notes: string | null;
-  verified: boolean | null;
   hours: string | null;
   last_verified: string | null;
-  last_updated: string | null;
 
   // Attributes
   happy_hour: string | null;
@@ -201,13 +198,6 @@ export interface Venue {
   wheelchair_accessible: boolean | null;
   signature_order: string | null;
   google_place_id: string | null;
-
-  // Corner source
-  corner_id: string | null;
-  corner_photo_url: string | null;
-  guide_count: number | null;
-  source_guides: string[];
-  all_neighborhoods: string[];
 
   // Google Places
   google_rating: number | null;

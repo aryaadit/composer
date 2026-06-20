@@ -31,11 +31,6 @@ import type {
   VenueRecord,
 } from "./types";
 
-// last_updated is TIMESTAMPTZ in the schema but the importer (CLI today,
-// this module tomorrow) only ever writes a date — so the DB value is
-// always midnight UTC of that date. Treat it like a date for diff purposes.
-const TIMESTAMP_AS_DATE_COLUMNS: ReadonlySet<string> = new Set(["last_updated"]);
-
 function isEmpty(v: VenueCellValue | undefined): boolean {
   if (v == null) return true;
   if (Array.isArray(v) && v.length === 0) return true;
@@ -132,7 +127,7 @@ function compareScalars(
   }
 
   const kind = columnKind(col);
-  const isDate = DATE_COLUMNS.has(col) || TIMESTAMP_AS_DATE_COLUMNS.has(col);
+  const isDate = DATE_COLUMNS.has(col);
 
   if (isDate) {
     const a = normalizeDate(dbVal);

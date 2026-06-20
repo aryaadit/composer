@@ -88,6 +88,18 @@ def get_sheets_service():
     return build("sheets", "v4", credentials=creds)
 
 
+def col_letter(idx0: int) -> str:
+    """0-based column index → A1 letter (0→A, 25→Z, 26→AA, ...).
+    Used to address single cells by header-derived position so the
+    write path stays correct across sheet column reorders."""
+    s = ""
+    n = idx0 + 1
+    while n > 0:
+        n, r = divmod(n - 1, 26)
+        s = chr(65 + r) + s
+    return s
+
+
 def read_sheet(service) -> tuple[list[str], list[list[str]]]:
     header_res = service.spreadsheets().values().get(
         spreadsheetId=SHEET_ID, range="NYC Venues!A2:CD2"
@@ -383,19 +395,48 @@ def main():
         print("Aborted. Sheet not modified.")
         return
 
-    # Batch write to sheet
+    # Batch write to sheet — header-driven cell addresses.
     print("Writing to sheet...")
 
-    # Build batch data — each matched row needs 3 cells: BB, BC, BD
-    # BB = reservation_platform, BC = resy_venue_id, BD = resy_slug
-    # These are at column indices platform_i, resy_id_i, resy_slug_i
-    # But simpler: just use the known column letters BB, BC, BD
+    # Warn once per missing column before the writes begin. Each
+    # missing column's per-row updates are silently skipped below;
+    # this surfaces the gap to the operator without aborting the
+    # whole run (a partial sheet reorder shouldn't lose matches the
+    # script already paid Resy API calls to discover).
+    if platform_i is None:
+        print(
+            "  ⚠ 'reservation_platform' column missing from sheet headers — skipping that field's writes."
+        )
+    if resy_id_i is None:
+        print(
+            "  ⚠ 'resy_venue_id' column missing from sheet headers — skipping that field's writes."
+        )
+    if resy_slug_i is None:
+        print(
+            "  ⚠ 'resy_slug' column missing from sheet headers — skipping that field's writes."
+        )
+
+    # Build batch data — one single-cell update per field, addressed
+    # by the header-derived index via col_letter(). This replaces the
+    # pre-2026-06-19 hardcoded "NYC Venues!BB:BD" range which silently
+    # mis-targeted columns after the sheet reorder.
     data = []
     for sheet_row, resy_id, resy_slug in matched_writes:
-        data.append({
-            "range": f"NYC Venues!BB{sheet_row}:BD{sheet_row}",
-            "values": [["resy", str(resy_id), resy_slug]],
-        })
+        if platform_i is not None:
+            data.append({
+                "range": f"NYC Venues!{col_letter(platform_i)}{sheet_row}",
+                "values": [["resy"]],
+            })
+        if resy_id_i is not None:
+            data.append({
+                "range": f"NYC Venues!{col_letter(resy_id_i)}{sheet_row}",
+                "values": [[str(resy_id)]],
+            })
+        if resy_slug_i is not None:
+            data.append({
+                "range": f"NYC Venues!{col_letter(resy_slug_i)}{sheet_row}",
+                "values": [[resy_slug]],
+            })
 
     # Batch update in chunks of 100
     for chunk_start in range(0, len(data), 100):

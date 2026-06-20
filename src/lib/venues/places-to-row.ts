@@ -246,68 +246,7 @@ function toFloatHour(point: PlacesTimePoint): number | null {
   return point.hour + minute / 60;
 }
 
-/**
- * Pull the verbose weekday hours strings Places returns under
- * regularOpeningHours.weekdayDescriptions and join them with "; ".
- * Falls back to an empty string when the field is absent (some
- * venues have no published hours), letting the operator fill it in
- * during sheet review. Currently the only consumer is the
- * deterministic mapping below; if a future caller needs the array
- * shape itself, lift this out.
- */
-export function extractWeekdayDescriptions(place: PlaceData): string {
-  const hours = place.regularOpeningHours;
-  if (!hours || typeof hours !== "object") return "";
-  const arr = (hours as { weekdayDescriptions?: unknown }).weekdayDescriptions;
-  if (!Array.isArray(arr)) return "";
-  return arr
-    .filter((s): s is string => typeof s === "string" && s.length > 0)
-    .join("; ");
-}
-
-// ─── Schedule -> hours text ──────────────────────────────────────
-
-const DAY_LABELS: Record<DayKey, string> = {
-  mon: "Mon",
-  tue: "Tue",
-  wed: "Wed",
-  thu: "Thu",
-  fri: "Fri",
-  sat: "Sat",
-  sun: "Sun",
-};
-
 const DAY_ORDER: DayKey[] = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
-
-function formatFloatHour(value: number): string {
-  const wall = value >= 24 ? value - 24 : value;
-  const h = Math.floor(wall);
-  const m = Math.round((wall - h) * 60);
-  const suffix = h >= 12 ? "p" : "a";
-  const hour12 = ((h + 11) % 12) + 1;
-  return m === 0 ? `${hour12}${suffix}` : `${hour12}:${String(m).padStart(2, "0")}${suffix}`;
-}
-
-/**
- * One-line human-readable rendering of the schedule, dropped into
- * the `hours` text column. Reads as: "Mon 5p-10p; Tue 5p-10p; ...".
- * Multiple intervals on one day are comma-separated. Closed days
- * are omitted. The format intentionally matches existing operator-
- * authored hours strings in the sheet so a downstream consumer
- * reading the column doesn't see a sudden format change.
- */
-export function scheduleToHoursText(schedule: Schedule): string {
-  const segments: string[] = [];
-  for (const day of DAY_ORDER) {
-    const intervals = schedule[day];
-    if (!intervals || intervals.length === 0) continue;
-    const ranges = intervals
-      .map(([open, close]) => `${formatFloatHour(open)}-${formatFloatHour(close)}`)
-      .join(", ");
-    segments.push(`${DAY_LABELS[day]} ${ranges}`);
-  }
-  return segments.join("; ");
-}
 
 // ─── Amenity boolean helpers ─────────────────────────────────────
 
@@ -322,45 +261,6 @@ function yesNoOrBlank(v: unknown): string {
   if (v === true) return "yes";
   if (v === false) return "no";
   return "";
-}
-
-// ─── Splits / numeric open_/close_ extraction ────────────────────
-
-/**
- * Numeric open_<day> / close_<day> columns track the start of the
- * earliest interval on each day. split_hours is "yes" when the
- * day has more than one interval (so the schedule has a mid-day
- * gap), "no" otherwise. Past-midnight closes follow the >24
- * convention from the rest of the codebase (25.5 = 1:30 AM).
- */
-interface NumericHoursRow {
-  [key: string]: string;
-}
-
-function numericHoursColumns(schedule: Schedule): NumericHoursRow {
-  const result: NumericHoursRow = {};
-  for (const day of DAY_ORDER) {
-    const intervals = schedule[day];
-    if (!intervals || intervals.length === 0) {
-      result[`open_${day}`] = "";
-      result[`close_${day}`] = "";
-      continue;
-    }
-    const [open, close] = intervals[0];
-    result[`open_${day}`] = formatNumeric(open);
-    result[`close_${day}`] = formatNumeric(close);
-  }
-  return result;
-}
-
-function formatNumeric(value: number): string {
-  // Keep the float compact: integer hours render as "18", fractional
-  // ones as "18.5". Matches the format hours.ts parses.
-  return Number.isInteger(value) ? String(value) : value.toFixed(2).replace(/\.?0+$/, "");
-}
-
-function hasSplitDay(schedule: Schedule): boolean {
-  return DAY_ORDER.some((d) => (schedule[d]?.length ?? 0) > 1);
 }
 
 // ─── Main mapping ────────────────────────────────────────────────
@@ -385,8 +285,8 @@ export interface DeterministicRow {
 /**
  * Build the deterministic half of the new-venue row. Caller (the
  * route) supplies the constants that don't come from Places
- * (curated_by, content_tier, active, etc.) and the place id used as
- * the upstream identifier.
+ * (curated_by, active, etc.) and the place id used as the upstream
+ * identifier.
  */
 export function placesToRow(
   place: PlaceData,
@@ -445,7 +345,7 @@ export function placesToRow(
     a11y?.wheelchairAccessibleEntrance ?? a11y?.wheelchairAccessibleRestroom,
   );
 
-  // Schedule + blocks + hours text + numeric columns.
+  // Schedule + blocks + hours JSON.
   const schedule = extractSchedule(place);
   const dayBlocks = scheduleToDayBlocks(schedule);
   const timeBlocks = unionTimeBlocks(dayBlocks);
@@ -453,23 +353,17 @@ export function placesToRow(
     fields[DAY_COLUMN_BY_KEY[day]] = dayBlocks[day].join(",");
   }
   fields["time_blocks"] = timeBlocks.join(",");
-  // Verbose Google-form hours string, joined by "; " across days, e.g.
-  // "Monday: 4:00 - 10:00 PM; Tuesday: 4:00 - 10:00 PM; ...". This is
-  // straight from Places API regularOpeningHours.weekdayDescriptions
-  // and matches the format every existing NYC Venues row uses, so the
-  // catalog stays diff-free across imports. The numeric open_/close_
-  // columns below come from the period extraction and remain accurate
-  // for downstream filters; only the human-readable column changes.
-  fields["hours"] = extractWeekdayDescriptions(place);
-  const numeric = numericHoursColumns(schedule);
-  for (const [k, v] of Object.entries(numeric)) {
-    fields[k] = v;
-  }
-  fields["split_hours"] = hasSplitDay(schedule) ? "yes" : "no";
+  // JSON-serialized schedule, e.g. {"fri":[[18,25.5]]} — the same
+  // shape src/lib/format/hours.ts::parseSchedule consumes when
+  // rendering the venue card, and the same shape every live NYC
+  // Venues row stores after the JSON migration. Keys are day codes
+  // (mon..sun), values are arrays of [open, close] intervals as
+  // 24h decimal floats with past-midnight closes >24 (e.g. 25.5 =
+  // 1:30 AM next day).
+  fields["hours"] = JSON.stringify(schedule);
 
   // Constants.
   fields["curated_by"] = "adit";
-  fields["content_tier"] = "1";
   fields["curation_boost"] = "0";
   fields["active"] = "yes";
   fields["enriched"] = "yes";

@@ -37,7 +37,6 @@ export const ALL_V2_COLUMNS = [
   "duration_hours",
   "outdoor_seating",
   "reservation_difficulty",
-  "reservation_lead_days",
   "reservation_url",
   "maps_url",
 
@@ -56,10 +55,8 @@ export const ALL_V2_COLUMNS = [
   // Status
   "active",
   "notes",
-  "verified",
   "hours",
   "last_verified",
-  "last_updated",
 
   // Attributes
   "happy_hour",
@@ -68,13 +65,6 @@ export const ALL_V2_COLUMNS = [
   "wheelchair_accessible",
   "signature_order",
   "google_place_id",
-
-  // Corner source
-  "corner_id",
-  "corner_photo_url",
-  "guide_count",
-  "source_guides",
-  "all_neighborhoods",
 
   // Google Places
   "google_rating",
@@ -171,13 +161,10 @@ export const ARRAY_COLUMNS: ReadonlySet<string> = new Set([
   "sat_blocks",
   "sun_blocks",
   "google_types",
-  "source_guides",
-  "all_neighborhoods",
 ]);
 
 export const BOOL_COLUMNS: ReadonlySet<string> = new Set([
   "active",
-  "verified",
   "dog_friendly",
   "kid_friendly",
   "wheelchair_accessible",
@@ -187,10 +174,8 @@ export const BOOL_COLUMNS: ReadonlySet<string> = new Set([
 export const INT_COLUMNS: ReadonlySet<string> = new Set([
   "price_tier",
   "reservation_difficulty",
-  "reservation_lead_days",
   "quality_score",
   "curation_boost",
-  "guide_count",
   "google_review_count",
   "resy_venue_id",
 ]);
@@ -204,7 +189,6 @@ export const FLOAT_COLUMNS: ReadonlySet<string> = new Set([
 
 export const DATE_COLUMNS: ReadonlySet<string> = new Set([
   "last_verified",
-  "last_updated",
 ]);
 
 /** Coarse type tag used by transform + diff for branching on a column. */
@@ -239,9 +223,6 @@ const PG_TYPE_OVERRIDES: Record<string, string> = {
   // NUMERIC in the schema (not double precision).
   duration_hours: "numeric",
   google_rating: "numeric",
-  // TIMESTAMPTZ in the schema (not date) — the importer only writes a
-  // YYYY-MM-DD; Postgres parses that as midnight UTC.
-  last_updated: "timestamptz",
 };
 
 export function pgType(col: string): string {
