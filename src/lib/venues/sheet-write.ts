@@ -231,9 +231,105 @@ export async function appendReviewTabRow(
     });
     const updatedRange = res.data.updates?.updatedRange ?? "";
     const rowNumber = parseAppendedRowNumber(updatedRange);
+    await matchAppendedRowFormatToCatalog(
+      sheets,
+      spreadsheetId,
+      rowNumber,
+      cells.length,
+    );
     return { rowNumber };
   } catch (err) {
     throw classifyWriteError(err);
+  }
+}
+
+/**
+ * Resolve the numeric sheetId for a tab title. batchUpdate requests
+ * (repeatCell, copyPaste) key on sheetId, unlike the values API which
+ * accepts the A1 tab name. Returns null when the tab is not found.
+ */
+async function getSheetIdByTitle(
+  sheets: sheets_v4.Sheets,
+  spreadsheetId: string,
+  title: string,
+): Promise<number | null> {
+  const meta = await sheets.spreadsheets.get({
+    spreadsheetId,
+    fields: "sheets.properties(sheetId,title)",
+  });
+  const match = meta.data.sheets?.find((s) => s.properties?.title === title);
+  const id = match?.properties?.sheetId;
+  return typeof id === "number" ? id : null;
+}
+
+/**
+ * Make a freshly appended staging-tab row render like a live venue row.
+ *
+ * `values.append` with INSERT_ROWS makes the new row inherit the format
+ * of the row above it. In the staging tab that's the header (row 2) for
+ * the first venue, so the row would show bold and shaded like a header.
+ * Copy the cell formatting from the first NYC Venues data row (row 3:
+ * row 1 is the band, row 2 the header) onto the appended row so it
+ * matches the live catalog's data-row styling.
+ *
+ * Cosmetic and best-effort: the row's values are already written, so any
+ * failure here is logged and swallowed rather than failing the add.
+ */
+async function matchAppendedRowFormatToCatalog(
+  sheets: sheets_v4.Sheets,
+  spreadsheetId: string,
+  appendedRowNumber: number,
+  columnCount: number,
+): Promise<void> {
+  // No row number = nothing to address. The values write already
+  // landed; silently skip rather than guess where to paste.
+  if (appendedRowNumber < 1 || columnCount < 1) return;
+  try {
+    const [sourceSheetId, destSheetId] = await Promise.all([
+      getSheetIdByTitle(sheets, spreadsheetId, VENUE_SHEET_TAB),
+      getSheetIdByTitle(sheets, spreadsheetId, ADD_VENUE_REVIEW_TAB),
+    ]);
+    if (sourceSheetId === null || destSheetId === null) {
+      console.error(
+        "[sheet-write] could not resolve sheet ids for format match; " +
+          `source=${sourceSheetId}, dest=${destSheetId}. Row stays with the inherited header format.`,
+      );
+      return;
+    }
+    // GridRange row/column indices are 0-based and half-open.
+    // Row 3 in the sheet UI = startRowIndex 2, endRowIndex 3 (the
+    // first NYC Venues data row, after the band + header).
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId,
+      requestBody: {
+        requests: [
+          {
+            copyPaste: {
+              source: {
+                sheetId: sourceSheetId,
+                startRowIndex: 2,
+                endRowIndex: 3,
+                startColumnIndex: 0,
+                endColumnIndex: columnCount,
+              },
+              destination: {
+                sheetId: destSheetId,
+                startRowIndex: appendedRowNumber - 1,
+                endRowIndex: appendedRowNumber,
+                startColumnIndex: 0,
+                endColumnIndex: columnCount,
+              },
+              pasteType: "PASTE_FORMAT",
+            },
+          },
+        ],
+      },
+    });
+  } catch (err) {
+    console.error(
+      "[sheet-write] failed to match appended row format to NYC Venues data style:",
+      err,
+    );
   }
 }
 
