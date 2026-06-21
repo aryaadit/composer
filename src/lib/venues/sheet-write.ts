@@ -211,10 +211,14 @@ export async function writeReviewTabHeaders(
  *
  * The cells array MUST be in the same column order as the row-2
  * headers — caller is responsible for ordering. We pass
- * `valueInputOption: "USER_ENTERED"` so operator-typed formulas
- * (rare in the staging tab but possible) are interpreted, matching
- * what a manual paste would produce. `insertDataOption: "INSERT_ROWS"`
- * inserts a fresh row rather than overwriting existing data.
+ * `valueInputOption: "RAW"` so staged values land verbatim, matching
+ * the python writers (scripts/refresh_google_places_data.py,
+ * scripts/scrape_resy_v2.py) that update NYC Venues directly. RAW
+ * prevents Sheets from coercing ISO date strings like the
+ * `last_verified` "2026-06-20" into the corresponding date serial
+ * (46193) and similarly avoids reading any other string as a formula
+ * or number. `insertDataOption: "INSERT_ROWS"` inserts a fresh row
+ * rather than overwriting existing data.
  */
 export async function appendReviewTabRow(
   cells: string[],
@@ -225,7 +229,7 @@ export async function appendReviewTabRow(
     const res = await sheets.spreadsheets.values.append({
       spreadsheetId,
       range: `${ADD_VENUE_REVIEW_TAB}!A:A`,
-      valueInputOption: "USER_ENTERED",
+      valueInputOption: "RAW",
       insertDataOption: "INSERT_ROWS",
       requestBody: { values: [cells] },
     });
