@@ -62,7 +62,7 @@ export function ThresholdOverrideDialog({
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder={overrideDialogCopy.expectedValue}
-            className="mt-2 w-full px-3 py-2 font-mono text-sm bg-cream border border-border rounded-md focus:border-charcoal focus:outline-none text-charcoal placeholder:text-muted"
+            className="mt-2 w-full px-3 py-2 font-mono text-base bg-cream border border-border rounded-md focus:border-charcoal focus:outline-none text-charcoal placeholder:text-muted"
             autoComplete="off"
             spellCheck={false}
           />

@@ -370,7 +370,7 @@ function SwapReasonContent({
               onChange={(e) => setOtherText(e.target.value)}
               placeholder="Tell us more (optional)"
               maxLength={200}
-              className="w-full px-4 py-3 rounded-lg border border-border bg-transparent font-sans text-sm text-charcoal placeholder:text-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-burgundy/40 focus-visible:border-burgundy mb-1"
+              className="w-full px-4 py-3 rounded-lg border border-border bg-transparent font-sans text-base text-charcoal placeholder:text-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-burgundy/40 focus-visible:border-burgundy mb-1"
             />
             <p
               id="swap-reason-other-count"

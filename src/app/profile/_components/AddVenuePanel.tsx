@@ -438,7 +438,7 @@ function InputRow({
         value={input}
         onChange={(e) => setInput(e.target.value)}
         placeholder="https://maps.app.goo.gl/... or ChIJ..."
-        className="font-sans text-sm px-3 py-1.5 border border-border rounded-md flex-1 focus:outline-none focus:border-burgundy"
+        className="font-sans text-base px-3 py-1.5 border border-border rounded-md flex-1 focus:outline-none focus:border-burgundy"
       />
       <PrimaryButton
         label="Run"
