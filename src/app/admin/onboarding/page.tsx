@@ -26,7 +26,7 @@ export default function AdminOnboardingPage() {
 
   if (isLoading || !user || !isAdmin) {
     return (
-      <main className="flex flex-1 items-center justify-center min-h-screen bg-cream">
+      <main className="flex flex-1 items-center justify-center min-h-dvh bg-cream">
         <div className="w-6 h-6 border-2 border-charcoal border-t-transparent rounded-full animate-spin" />
       </main>
     );

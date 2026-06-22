@@ -99,7 +99,7 @@ function ResetPasswordContent() {
 
   if (!ready) {
     return (
-      <main className="flex flex-1 items-center justify-center min-h-screen bg-cream">
+      <main className="flex flex-1 items-center justify-center min-h-dvh bg-cream">
         <div
           role="status"
           aria-label="Verifying reset link"
@@ -111,7 +111,7 @@ function ResetPasswordContent() {
 
   if (exchangeError) {
     return (
-      <main className="min-h-screen flex flex-col justify-center items-center bg-cream px-6">
+      <main className="min-h-dvh flex flex-col justify-center items-center bg-cream px-6">
         <div className="w-full max-w-sm text-center">
           <h1 className="font-serif text-2xl font-normal text-charcoal mb-3">
             Reset link expired
@@ -126,7 +126,7 @@ function ResetPasswordContent() {
   }
 
   return (
-    <main className="min-h-screen flex flex-col justify-center items-center bg-cream px-6">
+    <main className="min-h-dvh flex flex-col justify-center items-center bg-cream px-6">
       <motion.div
         className="w-full max-w-sm"
         initial={{ opacity: 0, y: 12 }}
@@ -213,7 +213,7 @@ export default function ResetPasswordPage() {
   return (
     <Suspense
       fallback={
-        <main className="flex flex-1 items-center justify-center min-h-screen bg-cream">
+        <main className="flex flex-1 items-center justify-center min-h-dvh bg-cream">
           <div
             role="status"
             aria-label="Loading"

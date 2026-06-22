@@ -70,7 +70,7 @@ export function StepLoading(props: StepLoadingProps) {
     // copy + same role=status / aria-live treatment as LuckyOverlay so
     // both compose loaders feel like the same screen family. The
     // visible message is the accessible name — no aria-label needed.
-    <div className="flex flex-1 flex-col items-center justify-center px-6 min-h-[60vh] bg-cream">
+    <div className="flex flex-1 flex-col items-center justify-center px-6 min-h-[60dvh] bg-cream">
       <motion.div
         className="w-12 h-12 rounded-full border-2 border-burgundy border-t-transparent mb-8"
         animate={{ rotate: 360 }}

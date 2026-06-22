@@ -65,7 +65,7 @@ export function VenueLookup() {
             if (e.key === "Enter") void handleSearch();
           }}
           placeholder="Search venues by name…"
-          className="flex-1 px-3 py-1.5 font-mono text-xs bg-transparent border border-border rounded-md focus:border-charcoal focus:outline-none text-charcoal placeholder:text-muted"
+          className="flex-1 px-3 py-1.5 font-mono text-base bg-transparent border border-border rounded-md focus:border-charcoal focus:outline-none text-charcoal placeholder:text-muted"
         />
         <button
           type="button"

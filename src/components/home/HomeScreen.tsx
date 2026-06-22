@@ -91,7 +91,7 @@ export function HomeScreen({ userName }: HomeScreenProps) {
   const showPick = pickData !== null && !hasTonightPlan;
 
   return (
-    <div className="min-h-screen flex flex-col bg-cream">
+    <div className="min-h-dvh flex flex-col bg-cream">
       {/* Header rightSlot: die + profile. Home redesign 2026-06-12
           moves the lucky affordance off the body (under New plan) and
           into the header next to the profile glyph — icon-only,

@@ -50,6 +50,12 @@ interface ItineraryMapInnerProps {
   onMapClick?: () => void;
   /** Phase 10 — per-segment route geometries (one per pin pair). */
   routeSegments?: ItineraryRouteSegment[];
+  /** When true, single-finger drag scrolls the page instead of panning
+   * the map; users must pan with two fingers (Mapbox shows a "Use two
+   * fingers to move the map" overlay). Inline map opts in so the map
+   * doesn't trap the page scroll; fullscreen map leaves it off so the
+   * full canvas is panable with one finger. */
+  cooperativeGestures?: boolean;
 }
 
 const BURGUNDY = "#6B1E2E";
@@ -63,6 +69,7 @@ export function ItineraryMapInner({
   onPinClick,
   onMapClick,
   routeSegments,
+  cooperativeGestures = false,
 }: ItineraryMapInnerProps) {
   const mapRef = useRef<MapRef | null>(null);
   const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN ?? "";
@@ -145,7 +152,7 @@ export function ItineraryMapInner({
       initialViewState={initialViewState}
       mapStyle="mapbox://styles/mapbox/light-v11"
       style={{ width: "100%", height: "100%" }}
-      attributionControl={false}
+      cooperativeGestures={cooperativeGestures}
       onClick={(e) => {
         // Marker onClick stops propagation, so this fires only on the
         // map body (outside any pin). Guard for SSR-rendered phantoms

@@ -29,7 +29,7 @@ export default function OnboardingPage() {
   }, [isLoading, user, profile, router]);
 
   if (isLoading || !user || profile) {
-    return <main className="min-h-screen bg-cream" />;
+    return <main className="min-h-dvh bg-cream" />;
   }
 
   return <OnboardingFlow />;

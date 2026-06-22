@@ -166,7 +166,7 @@ export function SwapReasonModal({
             role="dialog"
             aria-modal="true"
             aria-label={`Why did you swap ${swappedFromVenueName}?`}
-            className="fixed inset-x-0 bottom-0 z-50 bg-cream rounded-t-2xl shadow-xl max-h-[90vh] overflow-y-auto"
+            className="fixed inset-x-0 bottom-0 z-50 bg-cream rounded-t-2xl shadow-xl max-h-[90dvh] overflow-y-auto overscroll-contain"
             initial={{ y: "100%", opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: "100%", opacity: 0 }}
@@ -370,7 +370,7 @@ function SwapReasonContent({
               onChange={(e) => setOtherText(e.target.value)}
               placeholder="Tell us more (optional)"
               maxLength={200}
-              className="w-full px-4 py-3 rounded-lg border border-border bg-transparent font-sans text-sm text-charcoal placeholder:text-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-burgundy/40 focus-visible:border-burgundy mb-1"
+              className="w-full px-4 py-3 rounded-lg border border-border bg-transparent font-sans text-base text-charcoal placeholder:text-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-burgundy/40 focus-visible:border-burgundy mb-1"
             />
             <p
               id="swap-reason-other-count"

@@ -92,7 +92,7 @@ export default function SharedItineraryPage({
 
   if (state.status === "loading") {
     return (
-      <main className="flex flex-1 items-center justify-center min-h-screen bg-cream">
+      <main className="flex flex-1 items-center justify-center min-h-dvh bg-cream">
         <div
           role="status"
           aria-label="Loading shared plan"
@@ -104,7 +104,7 @@ export default function SharedItineraryPage({
 
   if (state.status === "not-found") {
     return (
-      <main className="flex flex-1 flex-col items-center justify-center min-h-screen px-6">
+      <main className="flex flex-1 flex-col items-center justify-center min-h-dvh px-6">
         <p className="font-sans text-lg text-warm-gray mb-6">
           This shared plan doesn&apos;t exist or has expired.
         </p>
@@ -121,7 +121,7 @@ export default function SharedItineraryPage({
       itineraryId={id}
       composeInputs={itinerary.inputs ?? null}
     >
-      <main className="flex flex-1 flex-col items-center min-h-screen pb-8">
+      <main className="flex flex-1 flex-col items-center min-h-dvh pb-8">
         {isLuckyItinerary(itinerary.inputs) ? (
           <LuckyCrown
             header={itinerary.header}

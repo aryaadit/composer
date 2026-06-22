@@ -2,7 +2,7 @@ import { QuestionnaireShell } from "@/components/questionnaire/QuestionnaireShel
 
 export default function ComposePage() {
   return (
-    <main className="flex flex-1 flex-col min-h-screen">
+    <main className="flex flex-1 flex-col min-h-dvh">
       <QuestionnaireShell />
     </main>
   );

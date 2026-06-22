@@ -124,7 +124,7 @@ export function OnboardingFlow() {
 
   if (saving) {
     return (
-      <main className="flex flex-1 items-center justify-center min-h-screen bg-cream">
+      <main className="flex flex-1 items-center justify-center min-h-dvh bg-cream">
         {/* Audit item 23: role=status so screen readers announce
             that work is happening while the profile upsert is in
             flight. */}
@@ -142,7 +142,7 @@ export function OnboardingFlow() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-cream">
+    <div className="min-h-dvh flex flex-col bg-cream">
       {showProgress && (
         <>
           <Header

@@ -69,7 +69,7 @@ export function AddEmailSection({ currentEmail }: AddEmailSectionProps) {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           placeholder="you@example.com"
-          className="flex-1 px-0 py-2 text-sm font-sans bg-transparent border-b border-border focus:border-charcoal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-burgundy/40 transition-colors text-charcoal placeholder:text-muted"
+          className="flex-1 px-0 py-2 text-base font-sans bg-transparent border-b border-border focus:border-charcoal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-burgundy/40 transition-colors text-charcoal placeholder:text-muted"
         />
         <button
           type="submit"

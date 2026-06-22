@@ -98,7 +98,7 @@ export default function Home() {
 
   if (isLoading) {
     return (
-      <main className="flex flex-1 items-center justify-center min-h-screen bg-cream">
+      <main className="flex flex-1 items-center justify-center min-h-dvh bg-cream">
         <div
           role="status"
           aria-label="Loading"
@@ -114,7 +114,7 @@ export default function Home() {
   // /onboarding and onboarded over their existing row.
   if (session && profileFetchErrored) {
     return (
-      <main className="flex flex-1 flex-col items-center justify-center min-h-screen bg-cream px-6 text-center">
+      <main className="flex flex-1 flex-col items-center justify-center min-h-dvh bg-cream px-6 text-center">
         <h1 className="font-serif text-2xl text-charcoal mb-3">
           Something went wrong
         </h1>
@@ -132,7 +132,7 @@ export default function Home() {
 
   if (session && !profile) {
     return (
-      <main className="flex flex-1 items-center justify-center min-h-screen bg-cream">
+      <main className="flex flex-1 items-center justify-center min-h-dvh bg-cream">
         <div
           role="status"
           aria-label="Loading"
@@ -158,7 +158,7 @@ function SplashScreen({
   onLogIn: () => void;
 }) {
   return (
-    <main className="min-h-screen flex flex-col items-center justify-center bg-cream px-6">
+    <main className="min-h-dvh flex flex-col items-center justify-center bg-cream px-6">
       <div className="w-full max-w-lg text-center">
         <h1 className="font-serif text-6xl md:text-7xl text-charcoal mb-8">
           Composer

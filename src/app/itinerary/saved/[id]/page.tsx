@@ -96,7 +96,7 @@ export default function SavedItineraryPage({
 
   if (error || !itinerary) {
     return (
-      <main className="flex flex-1 flex-col items-center justify-center min-h-screen px-6">
+      <main className="flex flex-1 flex-col items-center justify-center min-h-dvh px-6">
         <p className="font-sans text-lg text-warm-gray mb-6">
           {error ?? "Something went wrong."}
         </p>
@@ -112,7 +112,7 @@ export default function SavedItineraryPage({
       itineraryId={id}
       composeInputs={itinerary.inputs}
     >
-      <main className="flex flex-1 flex-col items-center min-h-screen pb-32">
+      <main className="flex flex-1 flex-col items-center min-h-dvh pb-32">
         {isLuckyItinerary(itinerary.inputs) ? (
           <LuckyCrown
             header={itinerary.header}
