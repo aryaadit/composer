@@ -166,7 +166,7 @@ export function SwapReasonModal({
             role="dialog"
             aria-modal="true"
             aria-label={`Why did you swap ${swappedFromVenueName}?`}
-            className="fixed inset-x-0 bottom-0 z-50 bg-cream rounded-t-2xl shadow-xl max-h-[90vh] overflow-y-auto"
+            className="fixed inset-x-0 bottom-0 z-50 bg-cream rounded-t-2xl shadow-xl max-h-[90dvh] overflow-y-auto"
             initial={{ y: "100%", opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: "100%", opacity: 0 }}

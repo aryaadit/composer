@@ -208,7 +208,7 @@ function ItineraryContent() {
   // suggestion. Render as a real surface, not a toast.
   if (composeFailureState) {
     return (
-      <main className="flex flex-1 flex-col items-center justify-center min-h-screen px-6 text-center">
+      <main className="flex flex-1 flex-col items-center justify-center min-h-dvh px-6 text-center">
         <h1 className="font-serif text-3xl text-charcoal mb-3">
           {composeFailureState.title}
         </h1>
@@ -222,7 +222,7 @@ function ItineraryContent() {
 
   if (error || !itinerary) {
     return (
-      <main className="flex flex-1 flex-col items-center justify-center min-h-screen px-6">
+      <main className="flex flex-1 flex-col items-center justify-center min-h-dvh px-6">
         <p className="font-sans text-lg text-warm-gray mb-6">
           {error ?? "Something went wrong."}
         </p>
@@ -470,7 +470,7 @@ function ItineraryBody({
     // Bottom padding (pb-32) clears the fixed Looks Good CTA so the
     // last content row (Open in Maps) stays visible when scrolled to
     // the bottom of the page.
-    <main className="flex flex-1 flex-col items-center min-h-screen pb-32">
+    <main className="flex flex-1 flex-col items-center min-h-dvh pb-32">
       {isLuckyItinerary(itinerary.inputs) ? (
         <LuckyCrown
           header={itinerary.header}

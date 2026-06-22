@@ -80,7 +80,7 @@ export function ForgotPasswordScreen({ email = "", onBack }: Props) {
   };
 
   return (
-    <main className="min-h-screen flex flex-col justify-center items-center bg-cream px-6">
+    <main className="min-h-dvh flex flex-col justify-center items-center bg-cream px-6">
       <motion.div
         className="w-full max-w-sm"
         initial={{ opacity: 0, y: 12 }}

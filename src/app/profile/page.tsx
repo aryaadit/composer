@@ -31,7 +31,7 @@ export default function ProfilePage() {
   // page (not a spinner) so unauthenticated users don't see a loading
   // state before the redirect lands.
   if (isLoading || !user || !profile) {
-    return <main className="min-h-screen bg-cream" />;
+    return <main className="min-h-dvh bg-cream" />;
   }
 
   return (
@@ -41,7 +41,7 @@ export default function ProfilePage() {
     // logo when navigating between the two pages. Profile has no
     // flex-1 children that need the column behavior; this is purely
     // for symmetric formatting context.
-    <div className="min-h-screen flex flex-col bg-cream">
+    <div className="min-h-dvh flex flex-col bg-cream">
       <Header
         rightSlot={
           <Link

@@ -54,7 +54,7 @@ export function CitySwitcher({
             role="dialog"
             aria-modal="true"
             aria-label="Choose a city"
-            className="fixed left-0 right-0 bottom-0 z-50 bg-cream rounded-t-2xl pt-3 pb-[max(1.5rem,env(safe-area-inset-bottom))] px-6 shadow-xl max-h-[85vh] overflow-y-auto"
+            className="fixed left-0 right-0 bottom-0 z-50 bg-cream rounded-t-2xl pt-3 pb-[max(1.5rem,env(safe-area-inset-bottom))] px-6 shadow-xl max-h-[85dvh] overflow-y-auto"
             initial={{ y: "100%" }}
             animate={{ y: 0 }}
             exit={{ y: "100%" }}

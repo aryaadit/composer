@@ -165,7 +165,7 @@ export function AuthScreen() {
 
   if (view === "verify") {
     return (
-      <div className="min-h-screen flex flex-col bg-cream">
+      <div className="min-h-dvh flex flex-col bg-cream">
         <div className="flex-1 flex flex-col px-6 max-w-lg w-full mx-auto">
           <motion.div
             className="flex-1 flex flex-col justify-center"
@@ -239,7 +239,7 @@ export function AuthScreen() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-cream">
+    <div className="min-h-dvh flex flex-col bg-cream">
       <div className="flex-1 flex flex-col px-6 max-w-lg w-full mx-auto">
         <motion.div
           className="flex-1 flex flex-col justify-center"
@@ -379,7 +379,7 @@ function EmailAuthForm({
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-cream">
+    <div className="min-h-dvh flex flex-col bg-cream">
       <div className="flex-1 flex flex-col px-6 max-w-lg w-full mx-auto">
         <motion.div
           className="flex-1 flex flex-col justify-center"
