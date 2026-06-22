@@ -1,24 +1,21 @@
 "use client";
 
-import { useState } from "react";
-
 const FEEDBACK_URL = "https://forms.gle/ccbUjsfpFYeN36sY8";
 
 export function FeedbackButton() {
-  const [hovered, setHovered] = useState(false);
-
   return (
     <a
       href={FEEDBACK_URL}
       target="_blank"
       rel="noopener noreferrer"
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
       // Audit item 14: tokenized (charcoal token, no zinc palette).
       // Offset bumped from `bottom-6` to `bottom-24` so the floating
       // button never overlaps the sticky LooksGoodCTA on the itinerary
       // surface. Safe-area override keeps it clear on notch devices.
-      className="fixed right-6 z-50 flex items-center gap-2 rounded-full bg-charcoal px-4 py-2.5 font-sans text-sm text-cream shadow-lg transition-all hover:bg-charcoal/90 hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-burgundy/50"
+      // z-30 sits under modal backdrops (z-40) so the bubble never
+      // intercepts taps on an open modal CTA. Label is always shown —
+      // hover-only text was invisible on touch.
+      className="fixed right-6 z-30 flex items-center gap-2 rounded-full bg-charcoal px-4 py-2.5 font-sans text-sm text-cream shadow-lg transition-all hover:bg-charcoal/90 hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-burgundy/50"
       aria-label="Send feedback"
       style={{
         bottom:
@@ -38,7 +35,7 @@ export function FeedbackButton() {
       >
         <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
       </svg>
-      {hovered ? "Feedback" : null}
+      Feedback
     </a>
   );
 }

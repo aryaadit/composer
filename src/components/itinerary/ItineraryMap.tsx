@@ -173,6 +173,7 @@ export function ItineraryMap({
             routeSegments={routeSegments}
             onPinClick={handlePinClick}
             onMapClick={handleMapClick}
+            cooperativeGestures
           />
         </div>
       </div>
