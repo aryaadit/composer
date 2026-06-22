@@ -495,8 +495,10 @@ async function handlePreview(rawInput: unknown): Promise<NextResponse> {
   }
   row["venue_id"] = proposed_venue_id ?? "";
 
-  // Low-confidence flags: any taxonomy field that came back blank
-  // after validation, plus quality_score if Gemini left it blank.
+  // Low-confidence flags: any field in LOW_CONFIDENCE_FIELDS that came
+  // back blank after validation. That covers the taxonomy fields plus
+  // reservation_difficulty and quality_score, which the route never
+  // invents, so a blank there is surfaced for manual fill before promotion.
   const low_confidence: string[] = [];
   for (const f of LOW_CONFIDENCE_FIELDS) {
     if (!row[f] || row[f].trim().length === 0) low_confidence.push(f);
@@ -778,6 +780,8 @@ const LOW_CONFIDENCE_FIELDS = [
   "stop_roles",
   "curation_note",
   "signature_order",
+  "reservation_difficulty",
+  "quality_score",
 ];
 
 interface DraftedFields {
