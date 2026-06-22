@@ -205,7 +205,7 @@ export function ItineraryMap({
             type="button"
             onClick={() => setExpanded(false)}
             aria-label="Close fullscreen map"
-            className="absolute top-4 right-4 md:top-10 md:right-10 w-10 h-10 rounded-full bg-cream text-charcoal hover:bg-white shadow-lg flex items-center justify-center text-xl font-medium z-10"
+            className="absolute top-[max(1rem,env(safe-area-inset-top))] right-4 md:top-10 md:right-10 w-10 h-10 rounded-full bg-cream text-charcoal hover:bg-white shadow-lg flex items-center justify-center text-xl font-medium z-10"
           >
             ✕
           </button>

@@ -118,7 +118,7 @@ export function LuckyOverlay({
   // live regions inside one another (which AT handle inconsistently)
   // and so the announced text always matches what's on screen.
   return (
-    <div className="fixed inset-0 z-50 bg-cream flex flex-col items-center justify-center px-6">
+    <div className="fixed inset-0 z-50 bg-cream flex flex-col items-center justify-center px-6 pt-[env(safe-area-inset-top)]">
       {phase.kind === "failed" ? (
         <div className="w-full max-w-md">
           <ComposeFailureBlock failure={phase.failure} />
