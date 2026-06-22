@@ -152,7 +152,6 @@ export function ItineraryMapInner({
       initialViewState={initialViewState}
       mapStyle="mapbox://styles/mapbox/light-v11"
       style={{ width: "100%", height: "100%" }}
-      attributionControl={false}
       cooperativeGestures={cooperativeGestures}
       onClick={(e) => {
         // Marker onClick stops propagation, so this fires only on the
