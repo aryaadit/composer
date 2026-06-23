@@ -14,6 +14,9 @@
     "prepare": "husky"
   },
   "dependencies": {
+    "@capacitor/android": "^8.4.1",
+    "@capacitor/core": "^8.4.1",
+    "@capacitor/ios": "^8.4.1",
     "@floating-ui/react": "^0.27.19",
     "@google/generative-ai": "^0.24.1",
     "@supabase/ssr": "^0.10.2",
@@ -32,6 +35,7 @@
     "react-map-gl": "^7.1.7"
   },
   "devDependencies": {
+    "@capacitor/cli": "^8.4.1",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",

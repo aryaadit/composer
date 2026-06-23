@@ -50,3 +50,25 @@ next-env.d.ts
 # wizard / agent leave-behinds (not source)
 .claude/skills/
 posthog-setup-report.md
+
+# capacitor — regenerable artifacts and per-user IDE state
+# (mirrors the per-platform .gitignores; defense-in-depth)
+/ios/App/App/public/
+/ios/App/build/
+/ios/App/output/
+/ios/App/Pods/
+/ios/App/App/capacitor.config.json
+/ios/App/App/config.xml
+/ios/DerivedData/
+
+/android/.gradle/
+/android/build/
+/android/app/build/
+/android/local.properties
+/android/app/src/main/assets/public/
+/android/app/src/main/assets/capacitor.config.json
+/android/app/src/main/assets/capacitor.plugins.json
+/android/app/src/main/res/xml/config.xml
+
+**/xcuserdata/
+**/.idea/
